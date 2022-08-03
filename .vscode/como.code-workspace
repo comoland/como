@@ -1,0 +1,23 @@
+{
+	"folders": [
+		{
+			"path": "../"
+		}
+	],
+	"settings": {
+		"guides.overrideDefault": true,
+		"guides.enabled": true,
+		"guides.active.hideOnSelection": false,
+		"guides.indent.hideBackgroundOnSelection": false,
+		"guides.active.gutter":false,
+		"guides.normal.style":"dotted",
+		"guides.active.style":"dashed",
+		"guides.normal.color.light": "rgba(100, 100, 100, 0.1)",
+		"guides.active.color.light": "rgba(0, 0, 0, 0.2)",
+		"guides.stack.enabled": false,
+		"guides.active.enabled": false,
+		"editor.renderLineHighlight": "gutter",
+		"typescript.tsdk": "node_modules/typescript/lib",
+		"go.formatTool": "gofmt"
+	}
+}

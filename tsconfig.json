@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitReturns": true,
+    "strict": true,
+    "allowJs": true,
+    "noUnusedLocals": true,
+    "noImplicitAny": true,
+    "jsx": "preserve",
+    "module": "esnext",
+    "target": "esnext",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "allowSyntheticDefaultImports": true,
+    "noEmit": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "lib": ["esnext", "DOM", "esnext.asynciterable"],
+    "baseUrl": ".",
+    "rootDir": ".",
+    "paths": {
+      // "react": ["./react-export.ts"],
+      "@como": ["./js/como.ts"],
+      "@app/*": ["./app/*"],
+      // "@/design": ["./app/web/design/index"],
+      "@/design/*": ["./app/web/design/*"]
+    }
+  }
+}
