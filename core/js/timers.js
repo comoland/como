@@ -1,4 +1,4 @@
-(_timeout, _unref) => {
+(_timeout, _ref, _unref) => {
     class Timeout {
         _cleared = false
         args = [];
@@ -12,7 +12,12 @@
 
             // we check if cleared here because the callback could have cleared it
             if (this.isRepeat && !this._cleared) {
-                _timeout(this.trigger, this.timeout)
+                // _timeout(this.trigger, this.timeout)
+                this.again()
+            }
+
+            if (!this.isRepeat && this._cleared === false) {
+                _unref()
             }
 
             return this._cleared;
@@ -26,16 +31,17 @@
             this._cleared = true;
             delete this.cb;
             delete this.args;
-            _unref();
+            _unref()
         }
 
         constructor(cb, timeout, args, isRepeat) {
+            _ref()
             this.cb = cb;
             this.args = args;
             this.timeout = timeout;
             this.isRepeat = isRepeat;
             this.trigger = this.trigger.bind(this)
-            _timeout(this.trigger, timeout)
+            this.again = _timeout(this.trigger, timeout)
         }
     }
 

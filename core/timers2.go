@@ -26,7 +26,7 @@ func timers2(ctx *js.Context, global js.Value) {
 		}
 
 		callback.Dup()
-		ctx.Ref()
+		// ctx.Ref()
 
 		go func() {
 			time.Sleep(time.Duration(timeout) * time.Millisecond)
@@ -37,14 +37,25 @@ func timers2(ctx *js.Context, global js.Value) {
 				}
 
 				defer callback.Free()
-				isCleared, ok := callback.Call().(bool)
-				if ok && isCleared == false {
-					ctx.UnRef()
-				}
+				callback.Call()
 			}
 		}()
 
-		return nil
+		return ctx.Function(func(args js.Arguments) interface{} {
+			go func() {
+				time.Sleep(time.Duration(timeout) * time.Millisecond)
+				ctx.Channel <- func() {
+					// might be freed in celar timeout
+					if !callback.IsFunction() {
+						return
+					}
+
+					callback.Call()
+				}
+			}()
+
+			return nil
+		})
 	})
 
 	unref := ctx.Function(func(args js.Arguments) interface{} {
@@ -52,5 +63,10 @@ func timers2(ctx *js.Context, global js.Value) {
 		return nil
 	})
 
-	timers.Call(timeout, unref)
+	ref := ctx.Function(func(args js.Arguments) interface{} {
+		ctx.Ref()
+		return nil
+	})
+
+	timers.Call(timeout, ref, unref)
 }
