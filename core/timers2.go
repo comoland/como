@@ -37,8 +37,8 @@ func timers2(ctx *js.Context, global js.Value) {
 				}
 
 				defer callback.Free()
-				isRefed, ok := callback.Call().(bool)
-				if ok && isRefed {
+				isCleared, ok := callback.Call().(bool)
+				if ok && isCleared == false {
 					ctx.UnRef()
 				}
 			}

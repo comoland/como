@@ -1,20 +1,29 @@
 (_timeout, _unref) => {
     class Timeout {
-        refed = true;
+        _cleared = false
         args = [];
         trigger() {
-            if (this.refed) {
-                this.cb.call(this, ...this.args)
-                if (this.isRepeat && this.refed) {
-                    _timeout(this.trigger, this.timeout)
-                }
+            if (this._cleared) {
+                return;
             }
 
-            return this.refed;
+            // might call clear() in cb
+            this.cb.call(this, ...this.args);
+
+            // we check if cleared here because the callback could have cleared it
+            if (this.isRepeat && !this._cleared) {
+                _timeout(this.trigger, this.timeout)
+            }
+
+            return this._cleared;
         }
 
-        unref() {
-            this.refed = false;
+        clear() {
+            if (this._cleared) {
+                return;
+            }
+
+            this._cleared = true;
             delete this.cb;
             delete this.args;
             _unref();
@@ -44,13 +53,19 @@
 
     globalThis.clearTimeout = function clearTimeout(handle) {
         if (handle instanceof Timeout) {
-            handle.unref()
+            handle.clear()
         }
     }
 
     globalThis.clearInterval = function clearInterval(handle) {
         if (handle instanceof Timeout) {
-            handle.unref()
+            handle.clear()
+        }
+    }
+
+    globalThis.clearImmediate = function clearInterval(handle) {
+        if (handle instanceof Timeout) {
+            handle.clear()
         }
     }
 }

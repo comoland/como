@@ -189,7 +189,7 @@ func (ctx *Context) GoToJSValue(value interface{}) Value {
 	case C.JSValue:
 		jsValue = val
 	case Promise:
-		return val.promise
+		return val.Promise
 	case asyncIterator:
 		return val.iterator
 	case proxy:

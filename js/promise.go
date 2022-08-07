@@ -7,7 +7,7 @@ import "C"
 // Promise is the interface that describes a javascript promise.
 type Promise struct {
 	ctx     *Context
-	promise Value
+	Promise Value
 	resolve Value
 	reject  Value
 }
@@ -24,7 +24,7 @@ func (ctx *Context) NewPromise() Promise {
 	ctx.Ref()
 	return Promise{
 		ctx:     ctx,
-		promise: promise,
+		Promise: promise,
 		resolve: resolve,
 		reject:  reject,
 	}
@@ -34,7 +34,7 @@ func (ctx *Context) NewPromise() Promise {
 func (p Promise) Free() {
 	p.resolve.Free()
 	p.reject.Free()
-	p.promise.Free()
+	p.Promise.Free()
 }
 
 func (p Promise) settlePromise(value interface{}, reject int) {
