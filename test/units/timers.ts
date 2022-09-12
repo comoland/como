@@ -1,4 +1,4 @@
-import { suite, assert, sleep, timeThis } from '../mod';
+import { suite, assert, sleep, timeThis, promiso } from '../mod';
 
 const test = suite("timers")
 
@@ -97,6 +97,29 @@ test('it should access arguments', async () => {
 
     await sleep(60)
     assert.equal(result, arr)
+})
+
+test('async timers', async () => {
+
+    const p = promiso()
+
+    const prom = (ms: number) => new Promise((resolve, reject) => {
+        setTimeout(() => {
+            resolve('done')
+        } , ms)
+    })
+
+    let r = 0
+    setInterval(async function(this: any) {
+        await prom(1000);
+        clearInterval(this)
+        if (++r === 10) {
+            p.resolve()
+        }
+    }, 100);
+
+    await p.promise;
+    assert.equal(r, 10)
 })
 
 test.run()

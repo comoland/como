@@ -12,7 +12,7 @@ func Init(ctx *js.Context) {
 	// timers(ctx, global)
 
 	fetch(ctx, global)
-	timers(ctx, global)
+	timers2(ctx, global)
 
 	// initiate Como core methods
 	comoObj := ctx.Object()
@@ -25,7 +25,7 @@ func Init(ctx *js.Context) {
 	path(ctx, comoObj)
 	build(ctx, comoObj)
 
-	http(ctx, comoObj)
+	// http(ctx, comoObj)
 	sql(ctx, comoObj)
 	worker(ctx, comoObj)
 }

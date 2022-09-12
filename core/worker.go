@@ -2,7 +2,6 @@ package core
 
 import (
 	_ "embed"
-	"fmt"
 	"time"
 
 	"github.com/comoland/como/js"
@@ -30,7 +29,7 @@ func worker(ctx *js.Context, global js.Value) {
 		ctx.Ref()
 
 		obj := ctx.ClassObject(func() {
-			fmt.Println("finalized")
+			// fmt.Println("finalized")
 		})
 
 		obj.Set("postMessage", func(args js.Arguments) interface{} {

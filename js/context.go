@@ -314,14 +314,14 @@ func (ctx *Context) EvalFunction(filename string, code string) Value {
 	filenamePtr := C.CString(filename)
 	defer C.free(unsafe.Pointer(filenamePtr))
 
-	val := C.JS_Eval(ctx.c, codePtr, C.size_t(len(code)), filenamePtr, C.int(C.JS_EVAL_TYPE_GLOBAL))
+	val := C.JS_Eval(ctx.c, codePtr, C.size_t(len(code)), filenamePtr, C.int(C.JS_EVAL_FLAG_COMPILE_ONLY))
 
 	if val.IsException() {
 		defer C.JS_FreeValue(ctx.c, val)
 		ctx.ThrowStackError()
 	}
 
-	return Value{c: val, ctx: ctx}
+	return Value{c: C.JS_EvalFunction(ctx.c, val), ctx: ctx}
 }
 
 func (ctx *Context) Eval(code string) (Value, error) {
@@ -475,8 +475,9 @@ func (ctx *Context) Free() {
 	ctx.FreeValue(ctx.proxy)
 	C.JS_FreeContext(ctx.c)
 	if ctx.isTerminated != true {
-		fmt.Println("freeeeeeeeeeeeeeeeeeeee rt")
-		// defer ctx.rt.Free()
+		fmt.Println("freeeeeeeeeeeeeeeeeeeee rt x")
+		defer ctx.rt.Free()
+
 	}
 }
 

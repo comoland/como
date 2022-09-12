@@ -40,12 +40,17 @@ func timers(ctx *js.Context, global js.Value) {
 					return
 				}
 
+				callback.Call(callBackArgs)
+
+				if callback.Get("__repeat") == true && callback.Get("__refed") == false {
+					return
+				}
+
 				if callback.Get("__repeat") == true && callback.Get("__refed") != false {
 					timerFn.Call(args)
 				}
 
 				ctx.UnRef()
-				callback.Call(callBackArgs)
 				defer callback.Free()
 				defer callBackArgs.Free()
 			}

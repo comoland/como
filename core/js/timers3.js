@@ -108,11 +108,9 @@
                 _timers[key].trigger()
             }
 
-            // if () {
-                if (_timers[key] && _timers[key].timeout < _newTicker) {
-                    _newTicker = _timers[key].timeout
-                }
-            // }
+            if (_timers[key] && _timers[key].timeout < _newTicker) {
+                _newTicker = _timers[key].timeout
+            }
         })
 
         console.log('new ticker', _newTicker)
