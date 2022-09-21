@@ -18,6 +18,23 @@ const prom = (ms) => new Promise((resolve, reject) => {
     } , ms)
 })
 
+
+const promiso = async () => {
+    let resolve;
+    let reject;
+
+    const promise = new Promise((res, rej) => {
+        resolve = res;
+        reject = rej;
+    })
+
+    return {
+        promise,
+        resolve,
+        reject,
+    }
+}
+
 let r = 0
 setInterval(async function() {
     await prom(1000);

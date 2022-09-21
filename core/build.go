@@ -28,6 +28,16 @@ func build(ctx *js.Context, Como js.Value) {
 		"node":    int(api.PlatformNode),
 	})
 
+	build.Set("loader", map[string]interface{}{
+		"ts":     int(api.LoaderTS),
+		"tsx":    int(api.LoaderTSX),
+		"js":     int(api.LoaderJS),
+		"base64": int(api.LoaderBase64),
+		"file":   int(api.LoaderFile),
+		"copy":   int(api.LoaderCopy),
+		"css":    int(api.LoaderCSS),
+	})
+
 	// build.bundle
 	build.Set("bundle", func(args1 js.Arguments) interface{} {
 		// var buildOptions = api.BuildOptions{}

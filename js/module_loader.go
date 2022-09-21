@@ -216,12 +216,12 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 		} else {
 			codeStr = string(code)
 			result := api.Transform(codeStr, api.TransformOptions{
-				Loader:    api.LoaderTSX,
-				Sourcemap: api.SourceMapExternal,
-				Target:    api.ESNext,
-				Format:    api.FormatESModule,
-
+				Loader:     api.LoaderTSX,
+				Sourcemap:  api.SourceMapExternal,
+				Target:     api.ESNext,
+				Format:     api.FormatESModule,
 				Sourcefile: filename,
+				JSXMode:    api.JSXModeAutomatic,
 			})
 
 			codeStr = string(result.Code)
