@@ -18,6 +18,7 @@ import (
 	"regexp"
 	"strconv"
 	s "strings"
+	"sync"
 	"unsafe"
 
 	"github.com/evanw/esbuild/pkg/api"
@@ -31,6 +32,8 @@ var internalModules = map[string]string{
 var sourceMaps = map[string]string{
 	// "@xxx": "./js/como.ts",
 }
+
+var lock sync.Mutex
 
 //export moduleLoader
 func moduleLoader(c *C.JSContext, module_name *C.char, opque unsafe.Pointer) *C.JSModuleDef {
@@ -223,7 +226,9 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 			})
 
 			codeStr = string(result.Code)
+			lock.Lock()
 			sourceMaps[filename] = string(result.Map)
+			lock.Unlock()
 		}
 	}
 
