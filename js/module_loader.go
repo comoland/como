@@ -28,8 +28,6 @@ var internalModules = map[string]string{
 	// "@como": "./js/como.ts",
 }
 
-var externals = []string{}
-
 var sourceMaps = map[string]string{
 	// "@xxx": "./js/como.ts",
 }
@@ -121,7 +119,7 @@ func (ctx *Context) RegisterModuleAlias(name string, alias string) {
 
 func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 	if s.HasSuffix(filename, ".go") {
-		externals = append(externals, filename)
+		ctx.externals = append(ctx.externals, filename)
 	}
 
 	codeStr := ""
@@ -130,7 +128,7 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 	if s.Contains(filename, "mod.ts") {
 		result := api.Build(api.BuildOptions{
 			EntryPoints: []string{filename},
-			External:    externals,
+			External:    ctx.externals,
 			Platform:    api.PlatformBrowser,
 			Define:      map[string]string{"process.env.NODE_ENV": "'production'"},
 			Bundle:      true,
@@ -150,7 +148,7 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 				import * as EE from '%s'
 				Object.keys(EE).forEach((key) => {
 					module.exports[key] = EE[key]
-				})
+				});
 
 				globalThis['%s'] = EE;
 				globalThis.require = function(f) {
@@ -165,7 +163,7 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 					Sourcefile: filename,
 					Loader:     api.LoaderTSX,
 				},
-				External: externals,
+				External: ctx.externals,
 				Platform: api.PlatformBrowser,
 				Define:   map[string]string{"process.env.NODE_ENV": "'development'"},
 				Bundle:   true,
@@ -211,7 +209,7 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 				}
 			}
 
-			externals = append(externals, filename)
+			ctx.externals = append(ctx.externals, filename)
 			codeStr = codeStr + nStr
 		} else {
 			codeStr = string(code)

@@ -28,6 +28,8 @@ type Context struct {
 	// modules
 	modules map[string]Module
 
+	externals []string
+
 	// Channel: go -> js communication channel
 	// used to send go values to js context, interface{}
 	// will be converted to js values
