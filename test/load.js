@@ -1,10 +1,5 @@
 const { path } = Como;
 
-
-// setInterval(() => {
-//     process.stdout.write(Math.random() + '\n')
-// }, 1);
-
 (() => {
     const apiDir = path.resolve(import.meta.dir, './units');
     path.walk(apiDir, async (path, o) => {
