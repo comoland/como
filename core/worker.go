@@ -59,10 +59,16 @@ func worker(ctx *js.Context, global js.Value) {
 
 		obj.Dup()
 
+		init := ctx.InitWorker
+
 		go func() {
 			Loop, threadCtx := Como(workerFile)
 			global := threadCtx.GlobalObject()
 			como := global.GetValue("Como")
+			if init != nil {
+				init(threadCtx)
+				// threadCtx.InitWorker = init
+			}
 
 			threadCtx.Ref()
 			ctx.Channel <- func() {

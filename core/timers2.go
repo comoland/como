@@ -27,8 +27,7 @@ func timers2(ctx *js.Context, global js.Value) {
 		ctx.Ref()
 		isFreed := false
 
-		var tick func()
-		tick = func() {
+		tick := func() {
 			go func() {
 				time.Sleep(time.Duration(timeout) * time.Millisecond)
 				if isFreed {
@@ -48,7 +47,6 @@ func timers2(ctx *js.Context, global js.Value) {
 
 		tick()
 		this.Set("unref", func(args js.Arguments) interface{} {
-
 			if isFreed {
 				return nil
 			}

@@ -30,6 +30,8 @@ type Context struct {
 
 	externals []string
 
+	InitWorker func(ctx *Context)
+
 	// Channel: go -> js communication channel
 	// used to send go values to js context, interface{}
 	// will be converted to js values
@@ -478,8 +480,7 @@ func (ctx *Context) Free() {
 	C.JS_FreeContext(ctx.c)
 	if ctx.isTerminated != true {
 		fmt.Println("freeeeeeeeeeeeeeeeeeeee rt x")
-		defer ctx.rt.Free()
-
+		// defer ctx.rt.Free()
 	}
 }
 

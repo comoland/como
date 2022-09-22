@@ -25,6 +25,8 @@ import (
 	"github.com/go-sourcemap/sourcemap"
 )
 
+var lock sync.Mutex
+
 var internalModules = map[string]string{
 	// "@como": "./js/como.ts",
 }
@@ -32,8 +34,6 @@ var internalModules = map[string]string{
 var sourceMaps = map[string]string{
 	// "@xxx": "./js/como.ts",
 }
-
-var lock sync.Mutex
 
 //export moduleLoader
 func moduleLoader(c *C.JSContext, module_name *C.char, opque unsafe.Pointer) *C.JSModuleDef {
@@ -53,6 +53,9 @@ func fileExists(filename string) bool {
 
 //export moduleNormalizeName
 func moduleNormalizeName(c *C.JSContext, base_name *C.char, name *C.char, opque unsafe.Pointer) *C.char {
+	lock.Lock()
+	defer lock.Unlock()
+
 	basename := C.GoString(base_name)
 	filename := C.GoString(name)
 	dirname := filepath.Dir(basename)
@@ -117,6 +120,8 @@ func moduleNormalizeName(c *C.JSContext, base_name *C.char, name *C.char, opque 
 }
 
 func (ctx *Context) RegisterModuleAlias(name string, alias string) {
+	lock.Lock()
+	defer lock.Unlock()
 	internalModules[name] = alias
 }
 

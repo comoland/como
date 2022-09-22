@@ -48,9 +48,10 @@ package js
 import "C"
 
 import (
-	"github.com/mattn/go-pointer"
 	"sync"
 	"unsafe"
+
+	"github.com/mattn/go-pointer"
 )
 
 var (
@@ -116,6 +117,7 @@ func proxy_call(ctx *C.JSContext, thisValue C.JSValueConst, argc int, argvP *C.J
 	return jsVal.c
 }
 
+// TODO: implement js class constructor
 // func (ctx *Context) Class(fn callBackFn) *Function {
 // 	o := ctx.Function(fn)
 // 	C.JS_SetConstructorBit(ctx.c, o.js.c, 1)

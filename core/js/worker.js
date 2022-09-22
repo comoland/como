@@ -1,4 +1,4 @@
-(obj) => {
+obj => {
     const { isWorker, workerRun, workerCB, terminate } = obj;
     const run = (file, parent) => {
         const { channel } = workerRun(file);
@@ -14,7 +14,7 @@
         // })();
 
         // return channel;
-    }
+    };
 
     class Worker {
         constructor(file) {
@@ -24,19 +24,19 @@
         }
 
         onmessage(cb) {
-            console.log('ssssssssssssssss => ', this.workerId)
+            console.log('ssssssssssssssss => ', this.workerId);
             obj[this.workerId] = cb;
             // this._onmessage = cb;
         }
 
         terminate() {
-            terminate(this.workerId)
+            terminate(this.workerId);
             // this._terminate = true;
         }
 
         postMessage(msg) {
-            console.log('ssssssssssssssss => ', this.workerId)
-            workerCB(msg, this.workerId)
+            console.log('ssssssssssssssss => ', this.workerId);
+            workerCB(msg, this.workerId);
         }
     }
 
