@@ -9,12 +9,6 @@ require (
 	github.com/mattn/go-pointer v0.0.1
 	github.com/mattn/go-sqlite3 v1.14.9
 	github.com/mitchellh/mapstructure v1.4.2
-	github.com/valyala/fasthttp v1.31.0
 )
 
-require (
-	github.com/andybalholm/brotli v1.0.2 // indirect
-	github.com/klauspost/compress v1.13.4 // indirect
-	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	golang.org/x/sys v0.0.0-20220808155132-1c4a2a72c664 // indirect
-)
+require golang.org/x/sys v0.0.0-20220808155132-1c4a2a72c664 // indirect
