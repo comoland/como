@@ -13,14 +13,13 @@ export function timeThis() {
     return {
         end: () => {
             final = Date.now() - start;
-            return final
+            return final;
         },
         get: () => {
             return final;
         }
-    }
+    };
 }
-
 
 export function bench() {
     const start = Date.now();
@@ -28,22 +27,21 @@ export function bench() {
     return () => {
         const end = Date.now();
         console.log('ended in ===> ', end - start);
-    }
+    };
 }
 
-
 export const promiso = () => {
-    let resolve : (value: void | PromiseLike<void>) => void = () => {};
-    let reject : (value: void | PromiseLike<void>) => void = () => {};
+    let resolve: (value: void | PromiseLike<void>) => void = () => {};
+    let reject: (value: void | PromiseLike<void>) => void = () => {};
 
     const promise = new Promise<void>((res, rej) => {
         resolve = res;
         reject = rej;
-    })
+    });
 
     return {
         promise,
         resolve,
-        reject,
-    }
-}
+        reject
+    };
+};

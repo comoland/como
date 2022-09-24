@@ -1,22 +1,22 @@
 import { suite, assert, sleep } from '../mod';
 
-const test = suite("process")
+const test = suite('process');
 
-test("it should call nextTick", async () => {
-    const arr : any = []
-
-    process.nextTick(() => {
-        arr.push(2)
-    })
+test('it should call nextTick', async () => {
+    const arr: any = [];
 
     process.nextTick(() => {
-        arr.push(3)
-    })
+        arr.push(2);
+    });
 
-    arr.push(1)
+    process.nextTick(() => {
+        arr.push(3);
+    });
 
-    await sleep(1)
-    assert.equal(arr, [1,2,3])
-})
+    arr.push(1);
 
-test.run()
+    await sleep(1);
+    assert.equal(arr, [1, 2, 3]);
+});
+
+test.run();

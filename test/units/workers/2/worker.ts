@@ -1,3 +1,3 @@
-Como.onMessage((arg) => {
-    Como.postMessage({ foo: arg })
-})
+Como.onMessage(arg => {
+    Como.postMessage({ foo: arg });
+});

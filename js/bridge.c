@@ -13,6 +13,7 @@ const uint8_t qjsc_babel[1083920];
 
 JSModuleDef *moduleLoader();
 char *moduleNormalizeName();
+void promiseRejectionTracker();
 
 struct _promise
 {
@@ -43,6 +44,11 @@ static void *como_value_ptr(JSValue val) {
 
 static int como_get_val_int(JSValue val) {
     return JS_VALUE_GET_INT(val);
+}
+
+static int como_js_type(JSValue val) {
+    int type = JS_VALUE_GET_NORM_TAG(val);
+    return type;
 }
 
 static int como_eval_buf(JSContext *ctx, const char *buf, const char *filename, int eval_flags) {
@@ -111,34 +117,16 @@ static inline int como_eval_file(JSContext *ctx, const char *filename, int modul
     return ret;
 }
 
-static int como_js_type(JSValue val)
-{
-    int type = JS_VALUE_GET_NORM_TAG(val);
-    return type;
-}
-
-// static void js_std_promise_rejection_tracker2(JSContext *ctx, JSValueConst promise,
-//                                       JSValueConst reason,
-//                                       BOOL is_handled, void *opaque)
-// {
-//     if (!is_handled) {
-//         fprintf(stderr, "Possibly unhandled promise rejection: ");
-//         exit(1);
-//         // js_std_dump_error1(ctx, reason);
-//     }
-// }
-
 static JSContext *como_js_context(JSRuntime *rt)
 {
     JSContext *ctx;
     ctx = JS_NewContext(rt);
     // JS_AddIntrinsicBaseObjects(ctx);
-    js_std_init_handlers(rt);
-    // JS_SetModuleLoaderFunc(rt, NULL, como_module_loader, NULL);
+    // js_std_init_handlers(rt);
     JS_SetModuleLoaderFunc(rt, moduleNormalizeName, moduleLoader, NULL);
+    JS_SetHostPromiseRejectionTracker(rt, promiseRejectionTracker, NULL);
 
-    JS_SetHostPromiseRejectionTracker(rt, js_std_promise_rejection_tracker, NULL);
-    js_std_add_helpers(ctx, 0, NULL);
+    // js_std_add_helpers(ctx, 0, NULL);
     // js_init_module_std(ctx, "std");
     // js_init_module_os(ctx, "os");
 
@@ -148,12 +136,8 @@ static JSContext *como_js_context(JSRuntime *rt)
     //                   "globalThis.os = os;\n"
     //                   "globalThis.setTimeout = os.setTimeout;\n"
     //                   "globalThis.clearTimeout = os.clearTimeout;\n";
-
     // como_eval_buf(ctx, str, "<global>", JS_EVAL_TYPE_MODULE);
     // como_eval_file(ctx, "./js/bundles/babel.js", 0);
-    // js_std_eval_binary(ctx, qjsc_babel, qjsc_babel_size, 0);
-    // printf("babel loaded\n");
-    // como_eval_file(ctx, "./js/main.js", 1);
     return ctx;
 }
 

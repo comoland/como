@@ -31,7 +31,7 @@ var internalModules = map[string]string{
 	// "@como": "./js/como.ts",
 }
 
-var sourceMaps = map[string]string{
+var sourceMaps = map[string][]byte{
 	// "@xxx": "./js/como.ts",
 }
 
@@ -171,12 +171,15 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 					Sourcefile: filename,
 					Loader:     api.LoaderTSX,
 				},
-				External: ctx.externals,
-				Platform: api.PlatformBrowser,
-				Define:   map[string]string{"process.env.NODE_ENV": "'development'"},
-				Bundle:   true,
-				Target:   api.ESNext,
-				Format:   api.FormatESModule,
+				External:  ctx.externals,
+				Platform:  api.PlatformBrowser,
+				Define:    map[string]string{"process.env.NODE_ENV": "'development'"},
+				Bundle:    true,
+				Target:    api.ESNext,
+				Format:    api.FormatESModule,
+				Outdir:    "/",
+				Write:     false,
+				Sourcemap: api.SourceMapExternal,
 			})
 
 			if len(result.Errors) > 0 {
@@ -184,7 +187,8 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 				os.Exit(1)
 			}
 
-			codeStr = string(result.OutputFiles[0].Contents)
+			codeStr = string(result.OutputFiles[1].Contents)
+			// fmt.Println(result.OutputFiles[1])
 			codeStr = s.Replace(codeStr, "export default ", "var XX = ", 1)
 
 			trans := api.Transform(codeStr, api.TransformOptions{
@@ -219,6 +223,9 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 
 			ctx.externals = append(ctx.externals, filename)
 			codeStr = codeStr + nStr
+			// lock.Lock()
+			// sourceMaps[filename] = result.OutputFiles[0].Contents
+			// lock.Unlock()
 		} else {
 			codeStr = string(code)
 			result := api.Transform(codeStr, api.TransformOptions{
@@ -232,19 +239,20 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 
 			codeStr = string(result.Code)
 			lock.Lock()
-			sourceMaps[filename] = string(result.Map)
+			sourceMaps[filename] = result.Map
 			lock.Unlock()
 		}
 	}
 
 	ctx.StackFormatter = func(stack string) string {
 		lines := s.Split(stack, "\n")
+
 		for idx, line := range lines {
 			regex := regexp.MustCompile(`(.*?)\((.*):(\d+)\)`)
 			matches := regex.FindStringSubmatch(line)
 			if len(matches) == 4 {
 				if sourceMapStr, ok := sourceMaps[matches[2]]; ok {
-					smap, err := sourcemap.Parse(matches[2], []byte(sourceMapStr))
+					smap, err := sourcemap.Parse(matches[2], sourceMapStr)
 					if err != nil {
 						debug("error parsing source-map")
 						os.Exit(1)

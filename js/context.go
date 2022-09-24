@@ -47,7 +47,6 @@ type Context struct {
 	// manage creating asyncIterator in go land
 	asyncIterator C.JSValue
 	proxy         C.JSValue
-	inject        C.JSValue
 
 	StackFormatter func(string) string
 	// internal refs count, javascript loop exit
@@ -475,35 +474,12 @@ func (ctx *Context) Free() {
 	ctx.FreeModules()
 	ctx.FreeValue(ctx.asyncIterator)
 	ctx.FreeValue(ctx.promise)
-	ctx.FreeValue(ctx.inject)
 	ctx.FreeValue(ctx.proxy)
 	C.JS_FreeContext(ctx.c)
 	if ctx.isTerminated != true {
 		fmt.Println("freeeeeeeeeeeeeeeeeeeee rt x")
-		// defer ctx.rt.Free()
+		defer ctx.rt.Free()
 	}
-}
-
-func (ctx *Context) ThrowStackError() {
-	val := Value{ctx: ctx, c: C.JS_GetException(ctx.c)}
-	defer val.Free()
-
-	if val.IsError() {
-		stack := val.GetValue("stack")
-		isFormatted, _ := val.Get("__formatted").(bool)
-		defer stack.Free()
-
-		stackError := stack.String()
-		if isFormatted != true {
-			stackError = ctx.StackFormatter(stackError)
-		}
-
-		fmt.Println(val.String())
-		fmt.Println(stackError, "\n")
-	}
-
-	// os.Exit(3)
-	ctx.Terminate()
 }
 
 func (ctx *Context) Error(v interface{}) Value {

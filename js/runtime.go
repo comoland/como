@@ -36,8 +36,6 @@ func (rt *C.JSRuntime) NewContext() *Context {
 		return promise;
 	}`, 0)
 
-	inject := ctx.evalFile("<Function>", `(pointer) => (...args) => inject(pointer, ...args)`, 0)
-
 	proxy := ctx.evalFile("<Proxy>", `(get) => {
 		let obj = {};
 		return new Proxy(obj, {
@@ -109,7 +107,6 @@ func (rt *C.JSRuntime) NewContext() *Context {
 		wg:            wg,
 		Channel:       channel,
 		promise:       promise,
-		inject:        inject,
 		proxy:         proxy,
 		asyncIterator: asyncIterator,
 		modules:       make(map[string]Module),
@@ -117,6 +114,8 @@ func (rt *C.JSRuntime) NewContext() *Context {
 			return stack
 		},
 	}
+
+	initError(context)
 
 	ctx.setOpaque(context)
 	return context

@@ -5,11 +5,11 @@ const { path } = Como;
     path.walk(apiDir, async (path, o) => {
         if (!o.isDir && !path.endsWith('worker.ts')) {
             try {
-                await import(path)
+                await import(path);
             } catch (e) {
-                console.log(e.message)
-                process.exit(1)
+                console.log(e.message);
+                process.exit(1);
             }
         }
-    })
-})()
+    });
+})();

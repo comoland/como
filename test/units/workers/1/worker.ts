@@ -1,1 +1,1 @@
-Como.postMessage("Hi")
+Como.postMessage('Hi');
