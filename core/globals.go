@@ -4,28 +4,22 @@ import (
 	"github.com/comoland/como/js"
 )
 
-func Init(ctx *js.Context) {
+func initCoreModels(ctx *js.Context) {
 	global := ctx.GlobalObject()
 	defer global.Free()
 
-	// initiate globals methods
-	// timers(ctx, global)
-
-	fetch(ctx, global)
-	timers2(ctx, global)
-
-	// initiate Como core methods
+	// Como global object
 	comoObj := ctx.Object()
 	global.Set("Como", comoObj)
 
-	process(ctx, comoObj)
-
+	// global methods
+	timers(ctx, global)
+	process(ctx, global)
 	console(ctx, global)
 
+	// Como methods
 	path(ctx, comoObj)
 	build(ctx, comoObj)
-
-	// http(ctx, comoObj)
 	sql(ctx, comoObj)
 	worker(ctx, comoObj)
 }

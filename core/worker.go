@@ -7,9 +7,6 @@ import (
 	"github.com/comoland/como/js"
 )
 
-//go:embed js/worker.js
-var workerJs string
-
 func worker(ctx *js.Context, global js.Value) {
 	global.Set("worker", func(args js.Arguments) interface{} {
 		workerFile, ok := args.Get(0).(string)
@@ -59,15 +56,14 @@ func worker(ctx *js.Context, global js.Value) {
 
 		obj.Dup()
 
-		init := ctx.InitWorker
-
+		initWorkerContext := ctx.InitWorkerContext
 		go func() {
 			Loop, threadCtx := Como(workerFile)
 			global := threadCtx.GlobalObject()
 			como := global.GetValue("Como")
-			if init != nil {
-				init(threadCtx)
-				// threadCtx.InitWorker = init
+			if initWorkerContext != nil {
+				initWorkerContext(threadCtx)
+				threadCtx.InitWorkerContext = initWorkerContext
 			}
 
 			threadCtx.Ref()

@@ -11,7 +11,7 @@ func Como(filename string) (func(func()), *js.Context) {
 	var rt = js.NewRuntime()
 	ctx := rt.NewContext()
 	global := ctx.GlobalObject()
-	Init(ctx)
+	initCoreModels(ctx)
 
 	return func(fn func()) {
 		if len(filename) > 0 {

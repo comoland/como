@@ -30,7 +30,7 @@ type Context struct {
 
 	externals []string
 
-	InitWorker func(ctx *Context)
+	InitWorkerContext func(ctx *Context)
 
 	// Channel: go -> js communication channel
 	// used to send go values to js context, interface{}
@@ -331,34 +331,44 @@ func (ctx *Context) Eval(code string) (Value, error) {
 	return ctx.EvalFile("<eval>", code)
 }
 
+// GlobalObject returns javascript globalThis object
+// returns js Value
 func (ctx *Context) GlobalObject() Value {
 	val := C.JS_GetGlobalObject(ctx.c)
 	return Value{c: val, ctx: ctx}
 }
 
+// Object creates a new javascript object
+// returns js Value
 func (ctx *Context) Object() Value {
 	val := C.JS_NewObject(ctx.c)
 	return Value{c: val, ctx: ctx}
 }
 
+// Array creates a new javascript array
+// returns js Value
 func (ctx *Context) Array() Value {
 	val := C.JS_NewArray(ctx.c)
 	return Value{c: val, ctx: ctx}
 }
 
+// Dup dups js main context
 func (ctx *Context) Dup() *Context {
 	return &Context{c: C.JS_DupContext(ctx.c)}
 }
 
+// DupValue dups c js value
+// returns C.JSValue
 func (ctx *Context) DupValue(v C.JSValue) C.JSValue {
 	return C.JS_DupValue(ctx.c, v)
 }
 
+// FreeValue frees c js value
 func (ctx *Context) FreeValue(v C.JSValue) {
 	C.JS_FreeValue(ctx.c, v)
 }
 
-// Ref ref js loop
+// Ref ref js loop by 1
 // js run loop will exist when ctx.refs == 0
 func (ctx *Context) Ref() {
 	ctx.mutex.Lock()
@@ -366,7 +376,8 @@ func (ctx *Context) Ref() {
 	ctx.mutex.Unlock()
 }
 
-// UnRef unrefs js loop
+// UnRef unrefs js loop by 1
+// panic if refs <= 0
 func (ctx *Context) UnRef() {
 	ctx.mutex.Lock()
 	if ctx.refs <= 0 {
@@ -376,12 +387,12 @@ func (ctx *Context) UnRef() {
 	ctx.mutex.Unlock()
 }
 
+// Terminate terminates js loop unconditionally
+// this will reset refs to 0 and exit
+// it will not run runtime Free checks
 func (ctx *Context) Terminate() {
 	ctx.mutex.Lock()
-	// if ctx.refs > 1 {
 	ctx.isTerminated = true
-	// }
-
 	ctx.refs = 0
 	ctx.mutex.Unlock()
 }
@@ -403,6 +414,7 @@ func (ctx *Context) runPendingJobs() uint64 {
 	return ctx.refs
 }
 
+// WaitCall wait js execution until func is resolved
 func (ctx *Context) WaitCall(fn func()) *sync.WaitGroup {
 	var wg sync.WaitGroup
 	wg.Add(1)
