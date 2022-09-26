@@ -115,8 +115,7 @@ func (rt *C.JSRuntime) NewContext() *Context {
 		},
 	}
 
-	initError(context)
-
 	ctx.setOpaque(context)
+	initError(context)
 	return context
 }

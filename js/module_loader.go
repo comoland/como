@@ -171,13 +171,14 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 					Sourcefile: filename,
 					Loader:     api.LoaderTSX,
 				},
-				External:  ctx.externals,
-				Platform:  api.PlatformBrowser,
-				Define:    map[string]string{"process.env.NODE_ENV": "'development'"},
-				Bundle:    true,
-				Target:    api.ESNext,
-				Format:    api.FormatESModule,
-				Outdir:    "/",
+				External: ctx.externals,
+				Platform: api.PlatformBrowser,
+				Define:   map[string]string{"process.env.NODE_ENV": "'development'"},
+				Bundle:   true,
+				Target:   api.ESNext,
+				Format:   api.FormatESModule,
+				Outdir:   "./",
+				// Outfile:   s.Join([]string{"./temp/", filename, ".js"}, ""),
 				Write:     false,
 				Sourcemap: api.SourceMapExternal,
 			})
@@ -189,7 +190,7 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 
 			codeStr = string(result.OutputFiles[1].Contents)
 			// fmt.Println(result.OutputFiles[1])
-			codeStr = s.Replace(codeStr, "export default ", "var XX = ", 1)
+			codeStr = s.Replace(codeStr, "export default ", "var _COMO_EXPORT = ", 1)
 
 			trans := api.Transform(codeStr, api.TransformOptions{
 				Loader:     api.LoaderTSX,
@@ -202,9 +203,10 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 			codeStr = string(trans.Code)
 
 			fn := ctx.EvalFunction(filename, codeStr+`
-		() => {
-			return Object.keys(XX)
-		};`)
+				() => {
+					return Object.keys(_COMO_EXPORT)
+				};
+			`)
 
 			defer fn.Free()
 			ret := fn.Call().([]interface{})
@@ -213,10 +215,10 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 			for _, plugin := range ret {
 				name := plugin.(string)
 				if name == "default" {
-					nStr = nStr + "export " + name + " XX['default']" + `;
-			`
+					nStr = nStr + "export " + name + " _COMO_EXPORT['default']" + `;
+				`
 				} else {
-					nStr = nStr + "export var " + name + " = XX['" + name + "']" + `;
+					nStr = nStr + "export var " + name + " = _COMO_EXPORT['" + name + "']" + `;
 				`
 				}
 			}

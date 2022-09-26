@@ -30,7 +30,7 @@ type Context struct {
 
 	externals []string
 
-	InitWorkerContext func(ctx *Context)
+	InitWorkerContext func(ctx *Context, filename string)
 
 	// Channel: go -> js communication channel
 	// used to send go values to js context, interface{}

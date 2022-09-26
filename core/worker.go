@@ -62,7 +62,7 @@ func worker(ctx *js.Context, global js.Value) {
 			global := threadCtx.GlobalObject()
 			como := global.GetValue("Como")
 			if initWorkerContext != nil {
-				initWorkerContext(threadCtx)
+				initWorkerContext(threadCtx, workerFile)
 				threadCtx.InitWorkerContext = initWorkerContext
 			}
 
