@@ -57,10 +57,12 @@ func worker(ctx *js.Context, global js.Value) {
 		obj.Dup()
 
 		initWorkerContext := ctx.InitWorkerContext
+		embedWorker := ctx.Embed
 		go func() {
 			Loop, threadCtx := Como(workerFile)
 			global := threadCtx.GlobalObject()
 			como := global.GetValue("Como")
+			threadCtx.Embed = embedWorker
 			if initWorkerContext != nil {
 				initWorkerContext(threadCtx, workerFile)
 				threadCtx.InitWorkerContext = initWorkerContext

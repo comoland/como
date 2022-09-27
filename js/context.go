@@ -5,6 +5,7 @@ package js
 import "C"
 
 import (
+	"embed"
 	"errors"
 	"fmt"
 	"log"
@@ -28,8 +29,28 @@ type Context struct {
 	// modules
 	modules map[string]Module
 
+	// this will hold already processed modules as externals
+	// if esbuild handled a file
 	externals []string
 
+	// pass embed.FS to js ctx
+	// if Embed is set then module resolution will be searched
+	// from the embedded embed.FS
+	// this will enable you to build a stand alone executable
+	//
+	// ex:
+	//  //go:embed src/*
+	//  var src embed.FS
+	//  ctx.Embed = &src
+	Embed *embed.FS
+
+	// InitWorkerContext called when a new worker created
+	// this will enable you initiate go modules on workers separately
+	//
+	// ex:
+	//  ctx.InitWorkerContext = func(workerCtx *js.Context, filename string) {
+	//     initModels(threadCtx)
+	//  }
 	InitWorkerContext func(ctx *Context, filename string)
 
 	// Channel: go -> js communication channel
@@ -49,6 +70,7 @@ type Context struct {
 	proxy         C.JSValue
 
 	StackFormatter func(string) string
+
 	// internal refs count, javascript loop exit
 	// if this refs count == 0
 	refs uint64

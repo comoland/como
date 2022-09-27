@@ -43,12 +43,25 @@ func moduleLoader(c *C.JSContext, module_name *C.char, opque unsafe.Pointer) *C.
 	return m
 }
 
-func fileExists(filename string) bool {
+func fileExists(ctx *Context, filename string) (string, bool) {
+	if ctx.Embed != nil {
+		rel, _ := os.Getwd()
+		newFile := s.ReplaceAll(filename, rel+string(os.PathSeparator), "")
+		file, er := ctx.Embed.Open(newFile)
+
+		if er == nil {
+			defer file.Close()
+			return newFile, true
+		}
+
+		return "", false
+	}
+
 	info, err := os.Stat(filename)
 	if os.IsNotExist(err) {
-		return false
+		return filename, false
 	}
-	return !info.IsDir()
+	return filename, !info.IsDir()
 }
 
 //export moduleNormalizeName
@@ -56,12 +69,15 @@ func moduleNormalizeName(c *C.JSContext, base_name *C.char, name *C.char, opque 
 	lock.Lock()
 	defer lock.Unlock()
 
+	ctx := c.getOpaque()
+
 	basename := C.GoString(base_name)
 	filename := C.GoString(name)
 	dirname := filepath.Dir(basename)
 
 	resolvedFile := filename
 
+	// start by resolving internal registered module aliases
 	for key, element := range internalModules {
 		m1 := regexp.MustCompile("^" + key)
 		newResolvedName := m1.ReplaceAllString(resolvedFile, element)
@@ -72,12 +88,11 @@ func moduleNormalizeName(c *C.JSContext, base_name *C.char, name *C.char, opque 
 		}
 	}
 
+	// file system resolver
 	if s.HasPrefix(filename, ".") || s.HasPrefix(filename, "/") {
 		if !filepath.IsAbs(filename) {
 			resolvedFile = filepath.Join(dirname, filename)
 		}
-
-		ext := filepath.Ext(resolvedFile)
 
 		tryPaths := []string{
 			"/",
@@ -89,16 +104,21 @@ func moduleNormalizeName(c *C.JSContext, base_name *C.char, name *C.char, opque 
 			"tsx",
 			"js",
 			"mjs",
+			"jsx",
 		}
 
-		if ext == "" {
+		// if the file doesn't end with an extension
+		// we trys a set of options just like node.js
+		// until we find first match
+		if filepath.Ext(resolvedFile) == "" {
 		out:
 			for _, path := range tryPaths {
 				tryPath := filepath.Join(resolvedFile, path)
 				for _, ext := range tryExts {
 					fileWithExt := s.Join([]string{tryPath, ext}, ".")
-					if fileExists(fileWithExt) {
-						resolvedFile = fileWithExt
+					fname, ok := fileExists(ctx, fileWithExt)
+					if ok {
+						resolvedFile = fname
 						break out
 					}
 				}
@@ -111,7 +131,7 @@ func moduleNormalizeName(c *C.JSContext, base_name *C.char, name *C.char, opque 
 	}
 
 	fileExtension := filepath.Ext(resolvedFile)
-	if fileExtension != "" && fileExtension != ".go" {
+	if fileExtension != "" && fileExtension != ".go" && ctx.Embed == nil {
 		resolvedFile, _ = filepath.Abs(resolvedFile)
 	}
 
@@ -131,7 +151,19 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 	}
 
 	codeStr := ""
-	code, err := ioutil.ReadFile(filename)
+
+	var err error
+	var code []byte
+
+	if ctx.Embed != nil {
+		rel, _ := os.Getwd()
+		newFile := s.ReplaceAll(filename, rel+string(os.PathSeparator), "")
+		code, err = ctx.Embed.ReadFile(newFile)
+	}
+
+	if err != nil || ctx.Embed == nil {
+		code, err = ioutil.ReadFile(filename)
+	}
 
 	if s.Contains(filename, "mod.ts") {
 		result := api.Build(api.BuildOptions{
@@ -178,7 +210,7 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 				Target:   api.ESNext,
 				Format:   api.FormatESModule,
 				Outdir:   "./",
-				// Outfile:   s.Join([]string{"./temp/", filename, ".js"}, ""),
+				// Outfile:   s.Join([]string{"./public/", filename, ".js"}, ""),
 				Write:     false,
 				Sourcemap: api.SourceMapExternal,
 			})
@@ -189,7 +221,6 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 			}
 
 			codeStr = string(result.OutputFiles[1].Contents)
-			// fmt.Println(result.OutputFiles[1])
 			codeStr = s.Replace(codeStr, "export default ", "var _COMO_EXPORT = ", 1)
 
 			trans := api.Transform(codeStr, api.TransformOptions{
@@ -225,6 +256,9 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 
 			ctx.externals = append(ctx.externals, filename)
 			codeStr = codeStr + nStr
+			// err := os.WriteFile(s.Join([]string{"./public/", filename, ".js"}, ""), []byte(codeStr), 0644)
+			// fmt.Println("error ========> ", err)
+
 			// lock.Lock()
 			// sourceMaps[filename] = result.OutputFiles[0].Contents
 			// lock.Unlock()
