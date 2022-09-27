@@ -1865,8 +1865,9 @@ var XX = require_buffer2();
  * @license  MIT
  */
 /*! ieee754. BSD-3-Clause License. Feross Aboukhadijeh <https://feross.org/opensource> */
-export default XX['default'];
-export var Buffer = XX['Buffer'];
-export var SlowBuffer = XX['SlowBuffer'];
-export var INSPECT_MAX_BYTES = XX['INSPECT_MAX_BYTES'];
-export var kMaxLength = XX['kMaxLength'];
+// export default XX['default'];
+globalThis.global = globalThis;
+globalThis.Buffer = XX['Buffer'];
+// export var SlowBuffer = XX['SlowBuffer'];
+// export var INSPECT_MAX_BYTES = XX['INSPECT_MAX_BYTES'];
+// export var kMaxLength = XX['kMaxLength'];

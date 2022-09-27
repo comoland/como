@@ -16,6 +16,7 @@ func initCoreModels(ctx *js.Context) {
 	timers(ctx, global)
 	process(ctx, global)
 	console(ctx, global)
+	buffer(ctx, global)
 
 	// Como methods
 	path(ctx, comoObj)
