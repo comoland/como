@@ -185,12 +185,12 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 	} else {
 		if err != nil {
 			contents := fmt.Sprintf(`
-				import * as EE from '%s'
-				Object.keys(EE).forEach((key) => {
-					module.exports[key] = EE[key]
+				import * as _COMO_IMPORT from '%s'
+				Object.keys(_COMO_IMPORT).forEach((key) => {
+					module.exports[key] = _COMO_IMPORT[key]
 				});
 
-				globalThis['%s'] = EE;
+				globalThis['%s'] = _COMO_IMPORT;
 				globalThis.require = function(f) {
 					return globalThis[f]
 				};
@@ -233,11 +233,12 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 
 			codeStr = string(trans.Code)
 
-			fn := ctx.EvalFunction(filename, codeStr+`
-				() => {
-					return Object.keys(_COMO_EXPORT)
-				};
-			`)
+			fn := ctx.EvalFunction(filename, fmt.Sprintf(`() => {
+	%s
+
+	return Object.keys(_COMO_EXPORT)
+};
+`, codeStr))
 
 			defer fn.Free()
 			ret := fn.Call().([]interface{})
