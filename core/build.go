@@ -75,31 +75,35 @@ func build(ctx *js.Context, Como js.Value) {
 
 						rpc := ctx.NewRPC(&fn)
 						rpcList = append(rpcList, rpc)
+
 						build.OnResolve(
 							OnResolveOptions,
 							func(resolveArgs api.OnResolveArgs) (api.OnResolveResult, error) {
+								var _error error
 								var onResolve struct {
 									api.OnResolveResult `mapstructure:",squash"`
 								}
 
-								ret := rpc.Send(map[string]interface{}{
-									"path":       resolveArgs.Path,
-									"importer":   resolveArgs.Importer,
-									"mamespace":  resolveArgs.Namespace,
-									"resolveDir": resolveArgs.ResolveDir,
-								})
+								ctx.WaitCall(func() {
+									ret := fn.Call(map[string]interface{}{
+										"path":       resolveArgs.Path,
+										"importer":   resolveArgs.Importer,
+										"mamespace":  resolveArgs.Namespace,
+										"resolveDir": resolveArgs.ResolveDir,
+									})
 
-								err := ctx.GetMap(ret, &onResolve)
-								if err != nil {
-									return api.OnResolveResult{}, err
-								}
+									ctx.GetMap(ret, &onResolve)
+									if err != nil {
+										_error = err
+									}
+								}).Wait()
 
 								return api.OnResolveResult{
 									Path:       onResolve.Path,
 									PluginName: onResolve.PluginName,
 									Namespace:  onResolve.Namespace,
 									External:   onResolve.External,
-								}, nil
+								}, _error
 							},
 						)
 						return nil
@@ -121,26 +125,29 @@ func build(ctx *js.Context, Como js.Value) {
 						rpcList = append(rpcList, rpc)
 						build.OnLoad(OnLoadOptions,
 							func(loadArgs api.OnLoadArgs) (api.OnLoadResult, error) {
+								var _error error
 								var onLoad struct {
 									api.OnLoadResult `mapstructure:",squash"`
 									Contents         string
 								}
 
-								ret := rpc.Send(map[string]interface{}{
-									"path":      loadArgs.Path,
-									"namespace": loadArgs.Namespace,
-								})
+								ctx.WaitCall(func() {
+									ret := fn.Call(map[string]interface{}{
+										"path":      loadArgs.Path,
+										"namespace": loadArgs.Namespace,
+									})
 
-								err := ctx.GetMap(ret, &onLoad)
-								if err != nil {
-									return api.OnLoadResult{}, err
-								}
+									err := ctx.GetMap(ret, &onLoad)
+									if err != nil {
+										_error = err
+									}
+								}).Wait()
 
 								return api.OnLoadResult{
 									Contents:   &onLoad.Contents,
 									Loader:     onLoad.Loader,
 									PluginName: onLoad.PluginName,
-								}, nil
+								}, _error
 							},
 						)
 						return nil
