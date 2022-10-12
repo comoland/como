@@ -90,7 +90,7 @@ declare namespace Como {
 	export const build: {
 		plugin(...args: any[]): any
 		bundle2(...args: any[]) : string
-		bundle(file:string, options: esbuild.BuildOptions) : Promise<string>
+		bundle(file:string, options: esbuild.BuildOptions) : Promise<Array<{ path: string, content: string }>>
 	}
 
 	export function worker(
