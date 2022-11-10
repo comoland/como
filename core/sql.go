@@ -70,7 +70,11 @@ func sql(ctx *js.Context, Como js.Value) {
 				for i := 0; i < bindArgs.Len(); i++ {
 					switch val := bindArgs.Get(i).(type) {
 					case js.Value:
-						return ctx.Throw("bind args must be a primative type")
+						if val.IsUndefined() {
+							bindValues[i] = nil
+						} else {
+							return ctx.Throw("bind args must be a primative type")
+						}
 					default:
 						bindValues[i] = val
 					}
@@ -107,7 +111,11 @@ func sql(ctx *js.Context, Como js.Value) {
 				for i := 0; i < bindArgs.Len(); i++ {
 					switch val := bindArgs.Get(i).(type) {
 					case js.Value:
-						return ctx.Throw("bind args must be a primative type")
+						if val.IsUndefined() {
+							bindValues[i] = nil
+						} else {
+							return ctx.Throw("bind args must be a primative type")
+						}
 					default:
 						bindValues[i] = val
 					}
@@ -145,7 +153,11 @@ func sql(ctx *js.Context, Como js.Value) {
 			for i := 0; i < bindArgs.Len(); i++ {
 				switch val := bindArgs.Get(i).(type) {
 				case js.Value:
-					return ctx.Throw("bind args must be a primative type")
+					if val.IsUndefined() {
+						bindValues[i] = nil
+					} else {
+						return ctx.Throw("bind args must be a primative type")
+					}
 				default:
 					bindValues[i] = val
 				}
@@ -182,7 +194,11 @@ func sql(ctx *js.Context, Como js.Value) {
 			for i := 0; i < bindArgs.Len(); i++ {
 				switch val := bindArgs.Get(i).(type) {
 				case js.Value:
-					return ctx.Throw("bind args must be a primative type")
+					if val.IsUndefined() {
+						bindValues[i] = nil
+					} else {
+						return ctx.Throw("bind args must be a primative type")
+					}
 				default:
 					bindValues[i] = val
 				}
@@ -217,7 +233,11 @@ func sql(ctx *js.Context, Como js.Value) {
 			for i := 0; i < bindArgs.Len(); i++ {
 				switch val := bindArgs.Get(i).(type) {
 				case js.Value:
-					return ctx.Throw("bind args must be a primative type")
+					if val.IsUndefined() {
+						bindValues[i] = nil
+					} else {
+						return ctx.Throw("bind args must be a primative type")
+					}
 				default:
 					bindValues[i] = val
 				}
