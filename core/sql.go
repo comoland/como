@@ -59,6 +59,48 @@ func sql(ctx *js.Context, Como js.Value) {
 				return nil
 			})
 
+			transaction.Set("query", func(args js.Arguments) interface{} {
+				sqlStr, ok := args.Get(0).(string)
+				if !ok {
+					return ctx.Throw("query arg(0) must be a string")
+				}
+
+				bindArgs := args.Slice(1, -1)
+				bindValues := make([]interface{}, bindArgs.Len())
+				for i := 0; i < bindArgs.Len(); i++ {
+					switch val := bindArgs.Get(i).(type) {
+					case js.Value:
+						if val.IsUndefined() {
+							bindValues[i] = nil
+						} else {
+							return ctx.Throw("bind args must be a primative type")
+						}
+					default:
+						bindValues[i] = val
+					}
+				}
+
+				promise := ctx.NewPromise()
+				go func() {
+					rows, err := tx.Queryx(sqlStr, bindValues...)
+					if err != nil {
+						promise.Reject(ctx.Error(err.Error()))
+					} else {
+						var records []interface{}
+						for rows.Next() {
+							record := map[string]interface{}{}
+							rows.MapScan(record)
+							records = append(records, record)
+						}
+
+						promise.Resolve(func() interface{} {
+							return records
+						})
+					}
+				}()
+				return promise
+			})
+
 			exec := transaction.Set("exec", func(args js.Arguments) interface{} {
 				stmt, ok := args.Get(0).(string)
 				if !ok {

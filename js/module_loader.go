@@ -130,8 +130,8 @@ func moduleNormalizeName(c *C.JSContext, base_name *C.char, name *C.char, opque 
 		}
 	}
 
-	fileExtension := filepath.Ext(resolvedFile)
-	if fileExtension != "" && fileExtension != ".go" && ctx.Embed == nil {
+	// fileExtension := filepath.Ext(resolvedFile)
+	if s.HasPrefix(filename, ".") || s.HasPrefix(filename, "/") {
 		resolvedFile, _ = filepath.Abs(resolvedFile)
 	}
 
