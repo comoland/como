@@ -81,6 +81,18 @@ func (args Arguments) GetString(argIndex int) string {
 	return str
 }
 
+func (args Arguments) GetNumber(argIndex int) (float64, bool) {
+	num, ok := args.Get(argIndex).(int64)
+	if !ok {
+		num, ok := args.Get(argIndex).(float64)
+		if ok {
+			return num, ok
+		}
+	}
+
+	return float64(num), ok
+}
+
 func (args Arguments) GetMap(argIndex int, output interface{}) error {
 	val := args.Get(argIndex)
 	er := mapstructure.Decode(val, output)

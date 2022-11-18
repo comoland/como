@@ -512,7 +512,7 @@ func (ctx *Context) Free() {
 	C.JS_FreeContext(ctx.c)
 	if ctx.isTerminated != true {
 		fmt.Println("freeeeeeeeeeeeeeeeeeeee rt x")
-		defer ctx.rt.Free()
+		// defer ctx.rt.Free()
 	}
 }
 
