@@ -12,11 +12,18 @@ type plugin struct {
 	Setup js.Function
 }
 
+type StdinOptions struct {
+	api.StdinOptions `mapstructure:",squash"`
+}
+
 type buildOptions struct {
-	Plugins   []plugin
-	Define    map[string]string
-	Splitting bool
-	Minify    bool
+	Plugins     []plugin
+	Define      map[string]string
+	EntryPoints []string
+	External    []string
+	Stdin       StdinOptions
+	Splitting   bool
+	Minify      bool
 }
 
 func build(ctx *js.Context, Como js.Value) {
@@ -41,13 +48,14 @@ func build(ctx *js.Context, Como js.Value) {
 	// build.bundle
 	build.Set("bundle", func(args1 js.Arguments) interface{} {
 		// var buildOptions = api.BuildOptions{}
-		filename := args1.GetString(0)
+		// filename := args1.GetString(0)
 
 		var plugins = []api.Plugin{}
 		var rpcList = []*js.RPC{}
 
 		var options buildOptions
 		err := args1.GetMap(1, &options)
+
 		if err != nil {
 			return ctx.Throw(err.Error())
 		}
@@ -164,7 +172,13 @@ func build(ctx *js.Context, Como js.Value) {
 		promise := ctx.NewPromise()
 		go func() {
 			result := api.Build(api.BuildOptions{
-				EntryPoints:       []string{filename},
+				Stdin: &api.StdinOptions{
+					Contents:   options.Stdin.Contents,
+					ResolveDir: options.Stdin.ResolveDir,
+					Sourcefile: options.Stdin.Sourcefile,
+					Loader:     api.LoaderTSX,
+				},
+				EntryPoints:       options.EntryPoints,
 				Platform:          api.PlatformBrowser,
 				Define:            options.Define,
 				Bundle:            true,
@@ -174,6 +188,7 @@ func build(ctx *js.Context, Como js.Value) {
 				MinifyWhitespace:  options.Minify,
 				MinifyIdentifiers: options.Minify,
 				Splitting:         options.Splitting,
+				External:          options.External,
 				Format:            api.FormatESModule,
 				Target:            api.ES2015,
 				// Engines: []api.Engine{
