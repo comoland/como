@@ -273,6 +273,12 @@ func (ctx *Context) GoToJSValue(value interface{}) Value {
 			a.SetInt(uint(i), v)
 		}
 		return a
+	case []string:
+		a := ctx.Array()
+		for i, v := range val {
+			a.SetInt(uint(i), v)
+		}
+		return a
 	case float64:
 		jsValue = C.JS_NewFloat64(ctx.c, C.double(val))
 	default:
