@@ -505,8 +505,7 @@ func (ctx *Context) Loop() {
 
 		refs = ctx.runPendingJobs()
 	}
-
-	fmt.Println("always should be last =====> out of loop")
+	// fmt.Println("debug out of loop")
 }
 
 func (ctx *Context) Free() {
@@ -517,7 +516,7 @@ func (ctx *Context) Free() {
 	ctx.FreeValue(ctx.proxy)
 	C.JS_FreeContext(ctx.c)
 	if ctx.isTerminated != true {
-		fmt.Println("freeeeeeeeeeeeeeeeeeeee rt x")
+		// fmt.Println("TO DO! the free below should be enabled")
 		// defer ctx.rt.Free()
 	}
 }

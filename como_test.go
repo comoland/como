@@ -3,7 +3,6 @@ package main
 import (
 	// "fmt"
 
-	"fmt"
 	"runtime"
 	"testing"
 
@@ -229,8 +228,6 @@ func TestBuffer(t *testing.T) {
 	if err != nil {
 		t.Errorf("expected 1 runs, got %d", runs)
 	}
-
-	fmt.Println("is error ", err)
 
 	if runs != 1 {
 		t.Errorf("expected 1 runs, got %d", runs)
