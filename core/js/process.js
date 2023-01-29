@@ -1,4 +1,4 @@
-({ exit, env, stdout, registerAlias, cwd }) => {
+({ exit, env, stdout, registerAlias, cwd, args }) => {
     let promise;
 
     const queueMicrotask = (cb, ...args) =>
@@ -35,6 +35,8 @@
     }
 
     class Process {
+        argv = args();
+
         exit(num) {
             exit(num);
         }
@@ -44,7 +46,6 @@
             write: stdout
         };
 
-        argv = [];
         hrtime = hrtime;
         nextTick = queueMicrotask;
 

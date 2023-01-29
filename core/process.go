@@ -39,6 +39,11 @@ func process(ctx *js.Context, Como js.Value) {
 	})
 
 	obj := ctx.Object()
+	obj.Set("args", func(args js.Arguments) interface{} {
+		argsWithProg := os.Args
+		return argsWithProg
+	})
+
 	obj.Set("stdout", func(args js.Arguments) interface{} {
 		arg := args.GetValue(0).ToString()
 		os.Stdout.Write([]byte(arg))
