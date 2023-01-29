@@ -30,6 +30,14 @@ func (ctx *Context) NewPromise() Promise {
 	}
 }
 
+func (ctx *Context) Async(fn func(async Promise)) Promise {
+	async := ctx.NewPromise()
+	go func() {
+		fn(async)
+	}()
+	return async
+}
+
 // Free frees promise resourses
 func (p Promise) Free() {
 	p.resolve.Free()
