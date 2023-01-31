@@ -309,6 +309,10 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 		return s.Join(lines, "\n")
 	}
 
+	return ctx.LoadModuleStr(filename, codeStr, isMain)
+}
+
+func (ctx *Context) LoadModuleStr(filename string, codeStr string, isMain int) *C.JSModuleDef {
 	evalType := C.JS_EVAL_TYPE_MODULE | C.JS_EVAL_FLAG_COMPILE_ONLY
 	val := ctx.c.evalFile(filename, codeStr, evalType)
 	r := C.como_get_value_ptr(val)

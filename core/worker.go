@@ -7,10 +7,31 @@ import (
 	"github.com/comoland/como/js"
 )
 
+type workerOptions struct {
+	IsCode   bool
+	Filename string
+	IsLite   bool
+}
+
+//go:embed js/workers.js
+var workersJs string
+
 func worker(ctx *js.Context, global js.Value) {
 	global.Set("worker", func(args js.Arguments) interface{} {
 		workerFile, ok := args.Get(0).(string)
 		callback, isFunc := args.Get(1).(js.Function)
+
+		var options = workerOptions{
+			IsCode:   false,
+			IsLite:   false,
+			Filename: "",
+		}
+
+		err := args.GetMap(2, &options)
+
+		if err != nil {
+			return ctx.Throw(err.Error())
+		}
 
 		if !ok {
 			return ctx.Throw("Worker arg(0) must be a file path to worker script")
@@ -59,13 +80,24 @@ func worker(ctx *js.Context, global js.Value) {
 		initWorkerContext := ctx.InitWorkerContext
 		embedWorker := ctx.Embed
 		go func() {
-			Loop, threadCtx := Como(workerFile)
+			var Loop func(func())
+			var threadCtx *js.Context
+
+			if options.IsCode == true {
+				Loop, threadCtx = ComoStr(options.Filename, workerFile)
+			} else {
+				Loop, threadCtx = Como(workerFile)
+			}
+
 			global := threadCtx.GlobalObject()
 			como := global.GetValue("Como")
+
 			threadCtx.Embed = embedWorker
-			if initWorkerContext != nil {
-				initWorkerContext(threadCtx, workerFile)
-				threadCtx.InitWorkerContext = initWorkerContext
+			if options.IsLite == false {
+				if initWorkerContext != nil {
+					initWorkerContext(threadCtx, workerFile)
+					threadCtx.InitWorkerContext = initWorkerContext
+				}
 			}
 
 			threadCtx.Ref()
@@ -127,4 +159,8 @@ func worker(ctx *js.Context, global js.Value) {
 
 		return obj
 	})
+
+	workers := ctx.EvalFunction("workers", workersJs)
+	defer workers.Free()
+	workers.Call()
 }
