@@ -271,7 +271,7 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 				Target:     api.ESNext,
 				Format:     api.FormatESModule,
 				Sourcefile: filename,
-				JSXMode:    api.JSXModeAutomatic,
+				JSX:        api.JSXAutomatic,
 			})
 
 			codeStr = string(result.Code)

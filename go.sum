@@ -1,5 +1,5 @@
-github.com/evanw/esbuild v0.15.8 h1:Ni0KzuqahtvggzCRHyj/nAU7VFjv88SIMFxQmHtKYoI=
-github.com/evanw/esbuild v0.15.8/go.mod h1:iINY06rn799hi48UqEnaQvVfZWe6W9bET78LbvN8VWk=
+github.com/evanw/esbuild v0.17.5 h1:IQBmCezqlifa5/JCOCp7aOWnPwdwQr412OIveEwRBPw=
+github.com/evanw/esbuild v0.17.5/go.mod h1:iINY06rn799hi48UqEnaQvVfZWe6W9bET78LbvN8VWk=
 github.com/go-sourcemap/sourcemap v2.1.3+incompatible h1:W1iEw64niKVGogNgBN3ePyLFfuisuzeidWPMPWmECqU=
 github.com/go-sourcemap/sourcemap v2.1.3+incompatible/go.mod h1:F8jJfvm2KbVjc5NqelyYJmf/v5J0dwNLS2mL4sNA1Jg=
 github.com/go-sql-driver/mysql v1.5.0 h1:ozyZYNQW3x3HtqT1jira07DN2PArx2v7/mN66gGcHOs=
