@@ -61,7 +61,8 @@ func build(ctx *js.Context, Como js.Value) {
 		for _, plugin := range options.Plugins {
 			plugin.Setup.Dup()
 			buildObject := ctx.ClassObject(func() {
-				// plugin.Setup.Free()
+				// FIX ME: with multiple plugins it will crash
+				plugin.Setup.Free()
 			})
 
 			plugins = append(plugins, api.Plugin{
