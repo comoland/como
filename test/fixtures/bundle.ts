@@ -1,5 +1,5 @@
 import { env as ENV } from 'env';
 
-(function() {
+(function () {
     return ENV.ret;
 })();

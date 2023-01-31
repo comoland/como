@@ -49,11 +49,9 @@ func build(ctx *js.Context, Como js.Value) {
 	build.Set("bundle", func(args1 js.Arguments) interface{} {
 		// var buildOptions = api.BuildOptions{}
 		// filename := args1.GetString(0)
-
-		var plugins = []api.Plugin{}
-		var rpcList = []*js.RPC{}
-
-		var options buildOptions
+		rpcList := []*js.RPC{}
+		plugins := []api.Plugin{}
+		options := buildOptions{}
 		err := args1.GetMap(1, &options)
 
 		if err != nil {
@@ -63,7 +61,7 @@ func build(ctx *js.Context, Como js.Value) {
 		for _, plugin := range options.Plugins {
 			plugin.Setup.Dup()
 			buildObject := ctx.ClassObject(func() {
-				plugin.Setup.Free()
+				// plugin.Setup.Free()
 			})
 
 			plugins = append(plugins, api.Plugin{
@@ -94,10 +92,24 @@ func build(ctx *js.Context, Como js.Value) {
 
 								ctx.WaitCall(func() {
 									ret := fn.Call(map[string]interface{}{
+										// to do
+										"resolve": func(args js.Arguments) interface{} {
+											result := build.Resolve("./env2", api.ResolveOptions{
+												Kind:       api.ResolveJSImportStatement,
+												ResolveDir: ".",
+											})
+
+											if len(result.Errors) > 0 {
+												return args.Ctx.Error(result.Errors[0].Text)
+											}
+
+											return result.Path
+										},
 										"path":       resolveArgs.Path,
 										"importer":   resolveArgs.Importer,
 										"mamespace":  resolveArgs.Namespace,
 										"resolveDir": resolveArgs.ResolveDir,
+										"pluginData": resolveArgs.PluginData,
 									})
 
 									ctx.GetMap(ret, &onResolve)
@@ -111,6 +123,7 @@ func build(ctx *js.Context, Como js.Value) {
 									PluginName: onResolve.PluginName,
 									Namespace:  onResolve.Namespace,
 									External:   onResolve.External,
+									PluginData: onResolve.PluginData,
 								}, _error
 							},
 						)
@@ -141,8 +154,10 @@ func build(ctx *js.Context, Como js.Value) {
 
 								ctx.WaitCall(func() {
 									ret := fn.Call(map[string]interface{}{
-										"path":      loadArgs.Path,
-										"namespace": loadArgs.Namespace,
+										"path":       loadArgs.Path,
+										"namespace":  loadArgs.Namespace,
+										"pluginData": loadArgs.PluginData,
+										"suffix":     loadArgs.Suffix,
 									})
 
 									err := ctx.GetMap(ret, &onLoad)
@@ -155,6 +170,8 @@ func build(ctx *js.Context, Como js.Value) {
 									Contents:   &onLoad.Contents,
 									Loader:     onLoad.Loader,
 									PluginName: onLoad.PluginName,
+									PluginData: onLoad.PluginData,
+									ResolveDir: onLoad.ResolveDir,
 								}, _error
 							},
 						)
@@ -170,14 +187,9 @@ func build(ctx *js.Context, Como js.Value) {
 		}
 
 		promise := ctx.NewPromise()
+
 		go func() {
-			result := api.Build(api.BuildOptions{
-				Stdin: &api.StdinOptions{
-					Contents:   options.Stdin.Contents,
-					ResolveDir: options.Stdin.ResolveDir,
-					Sourcefile: options.Stdin.Sourcefile,
-					Loader:     api.LoaderTSX,
-				},
+			opt := api.BuildOptions{
 				EntryPoints:       options.EntryPoints,
 				Platform:          api.PlatformBrowser,
 				Define:            options.Define,
@@ -197,7 +209,18 @@ func build(ctx *js.Context, Como js.Value) {
 				// },
 				// Sourcemap: api.SourceMapInline,
 				Plugins: plugins,
-			})
+			}
+
+			if len(options.Stdin.Contents) > 0 {
+				opt.Stdin = &api.StdinOptions{
+					Contents:   options.Stdin.Contents,
+					ResolveDir: options.Stdin.ResolveDir,
+					Sourcefile: options.Stdin.Sourcefile,
+					Loader:     api.LoaderTSX,
+				}
+			}
+
+			result := api.Build(opt)
 
 			for _, rpc := range rpcList {
 				rpc.Close()
