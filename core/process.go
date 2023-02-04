@@ -3,6 +3,7 @@ package core
 import (
 	_ "embed"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/comoland/como/js"
@@ -87,6 +88,10 @@ func process(ctx *js.Context, Como js.Value) {
 		fn := args.GetValue(0)
 		ctx.Suspense(fn)
 		return nil
+	})
+
+	obj.Set("platform", func(args js.Arguments) interface{} {
+		return runtime.GOOS
 	})
 
 	process := ctx.EvalFunction("process", processJs)

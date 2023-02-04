@@ -1,4 +1,4 @@
-({ exit, env, stdout, registerAlias, cwd, args }) => {
+({ exit, env, stdout, registerAlias, cwd, args, platform }) => {
     let promise;
 
     const queueMicrotask = (cb, ...args) =>
@@ -64,6 +64,15 @@
 
         cwd() {
             return cwd();
+        }
+
+        get platform() {
+            const _platform = platform();
+            if (_platform === "windows") {
+                return win32
+            }
+
+            return _platform
         }
 
         constructor() {}
