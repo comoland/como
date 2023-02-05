@@ -6,12 +6,52 @@ import "C"
 
 import (
 	// "fmt"
+
+	"fmt"
+	"strconv"
 	"unsafe"
 )
 
 type Value struct {
-	ctx *Context
-	c   C.JSValue
+	AutoRelease bool
+	id          string
+	ctx         *Context
+	c           C.JSValue
+}
+
+var num1 = 0
+
+func (ctx *Context) Value(v C.JSValue) Value {
+	val := Value{c: v, ctx: ctx}
+	return val
+}
+
+func (val Value) AutoFree() Value {
+	if val.AutoRelease == true {
+		return val
+	}
+
+	ctx := val.ctx
+	ctx.mutex.Lock()
+	num1 = num1 + 1
+	id := strconv.Itoa(num1)
+	val = Value{ctx: val.ctx, c: val.c, AutoRelease: true, id: id}
+	fmt.Println("adding value", val, id)
+	ctx.values[id] = val
+	ctx.mutex.Unlock()
+	return val
+}
+
+func (val Value) FreeAuto() {
+	val.Free()
+	// fmt.Println("is auto ", val.AutoRelease)
+	// _, ok := val.ctx.values[val.id]
+	// if ok {
+	// 	delete(val.ctx.values, val.id)
+	// 	val.Free()
+	// } else {
+	// 	fmt.Println("already cleaned!!!!!")
+	// }
 }
 
 func (f Value) Call(args ...interface{}) interface{} {
@@ -122,11 +162,26 @@ func (v Value) String() string {
 }
 
 func (v Value) Dup() Value {
+	if v.AutoRelease == true {
+		return Value{ctx: v.ctx, c: v.ctx.DupValue(v.c)}.AutoFree()
+	}
+
 	return Value{ctx: v.ctx, c: v.ctx.DupValue(v.c)}
 }
 
-func (v Value) Free() {
-	v.ctx.FreeValue(v.c)
+func (val Value) Free() {
+	if val.AutoRelease == true {
+		_, ok := val.ctx.values[val.id]
+		if ok {
+			fmt.Println("remove callback", val.id)
+			delete(val.ctx.values, val.id)
+			val.ctx.FreeValue(val.c)
+		} else {
+			fmt.Println("already cleaned!!!!!", val.id)
+		}
+	} else {
+		val.ctx.FreeValue(val.c)
+	}
 }
 
 func (v Value) Error() error {

@@ -18,6 +18,9 @@
 		"guides.active.enabled": false,
 		"editor.renderLineHighlight": "gutter",
 		"typescript.tsdk": "node_modules/typescript/lib",
-		"go.formatTool": "gofmt"
+		"go.formatTool": "gofmt",
+		"files.associations": {
+			"quickjs.h": "c"
+		}
 	}
 }

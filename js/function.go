@@ -48,6 +48,7 @@ package js
 import "C"
 
 import (
+	"fmt"
 	"sync"
 	"unsafe"
 
@@ -84,6 +85,22 @@ func (ctx *Context) Function(fn callBackFn) *Function {
 	o.ctx = ctx
 	o.c = C.como_new_class_function(ctx.c, pointer.Save(o))
 	return o
+}
+
+func (fn *Function) AutoFree() *Function {
+	fmt.Println("called AutoFree")
+
+	if fn.this != nil {
+		fn.this.AutoFree()
+	}
+
+	fn.Value = fn.Value.AutoFree()
+
+	// fn.this = fn.th.Value.AutoFree().Dup()
+	// v.Free()
+
+	// fmt.Println("changed id", fn.Value.id)
+	return fn
 }
 
 //export finalizer

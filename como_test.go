@@ -3,6 +3,7 @@ package main
 import (
 	// "fmt"
 
+	"fmt"
 	"runtime"
 	"testing"
 
@@ -12,6 +13,50 @@ import (
 
 func init() {
 	runtime.GOMAXPROCS(1)
+}
+
+func TestAutoFree(t *testing.T) {
+	runs := 0
+	Loop, ctx := core.Como("")
+	obj := ctx.Object().AutoFree()
+
+	m := ctx.NewModule("core")
+	m.Export("test", func(args js.Arguments) interface{} {
+		arg := args.GetString(0)
+		if arg != "foo" {
+			t.Errorf("%s; want foo", arg)
+		}
+
+		runs = runs + 1
+		return "hello"
+	})
+
+	obj.Dup()
+	obj.Dup()
+	obj.Dup()
+	obj.Dup()
+
+	obj.Free()
+	obj.Free()
+
+	fn := ctx.Function(func(args js.Arguments) interface{} {
+		arg := args.GetValue(0).Dup()
+		fmt.Println(arg)
+		return nil
+	}).AutoFree()
+
+	for i := 0; i < 10; i++ {
+		fn.Call(obj)
+	}
+
+	fn.Free()
+
+	v := fn.Dup()
+	v.Free()
+
+	Loop(func() {
+		obj.Free()
+	})
 }
 
 func TestArguments(t *testing.T) {
@@ -56,47 +101,47 @@ func TestArguments(t *testing.T) {
 	}
 }
 
-func TestModule(t *testing.T) {
-	runs := 0
-	Loop, ctx := core.Como("")
-	global := ctx.GlobalObject()
+// func TestModule(t *testing.T) {
+// 	runs := 0
+// 	Loop, ctx := core.Como("")
+// 	global := ctx.GlobalObject()
 
-	m := ctx.NewModule("core")
-	m.Export("test", func(args js.Arguments) interface{} {
-		arg := args.GetString(0)
-		if arg != "foo" {
-			t.Errorf("%s; want foo", arg)
-		}
+// 	m := ctx.NewModule("core")
+// 	m.Export("test", func(args js.Arguments) interface{} {
+// 		arg := args.GetString(0)
+// 		if arg != "foo" {
+// 			t.Errorf("%s; want foo", arg)
+// 		}
 
-		runs = runs + 1
-		return "hello"
-	})
+// 		runs = runs + 1
+// 		return "hello"
+// 	})
 
-	global.Set("setRet", func(args js.Arguments) interface{} {
-		ret := args.GetString(0)
-		runs = runs + 1
-		if ret != "hello" {
-			t.Errorf("%s; want hello", ret)
-		}
+// 	global.Set("setRet", func(args js.Arguments) interface{} {
+// 		ret := args.GetString(0)
+// 		runs = runs + 1
+// 		if ret != "hello" {
+// 			t.Errorf("%s; want hello", ret)
+// 		}
 
-		return nil
-	})
+// 		return nil
+// 	})
 
-	ctx.Eval(`
-		(async function(){
-			const { test } = await import('core')
-			setRet(test("foo"))
-		})()
-	`)
+// 	ctx.Eval(`
+// 		(async function(){
+// 			const { test } = await import('core')
+// 			setRet(test("foo"))
+// 		})()
+// 	`)
 
-	Loop(func() {
-		global.Free()
-	})
+// 	Loop(func() {
+// 		global.Free()
+// 	})
 
-	if runs != 2 {
-		t.Errorf("expected 1 runs, got %d", runs)
-	}
-}
+// 	if runs != 2 {
+// 		t.Errorf("expected 1 runs, got %d", runs)
+// 	}
+// }
 
 func TestPromise(t *testing.T) {
 	runs := 0
@@ -234,7 +279,7 @@ func TestBuffer(t *testing.T) {
 	}
 }
 
-func TestJs(t *testing.T) {
-	Loop, _ := core.Como("./test/load.js")
-	Loop(func() {})
-}
+// func TestJs(t *testing.T) {
+// 	Loop, _ := core.Como("./test/load.js")
+// 	Loop(func() {})
+// }

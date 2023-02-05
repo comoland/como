@@ -2,6 +2,7 @@ package core
 
 import (
 	_ "embed"
+	"fmt"
 	"time"
 
 	"github.com/comoland/como/js"
@@ -23,7 +24,7 @@ func timers(ctx *js.Context, global js.Value) {
 			timeout = 0
 		}
 
-		callback.Dup()
+		dupped := callback.Dup().AutoFree()
 		ctx.Ref()
 		isFreed := false
 
@@ -47,13 +48,15 @@ func timers(ctx *js.Context, global js.Value) {
 
 		tick()
 		this.Set("unref", func(args js.Arguments) interface{} {
+
 			if isFreed {
 				return nil
 			}
 
 			isFreed = true
+			fmt.Println("unrefed")
 			ctx.UnRef()
-			callback.Free()
+			dupped.Free()
 			return nil
 		})
 

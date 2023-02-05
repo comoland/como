@@ -23,4 +23,5 @@ func initCoreModels(ctx *js.Context) {
 	build(ctx, comoObj)
 	sql(ctx, comoObj)
 	worker(ctx, comoObj)
+	worker2(ctx, comoObj)
 }

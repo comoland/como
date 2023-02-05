@@ -40,8 +40,24 @@ _timeout => {
         }
     }
 
+    const _timeouts = {}
+
     globalThis.setTimeout = function setTimeout(cb, timeout, ...args) {
         return new Timeout(cb, timeout, args, false);
+    };
+
+    globalThis.setTimeout2 = function setTimeout(cb, timeout, ...args) {
+        const nextTimeout = Date.now() + timeout;
+        const old = _timeouts[nextTimeout];
+        delete _timeouts[nextTimeout]
+        _timeouts[nextTimeout] = () => {
+            cb.call(this,...args);
+            if (old) {
+                process.nextTick(old)
+            }
+        }
+
+        // return new Timeout(cb, timeout, args, false);
     };
 
     globalThis.setInterval = function setInterval(cb, timeout, ...args) {
@@ -69,4 +85,23 @@ _timeout => {
             handle.clear();
         }
     };
+
+    // let ticked = null
+    // const ticker = () => {
+    //     // const keys = Object.keys(_timeouts);
+    //     // if (keys.length === 0 || ticked) return;
+
+    //     ticked = setInterval(() => {
+    //         const timeout = Date.now()
+    //         Object.keys(_timeouts).forEach(_timeout => {
+    //             if (_timeout < timeout) {
+    //                 // console.log(_timeouts[_timeout])
+    //                 _timeouts[_timeout]()
+    //                 delete _timeouts[_timeout]
+    //             }
+    //         })
+    //     }, 1)
+    // }
+
+    // ticker()
 };

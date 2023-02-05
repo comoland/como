@@ -6,12 +6,17 @@ import (
 	"github.com/comoland/como/js"
 )
 
-func Como(filename string) (func(func()), *js.Context) {
+func initContext() *js.Context {
 	runtime.LockOSThread()
 	var rt = js.NewRuntime()
 	ctx := rt.NewContext()
-	global := ctx.GlobalObject()
 	initCoreModels(ctx)
+
+	return ctx
+}
+
+func Como(filename string) (func(func()), *js.Context) {
+	ctx := initContext()
 
 	return func(fn func()) {
 		if len(filename) > 0 {
@@ -22,18 +27,13 @@ func Como(filename string) (func(func()), *js.Context) {
 
 		defer func() {
 			fn()
-			global.Free()
 			ctx.Free()
 		}()
 	}, ctx
 }
 
 func ComoStr(filename string, codeStr string) (func(func()), *js.Context) {
-	runtime.LockOSThread()
-	var rt = js.NewRuntime()
-	ctx := rt.NewContext()
-	global := ctx.GlobalObject()
-	initCoreModels(ctx)
+	ctx := initContext()
 
 	return func(fn func()) {
 		if len(filename) > 0 {
@@ -44,24 +44,13 @@ func ComoStr(filename string, codeStr string) (func(func()), *js.Context) {
 
 		defer func() {
 			fn()
-			global.Free()
 			ctx.Free()
 		}()
 	}, ctx
 }
 
 func ComoStr2(filename string, codeStr string) *js.Context {
-	runtime.LockOSThread()
-	var rt = js.NewRuntime()
-	ctx := rt.NewContext()
-	global := ctx.GlobalObject()
-	initCoreModels(ctx)
-
-	func() {
-		global.Free()
-		// ctx.Free()
-	}()
-
+	ctx := initContext()
 	if len(filename) > 0 {
 		ctx.LoadModuleStr(filename, codeStr, 1)
 	}
