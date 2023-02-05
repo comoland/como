@@ -60,8 +60,8 @@ func createChild(parent *js.RPC) *js.RPC {
 		callback.Free()
 
 		child = *ctx.NewRPC(callback)
-
 		wg.Done()
+
 		ctx.Loop()
 		dupped.Free()
 		child.Close()
@@ -72,7 +72,7 @@ func createChild(parent *js.RPC) *js.RPC {
 		ctx.Free()
 
 		// close parent
-		// parent.Close()
+		go parent.Close()
 	}()
 
 	return &child
@@ -84,7 +84,7 @@ func worker2(ctx *js.Context, global js.Value) {
 		callback, isFunc := args.Get(1).(js.Function)
 
 		callback.Dup().AutoFree()
-		defer callback.Free()
+		// defer callback.Free()
 
 		fmt.Println(workerFile)
 
@@ -123,7 +123,8 @@ func worker2(ctx *js.Context, global js.Value) {
 
 		obj.Set("terminate", func(args js.Arguments) interface{} {
 			go child.Send("exit")
-			defer parent.Close()
+			// defer parent.Close()
+			// callback.Free()
 			return nil
 		})
 
