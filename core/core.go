@@ -49,3 +49,22 @@ func ComoStr(filename string, codeStr string) (func(func()), *js.Context) {
 		}()
 	}, ctx
 }
+
+func ComoStr2(filename string, codeStr string) *js.Context {
+	runtime.LockOSThread()
+	var rt = js.NewRuntime()
+	ctx := rt.NewContext()
+	global := ctx.GlobalObject()
+	initCoreModels(ctx)
+
+	func() {
+		global.Free()
+		// ctx.Free()
+	}()
+
+	if len(filename) > 0 {
+		ctx.LoadModuleStr(filename, codeStr, 1)
+	}
+
+	return ctx
+}

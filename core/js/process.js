@@ -1,4 +1,4 @@
-({ exit, env, stdout, registerAlias, cwd, args, platform }) => {
+({ exit, env, stdout, registerAlias, cwd, args, platform, suspense }) => {
     let promise;
 
     const queueMicrotask = (cb, ...args) =>
@@ -48,6 +48,7 @@
 
         hrtime = hrtime;
         nextTick = queueMicrotask;
+        suspense = suspense
 
         _env = null;
         get env() {

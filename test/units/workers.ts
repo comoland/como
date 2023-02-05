@@ -122,4 +122,75 @@ test('create worker', async () => {
     assert.equal(ret, arr);
 });
 
+test('create worker single should not lock', async () => {
+    const worker = Como.createWorker(
+        async (args: number) => {
+            // process.exit(1)
+            return args;
+        },
+        { pool: 1 }
+    );
+
+    const arr = Array.from(Array(2000).keys());
+    const promises = arr.map(i => {
+        return worker.exec(i);
+    });
+
+    const ret = await Promise.all(promises);
+
+
+    assert.equal(ret, arr);
+    worker.terminate();
+});
+
+test('create worker dispatch', async () => {
+    const worker = Como.createWorker(
+        async (action: string) => {
+            if (action === 'a') {
+                return 'a'
+            } else {
+                return 'b'
+            }
+        },
+        { pool: 3 }
+    );
+
+    worker.exec('a');
+    worker.exec('a');
+    const a = worker.exec('a');
+    worker.exec('a');
+    const b = worker.exec('b');
+    worker.exec('a');
+    worker.exec('a');
+
+    // assert.equal(a, 'a');
+    assert.equal(await b, 'b');
+    assert.equal(await a, 'a');
+
+    worker.terminate();
+});
+
+
+
+// test.only('nested workers', async () => {
+//     const worker = Como.createWorker(
+//         async (action: string) => {
+//             return new Promise(() => {
+
+//             })
+//         },
+//         { pool: 3 }
+//     );
+
+
+//     worker.exec('a');
+//     const b = worker.exec('b');
+
+//     // assert.equal(a, 'a');
+//     assert.equal(await b, 'b');
+//     assert.equal(await a, 'a');
+
+//     worker.terminate();
+// });
+
 test.run();

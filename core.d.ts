@@ -101,18 +101,6 @@ declare namespace Como {
 		terminate: () => void;
 	};
 
-	export function createWorker<T extends any, R extends any>(
-		cb: (arg: T) => Promise<R> | R,
-		opt?: { pool?: number }
-	): {
-		exec: (arg: T) => Promise<R>;
-		terminate: () => void;
-	};
-
-	export function asyncWorker<T extends any, R extends any>(
-		cb: (arg: T) => Promise<R> | R
-	): Promise<R>;
-
 	export function postMessage(
 		arg: any
 	): void;
@@ -120,6 +108,18 @@ declare namespace Como {
 	export function onMessage(
 		arg: (arg: any) => void
 	): void;
+
+	export function createWorker<T extends any[], R extends any>(
+		cb: (...arg: T) => Promise<R> | R,
+		opt?: { pool?: number }
+	): {
+		exec: (...arg: T) => Promise<R>;
+		terminate: () => void;
+	};
+
+	export function asyncWorker<T extends any[], R extends any>(
+		cb: (...arg: T) => Promise<R> | R
+	): Promise<R>;
 
 	export const process: {
 		suspense(fn: (done: Function) => void) : void

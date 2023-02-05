@@ -9,24 +9,13 @@
 
     globalThis.Como.createWorker = (fn, options = { pool: 1 }) => {
         const filename = getFilePath();
-        const workerCode = ` /* 1 */    (async () => {
-                const _workerFunction = ${fn.toString()}
-                Como.onMessage(async ({ messageId, data }) => {
-                    try {
-                        const ret = await _workerFunction(data);
-                        Como.postMessage({ messageId, error: null, data: ret });
-                    } catch (err) {
-                        Como.postMessage({ messageId, error: { message: err.message, stack: err.stack }, data: null });
-                    }
-                })
-            })();
-        `;
+
 
         let _messageId = 0;
-        const generateNewMessageId = () => ++_messageId;
+        const generateNewMessageId = () => ++_messageId + '_worker';
 
-        const _pool = [];
-        const _inProgress = [];
+        let _pool = [];
+        let _inProgress = [];
         const _tasks = {};
         const _queue = [];
         let pool = options.pool || 1;
@@ -36,11 +25,45 @@
         }
 
         const createWorker = () => {
+            const workerId = generateNewMessageId();
+            const workerCode = ` /* 1 */    (async () => {
+                    const workerId = ${JSON.stringify(workerId)};
+                    process.exit = (status) => {
+                        Como.postMessage({ workerId, action: { exit: status } });
+                        // throw new Error('exit');
+                    }
+                    const _workerFunction = ${fn.toString()}
+                    Como.onMessage(async ({ messageId, data }) => {
+                        try {
+                            const ret = await _workerFunction(data);
+                            Como.postMessage({ workerId, messageId, error: null, data: ret });
+                        } catch (err) {
+                            Como.postMessage({ workerId, messageId, error: { message: err.message, stack: err.stack }, data: null });
+                        }
+                    })
+                })();
+            `;
+
             const worker = Como.worker(
                 workerCode,
                 args => {
-                    const { messageId, error, data } = args;
+                    const { messageId, error, data, workerId, action } = args;
                     const task = _tasks[messageId];
+
+                    if (action && typeof action.exit === 'number') {
+                        console.log("got exit message from worker", workerId, action.exit);
+                        [..._inProgress, ..._pool].forEach((w) => {
+                            if (w.id === workerId) {
+                                console.log("terminate worker", w.id);
+                                w.terminate();
+                                const err = new Error('terminated');
+                                if (task) task.reject(err);
+                            }
+                        })
+                        return;
+                    }
+
+
 
                     if (task) {
                         if (error) {
@@ -82,6 +105,7 @@
                 }
             );
 
+            worker.id = workerId;
             return worker;
         };
 
@@ -94,6 +118,8 @@
             terminate: () => {
                 _pool.forEach(w => w.terminate());
                 _inProgress.forEach(w => w.terminate());
+                _pool = []
+                _inProgress = []
             },
             exec: async data => {
                 const messageId = generateNewMessageId();
