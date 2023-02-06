@@ -233,8 +233,6 @@ func TestBuffer(t *testing.T) {
 	global.Set("getBuffer", func(args js.Arguments) interface{} {
 		runs = runs + 1
 		buf := args.Get(0).([]byte)
-
-		// fmt.Println(" ============================================> ", buf)
 		return buf
 	})
 

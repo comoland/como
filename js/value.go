@@ -7,7 +7,6 @@ import "C"
 import (
 	// "fmt"
 
-	"fmt"
 	"strconv"
 	"unsafe"
 )
@@ -36,7 +35,6 @@ func (val Value) AutoFree() Value {
 	num1 = num1 + 1
 	id := strconv.Itoa(num1)
 	val = Value{ctx: val.ctx, c: val.c, AutoRelease: true, id: id}
-	fmt.Println("adding value", val, id)
 	ctx.values[id] = val
 	ctx.mutex.Unlock()
 	return val
@@ -44,14 +42,6 @@ func (val Value) AutoFree() Value {
 
 func (val Value) FreeAuto() {
 	val.Free()
-	// fmt.Println("is auto ", val.AutoRelease)
-	// _, ok := val.ctx.values[val.id]
-	// if ok {
-	// 	delete(val.ctx.values, val.id)
-	// 	val.Free()
-	// } else {
-	// 	fmt.Println("already cleaned!!!!!")
-	// }
 }
 
 func (f Value) Call(args ...interface{}) interface{} {
@@ -173,11 +163,8 @@ func (val Value) Free() {
 	if val.AutoRelease == true {
 		_, ok := val.ctx.values[val.id]
 		if ok {
-			fmt.Println("remove callback", val.id)
 			delete(val.ctx.values, val.id)
 			val.ctx.FreeValue(val.c)
-		} else {
-			fmt.Println("already cleaned!!!!!", val.id)
 		}
 	} else {
 		val.ctx.FreeValue(val.c)

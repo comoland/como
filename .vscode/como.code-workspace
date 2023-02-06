@@ -20,7 +20,8 @@
 		"typescript.tsdk": "node_modules/typescript/lib",
 		"go.formatTool": "gofmt",
 		"files.associations": {
-			"quickjs.h": "c"
+			"quickjs.h": "c",
+			"quickjs-libc.h": "c"
 		}
 	}
 }

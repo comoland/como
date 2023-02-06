@@ -1,8 +1,6 @@
 package core
 
 import (
-	"fmt"
-
 	"github.com/comoland/como/js"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
@@ -10,10 +8,6 @@ import (
 
 type Test struct {
 	num int
-}
-
-func (t *Test) Call() {
-	fmt.Println("method called!!")
 }
 
 func sql(ctx *js.Context, Como js.Value) {
