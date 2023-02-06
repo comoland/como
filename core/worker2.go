@@ -10,7 +10,7 @@ import (
 
 var wg = &sync.WaitGroup{}
 
-func createChild(parent *js.RPC) *js.RPC {
+func createChild(parent chan interface{}) *js.RPC {
 	var child js.RPC
 
 	go func() {
@@ -18,7 +18,7 @@ func createChild(parent *js.RPC) *js.RPC {
 			globalThis.onmessage = function(msg) {
 				(async () => {
 					setTimeout(() => {
-						// throw new Error('ss')
+						// throw new Error('ss xxxxxxxxxxxxxxxxxxxxxx')
 						postmessage("hi")
 					}, 1)
 				})();
@@ -35,7 +35,6 @@ func createChild(parent *js.RPC) *js.RPC {
 		callback := ctx.Function(func(args js.Arguments) interface{} {
 
 			arg := args.Get(0).(string)
-			fmt.Println("why? ", arg)
 
 			if arg == "exit" {
 				ctx.Terminate()
@@ -50,9 +49,8 @@ func createChild(parent *js.RPC) *js.RPC {
 		})
 
 		global.SetFunction("postmessage", func(args js.Arguments) interface{} {
-			fmt.Println("message to parent")
 			arg := args.Get(0)
-			go parent.Send(arg)
+			parent <- arg
 			return nil
 		})
 
@@ -65,14 +63,10 @@ func createChild(parent *js.RPC) *js.RPC {
 		ctx.Loop()
 		dupped.Free()
 		child.Close()
-		fmt.Println("child closed!")
 		callback.Free()
 		onmessage.Free()
 		global.Free()
 		ctx.Free()
-
-		// close parent
-		go parent.Close()
 	}()
 
 	return &child
@@ -81,10 +75,7 @@ func createChild(parent *js.RPC) *js.RPC {
 func worker2(ctx *js.Context, global js.Value) {
 	global.Set("worker2", func(args js.Arguments) interface{} {
 		workerFile, isFile := args.Get(0).(string)
-		callback, isFunc := args.Get(1).(js.Function)
-
-		callback.Dup().AutoFree()
-		// defer callback.Free()
+		callback := args.GetValue(1).Dup().AutoFree()
 
 		fmt.Println(workerFile)
 
@@ -92,7 +83,7 @@ func worker2(ctx *js.Context, global js.Value) {
 			return ctx.Throw("Worker arg(0) must be a file path to worker script")
 		}
 
-		if !isFunc {
+		if !callback.IsFunction() {
 			return ctx.Throw("Worker arg(1) must be a callback function")
 		}
 
@@ -108,7 +99,9 @@ func worker2(ctx *js.Context, global js.Value) {
 			return ctx.Throw(err.Error())
 		}
 
-		parent := ctx.NewRPC(&callback)
+		ctx.Ref()
+		parent := make(chan interface{}, 1)
+
 		wg.Add(1)
 		child := createChild(parent)
 		wg.Wait()
@@ -123,10 +116,19 @@ func worker2(ctx *js.Context, global js.Value) {
 
 		obj.Set("terminate", func(args js.Arguments) interface{} {
 			go child.Send("exit")
-			// defer parent.Close()
-			// callback.Free()
+			callback.Free()
+			close(parent)
+			go ctx.UnRef()
 			return nil
 		})
+
+		go func() {
+			for ret := range parent {
+				ctx.Channel <- func() {
+					callback.Call(ret)
+				}
+			}
+		}()
 
 		return obj
 	})
