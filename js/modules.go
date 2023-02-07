@@ -23,10 +23,8 @@ import (
 type Module struct {
 	ctx        *Context
 	m          *C.JSModuleDef
-	exportList map[string]Value
+	exportList map[string]interface{}
 }
-
-var Modules = make(map[string]Module)
 
 //export set_module_exports
 func set_module_exports(c *C.JSContext, m *C.JSModuleDef) C.int {
@@ -42,11 +40,21 @@ func set_module_exports(c *C.JSContext, m *C.JSModuleDef) C.int {
 	}
 
 	// loop through exports and register them
-	for key, value := range module.exportList {
+	for key, val := range module.exportList {
 		exportName := C.CString(key)
 		defer C.free(unsafe.Pointer(exportName))
-		C.JS_SetModuleExport(c, m, exportName, value.c)
-		// defer C.JS_FreeValue(ctx, value.c)
+		fn, isFn := val.(func(args Arguments) interface{})
+		if isFn {
+			value := ctx.Function(fn).AutoFree()
+			C.JS_SetModuleExport(c, m, exportName, ctx.GoToJSValue(value).Dup().c)
+		} else {
+			value := ctx.GoToJSValue(val)
+			C.JS_SetModuleExport(c, m, exportName, value.c)
+		}
+	}
+
+	for key := range module.exportList {
+		delete(module.exportList, key)
 	}
 
 	return 0
@@ -59,24 +67,15 @@ func (ctx *Context) NewModule(name string) Module {
 	r := C.como_init_module(ctx.c, cnamestr)
 	m := (*C.JSModuleDef)(unsafe.Pointer(r))
 
-	exportList := make(map[string]Value)
+	exportList := make(map[string]interface{})
 	module := Module{ctx, m, exportList}
 	ctx.modules[name] = module
 	return module
 }
 
 func (m *Module) Export(name string, v interface{}) {
-	value := m.ctx.GoToJSValue(v)
 	cnamestr := C.CString(name)
 	defer C.free(unsafe.Pointer(cnamestr))
 	C.JS_AddModuleExport(m.ctx.c, m.m, cnamestr)
-	m.exportList[name] = value
-}
-
-func (ctx *Context) FreeModules() {
-	for _, module := range ctx.modules {
-		for _, value := range module.exportList {
-			value.Free()
-		}
-	}
+	m.exportList[name] = v
 }

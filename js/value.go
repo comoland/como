@@ -30,6 +30,13 @@ func (val Value) AutoFree() Value {
 		return val
 	}
 
+	// for _, value := range val.ctx.values {
+	// 	if value.c == val.c {
+	// 		fmt.Println("found no auto free value")
+	// 		return val
+	// 	}
+	// }
+
 	ctx := val.ctx
 	ctx.mutex.Lock()
 	num1 = num1 + 1

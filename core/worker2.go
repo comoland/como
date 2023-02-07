@@ -8,9 +8,15 @@ import (
 	"github.com/comoland/como/js"
 )
 
+// type workerOptions struct {
+// 	IsCode   bool
+// 	Filename string
+// 	IsLite   bool
+// }
+
 var wg = &sync.WaitGroup{}
 
-func createChild(parent chan interface{}) *js.RPC {
+func createChild(parent chan interface{}, parentCtx *js.Context, options workerOptions) *js.RPC {
 	var child js.RPC
 
 	go func() {
@@ -18,13 +24,12 @@ func createChild(parent chan interface{}) *js.RPC {
 			globalThis.onmessage = function(msg) {
 				(async () => {
 					setTimeout(() => {
+						console.log("got message from parent ", msg)
 						// throw new Error('ss xxxxxxxxxxxxxxxxxxxxxx')
-						postmessage("hi")
+						postMessage("hi")
 					}, 1)
 				})();
 			};
-
-
 
 			console.log('from child')
 		`)
@@ -33,9 +38,7 @@ func createChild(parent chan interface{}) *js.RPC {
 		onmessage := global.GetValue("onmessage")
 
 		callback := ctx.Function(func(args js.Arguments) interface{} {
-
 			arg := args.Get(0).(string)
-
 			if arg == "exit" {
 				ctx.Terminate()
 				return nil
@@ -48,7 +51,7 @@ func createChild(parent chan interface{}) *js.RPC {
 			return nil
 		})
 
-		global.SetFunction("postmessage", func(args js.Arguments) interface{} {
+		global.SetFunction("postMessage", func(args js.Arguments) interface{} {
 			arg := args.Get(0)
 			parent <- arg
 			return nil
@@ -103,7 +106,7 @@ func worker2(ctx *js.Context, global js.Value) {
 		parent := make(chan interface{}, 1)
 
 		wg.Add(1)
-		child := createChild(parent)
+		child := createChild(parent, ctx, options)
 		wg.Wait()
 
 		obj := ctx.Object()

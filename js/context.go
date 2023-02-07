@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"sort"
+	"runtime"
 	"sync"
 	"time"
 	"unsafe"
@@ -283,6 +283,12 @@ func (ctx *Context) GoToJSValue(value interface{}) Value {
 			a.SetInt(uint(i), v)
 		}
 		return a
+	case []int:
+		a := ctx.Array()
+		for i, v := range val {
+			a.SetInt(uint(i), v)
+		}
+		return a
 	case float64:
 		jsValue = C.JS_NewFloat64(ctx.c, C.double(val))
 	default:
@@ -338,7 +344,6 @@ func (ctx *Context) EvalBinary(code []byte) {
 	// C.js_std_eval_binary(ctx.c, cCode, C.size_t(len(code)), 1)
 	ctx.Eval(string(code))
 	// fmt.Println(len(code), cCode)
-
 	// return Value{c: val, ctx: ctx}, nil
 }
 
@@ -512,46 +517,20 @@ func (ctx *Context) Loop() {
 }
 
 func (ctx *Context) Free() {
-
-	m := ctx.values
-
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	for i := range keys {
-		sk := keys[len(keys)-1-i]
-		fmt.Println(sk, m[sk])
-		value := m[sk]
+	for _, value := range ctx.values {
 		value.Free()
 	}
 
-	// if ctx.isTerminated == true {
-	// for _, value := range ctx.values {
-	// 	fmt.Println("should not be called")
-	// 	value.Free()
-	// }
-	// }
-
 	pointer.Unref(C.JS_GetContextOpaque(ctx.c))
-	ctx.FreeModules()
 
 	ctx.FreeValue(ctx.asyncIterator)
 	ctx.FreeValue(ctx.promise)
 	ctx.FreeValue(ctx.proxy)
 	C.JS_FreeContext(ctx.c)
-	C.js_free_rt(ctx.rt, nil)
-	ctx.rt.Free()
-	fmt.Println("TO DO! the free below should be enabled")
 
-	// if ctx.isTerminated != true {
-	// 	fmt.Println("TO DO! the free below should be enabled")
-	// 	// defer ctx.rt.Free()
-	// }
-
-	// runtime.GC()
+	defer ctx.rt.Free()
+	// fmt.Println("TO DO! the free below should be enabled")
+	runtime.GC()
 }
 
 func (ctx *Context) Error(v interface{}) Value {
