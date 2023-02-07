@@ -1,3 +1,3 @@
-Como.onMessage(arg => {
-    Como.postMessage({ foo: arg });
-});
+globalThis.onmessage = arg => {
+    globalThis.postMessage({ foo: arg });
+};

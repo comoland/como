@@ -13,6 +13,7 @@ import (
 
 type Value struct {
 	AutoRelease bool
+	isFree      bool
 	id          string
 	ctx         *Context
 	c           C.JSValue
@@ -166,7 +167,12 @@ func (v Value) Dup() Value {
 	return Value{ctx: v.ctx, c: v.ctx.DupValue(v.c)}
 }
 
-func (val Value) Free() {
+func (val Value) Free() Value {
+	if val.isFree {
+		return val
+	}
+
+	val.isFree = true
 	if val.AutoRelease == true {
 		_, ok := val.ctx.values[val.id]
 		if ok {
@@ -176,6 +182,8 @@ func (val Value) Free() {
 	} else {
 		val.ctx.FreeValue(val.c)
 	}
+
+	return val
 }
 
 func (v Value) Error() error {

@@ -4,10 +4,13 @@ const test = suite('Thread1');
 
 async function Test() {
     return new Promise(resolve => {
-        const worker = Como.worker(import.meta.dir + '/worker.ts', msg => {
+        const worker = Como.worker2(import.meta.dir + '/worker.ts', msg => {
+            console.log("go message", msg);
             worker.terminate();
             resolve(msg);
         });
+
+        worker.terminate();
     });
 }
 

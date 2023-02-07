@@ -1,1 +1,1 @@
-Como.postMessage('Hi');
+globalThis.postMessage('Hi');

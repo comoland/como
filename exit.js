@@ -2,13 +2,13 @@
 
 // console.log(process)
 
-setTimeout(() => {
-    console.log("timeout")
-    // setInterval( () => {
-    //     console.log("ssss last")
-    //     // throw new Error("timeout")
-    // })
-})
+// setTimeout(() => {
+//     console.log("timeout")
+//     setInterval( () => {
+//         console.log("ssss last")
+//         throw new Error("timeout")
+//     })
+// })
 
 
 // setInterval( () => {
@@ -31,30 +31,38 @@ setTimeout(() => {
 
 // for (let i = 0; i < 5; i++) {
 //     setTimeout(() => {
-//         throw new Error("timeout")
+//         // throw new Error("timeout")
 //     }, 2000)
 // }
 
+let i = 0
+// setInterval(() => {
+    const worker = Como.worker2(`
+        globalThis.onmessage = function(msg) {
+            (async () => {
+                setTimeout(() => {
+                    console.log("got message from parent ", msg)
+                    // throw new Error('ss xxxxxxxxxxxxxxxxxxxxxx')
+                    postMessage("hi")
+                }, 1)
+            })();
+        };
 
-setInterval(() => {
-    const worker = Como.worker2((() => {
-
-
-    }).toString(), function XXXXXXXXX(e){
-        console.log("got message from child ssssssssssssssssssssssssssssssssssssssssssss", e)
+    `, function XXXXXXXXX(e){
+        console.log("got message from child ssssssssssssssssssssssssssssssssssssssssssss ", i++, e)
         // globalThis.closeChild()
-        // worker.terminate()
+        worker.terminate()
+    }, {
+        isCode: true,
+        filename: "worker2.js",
     })
 
-    // worker.postMessage("hiiiii")
-    worker.terminate()
+    worker.postMessage("hiiiii")
+    // worker.terminate()
+// }, 20)
 
 
-}, 20)
-
-
-setTimeout(() => {
-    console.log("ssssssssssssssssssssssssssssssssssssss")
-    throw new Error("XXXXXXXXXX")
-}, 100)
-
+// setTimeout(() => {
+//     console.log("ssssssssssssssssssssssssssssssssssssss")
+//     throw new Error("XXXXXXXXXX")
+// }, 5000)

@@ -1,6 +1,6 @@
-import { suite, assert, sleep, timeThis, promiso } from '../mod';
+import { suite, assert } from '../mod';
 
-const test = suite('workers');
+const test = suite('workers cb');
 
 test('async worker', async () => {
     const workerData = await Como.asyncWorker(async (args: any) => {
@@ -125,31 +125,28 @@ test('create worker', async () => {
 test('create worker single should not lock', async () => {
     const worker = Como.createWorker(
         async (args: number) => {
-            // process.exit(1)
             return args;
         },
         { pool: 1 }
     );
 
-    const arr = Array.from(Array(2000).keys());
+    const arr = Array.from(Array(5000).keys());
     const promises = arr.map(i => {
         return worker.exec(i);
     });
 
     const ret = await Promise.all(promises);
-
-
-    assert.equal(ret, arr);
     worker.terminate();
+    assert.equal(ret, arr);
 });
 
 test('create worker dispatch', async () => {
     const worker = Como.createWorker(
         async (action: string) => {
             if (action === 'a') {
-                return 'a'
+                return 'a';
             } else {
-                return 'b'
+                return 'b';
             }
         },
         { pool: 3 }
@@ -170,27 +167,79 @@ test('create worker dispatch', async () => {
     worker.terminate();
 });
 
+test('nested workers', async () => {
+    const worker = Como.createWorker(
+        async (arg: string) => {
+            return new Promise(async resolve => {
+                const worker = Como.createWorker(
+                    async (arg: string) => {
+                        return new Promise(resolve => {
+                            resolve(arg + 'b');
+                        });
+                    },
+                    { pool: 2 }
+                );
 
+                const ab = await worker.exec(arg);
+                // we don't need to terminate nested workers
+                // worker.terminate();
+                resolve(ab);
+            });
+        },
+        { pool: 3 }
+    );
 
-// test.only('nested workers', async () => {
-//     const worker = Como.createWorker(
-//         async (action: string) => {
-//             return new Promise(() => {
+    const a = await worker.exec('a');
+    worker.terminate();
+    assert.equal(await a, 'ab');
+});
 
-//             })
-//         },
-//         { pool: 3 }
-//     );
+test('graceful exit', async () => {
+    Como.worker2(`
+        setTimeout(() => {
+            throw new Error("should exit gracefully")
+        }, 1000)
+    `,
+        () => {},
+        {
+            isCode: true,
+            filename: 'worker2.js'
+        }
+    );
+});
 
+test('multiple terminate should not lock', async () => {
+    const worker = Como.worker2(`
+        globalThis.onmessage = () => {
+            postMessage(1)
+        }
+    `,
+        () => {
+            worker.terminate();
+        },
+        {
+            isCode: true,
+            filename: 'worker2.js'
+        }
+    );
 
-//     worker.exec('a');
-//     const b = worker.exec('b');
+    worker.postMessage({ type: 'terminate' });
+    worker.terminate();
+    worker.terminate();
+});
 
-//     // assert.equal(a, 'a');
-//     assert.equal(await b, 'b');
-//     assert.equal(await a, 'a');
-
-//     worker.terminate();
-// });
+test('throw inside a worker should not terminate main process', async () => {
+    const worker = Como.worker2(`
+        throw new Error("error from worker")
+    `,
+        () => {
+            worker.terminate();
+        },
+        {
+            isCode: true,
+            filename: 'worker2.js'
+        }
+    );
+});
 
 test.run();

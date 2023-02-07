@@ -53,9 +53,9 @@ func set_module_exports(c *C.JSContext, m *C.JSModuleDef) C.int {
 		}
 	}
 
-	for key := range module.exportList {
-		delete(module.exportList, key)
-	}
+	// for key := range module.exportList {
+	// 	delete(module.exportList, key)
+	// }
 
 	return 0
 }
@@ -78,4 +78,21 @@ func (m *Module) Export(name string, v interface{}) {
 	defer C.free(unsafe.Pointer(cnamestr))
 	C.JS_AddModuleExport(m.ctx.c, m.m, cnamestr)
 	m.exportList[name] = v
+}
+
+func (ctx *Context) DeleteModulesList() {
+	for _, module := range ctx.modules {
+		for key := range module.exportList {
+			delete(module.exportList, key)
+		}
+	}
+}
+
+func (ctx *Context) RegisterWorkerModules(wCtx *Context) {
+	for name, module := range ctx.modules {
+		wModule := wCtx.NewModule(name)
+		for name, value := range module.exportList {
+			wModule.Export(name, value)
+		}
+	}
 }

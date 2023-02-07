@@ -8,6 +8,7 @@ import (
 )
 
 type workerOptions struct {
+	Code     string
 	IsCode   bool
 	Filename string
 	IsLite   bool
@@ -25,6 +26,7 @@ func worker(ctx *js.Context, global js.Value) {
 			IsCode:   false,
 			IsLite:   false,
 			Filename: "",
+			Code:     "",
 		}
 
 		err := args.GetMap(2, &options)

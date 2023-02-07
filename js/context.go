@@ -37,6 +37,9 @@ type Context struct {
 	// if esbuild handled a file
 	externals []string
 
+	// functions list to be called when the context is terminated
+	onExit []func()
+
 	// pass embed.FS to js ctx
 	// if Embed is set then module resolution will be searched
 	// from the embedded embed.FS
@@ -517,12 +520,17 @@ func (ctx *Context) Loop() {
 }
 
 func (ctx *Context) Free() {
+	for _, cb := range ctx.onExit {
+		cb()
+	}
+
 	for _, value := range ctx.values {
 		value.Free()
 	}
 
 	pointer.Unref(C.JS_GetContextOpaque(ctx.c))
 
+	ctx.DeleteModulesList()
 	ctx.FreeValue(ctx.asyncIterator)
 	ctx.FreeValue(ctx.promise)
 	ctx.FreeValue(ctx.proxy)
@@ -575,4 +583,8 @@ func (ctx *Context) CheckError(err error) {
 
 func (ctx *Context) Wait() {
 	ctx.wg.Wait()
+}
+
+func (ctx *Context) OnExit(cb func()) {
+	ctx.onExit = append(ctx.onExit, cb)
 }

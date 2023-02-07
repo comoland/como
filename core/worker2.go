@@ -33,11 +33,6 @@ func createChild(parent chan interface{}, parentCtx *js.Context, options workerO
 	var ctx *js.Context
 	go func() {
 		ctx = ComoContext()
-		if options.IsCode == true {
-			ctx.LoadMainModuleString(options.Filename, options.Code)
-		} else {
-			ctx.LoadMainModule(options.Filename)
-		}
 
 		parentCtx.RegisterWorkerModules(ctx)
 
@@ -45,12 +40,25 @@ func createChild(parent chan interface{}, parentCtx *js.Context, options workerO
 		ctx.Embed = parentCtx.Embed
 
 		global := ctx.GlobalObject()
-		onmessage := global.GetValue("onmessage")
+
+		global.SetFunction("postMessage", func(args js.Arguments) interface{} {
+			arg := args.Get(0)
+			parent <- arg
+			return nil
+		})
+
+		if options.IsCode == true {
+			ctx.LoadMainModuleString(options.Filename, options.Code)
+		} else {
+			ctx.LoadMainModule(options.Filename)
+		}
 
 		child.terminate = func() {
+			child.isClose = true
 			ctx.Channel <- func() { ctx.Terminate() }
 		}
 
+		onmessage := global.GetValue("onmessage")
 		callback := ctx.Function(func(args js.Arguments) interface{} {
 			arg, isString := args.Get(0).(string)
 
@@ -63,12 +71,6 @@ func createChild(parent chan interface{}, parentCtx *js.Context, options workerO
 				onmessage.CallArgs(args)
 			}
 
-			return nil
-		})
-
-		global.SetFunction("postMessage", func(args js.Arguments) interface{} {
-			arg := args.Get(0)
-			parent <- arg
 			return nil
 		})
 

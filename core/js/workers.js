@@ -29,22 +29,22 @@
             const workerCode = ` /* 1 */    (async () => {
                     const workerId = ${JSON.stringify(workerId)};
                     process.exit = (status) => {
-                        Como.postMessage({ workerId, action: { exit: status } });
+                        globalThis.postMessage({ workerId, action: { exit: status } });
                         // throw new Error('exit');
                     }
                     const _workerFunction = ${fn.toString()}
-                    Como.onMessage(async ({ messageId, data }) => {
+                    globalThis.onmessage = async ({ messageId, data }) => {
                         try {
                             const ret = await _workerFunction(data);
-                            Como.postMessage({ workerId, messageId, error: null, data: ret });
+                            globalThis.postMessage({ workerId, messageId, error: null, data: ret });
                         } catch (err) {
-                            Como.postMessage({ workerId, messageId, error: { message: err.message, stack: err.stack }, data: null });
+                            globalThis.postMessage({ workerId, messageId, error: { message: err.message, stack: err.stack }, data: null });
                         }
-                    })
+                    }
                 })();
             `;
 
-            const worker = Como.worker(
+            const worker = Como.worker2(
                 workerCode,
                 args => {
                     const { messageId, error, data, workerId, action } = args;
@@ -151,15 +151,18 @@
     globalThis.Como.asyncWorker = fn => {
         const filename = getFilePath();
         const workerCode = `
-            (async () => {
-                try {
-                    const fn = ${fn.toString()}
-                    const ret = await fn();
-                    Como.postMessage({ret});
-                } catch (err) {
-                    Como.postMessage({err: {message: err.message, stack: err.stack}});
-                }
-            })();
+            globalThis.onmessage = () => {
+                (async () => {
+                    try {
+                        const fn = ${fn.toString()}
+                        const ret = await fn();
+                        globalThis.postMessage({ret});
+                    } catch (err) {
+                        console.log("an error occured")
+                        globalThis.postMessage({err: {message: err.message, stack: err.stack}});
+                    }
+                })();
+            };
         `;
 
         let _resolve, _reject;
@@ -168,7 +171,7 @@
             _reject = reject;
         });
 
-        const worker = Como.worker(
+        const worker = Como.worker2(
             workerCode,
             data => {
                 if (data.err) {
@@ -176,13 +179,18 @@
                 } else {
                     _resolve(data.ret);
                 }
-                worker.terminate();
+
+                setTimeout(() => {
+                    worker.terminate();
+                })
             },
             {
                 isCode: true,
                 filename
             }
         );
+
+        worker.postMessage("")
 
         return promise;
     };

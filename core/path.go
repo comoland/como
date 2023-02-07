@@ -90,7 +90,7 @@ func path(ctx *js.Context, Como js.Value) {
 		})
 
 		if err != nil {
-			ctx.Throw2(err.Error())
+			return ctx.Throw(err.Error())
 		}
 
 		return nil

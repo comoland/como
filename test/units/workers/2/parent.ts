@@ -4,7 +4,7 @@ const test = suite('Thread2');
 
 async function Test() {
     return new Promise(resolve => {
-        const worker = Como.worker(import.meta.dir + '/worker.ts', msg => {
+        const worker = Como.worker2(import.meta.dir + '/worker.ts', msg => {
             worker.terminate();
             resolve(msg);
         });
