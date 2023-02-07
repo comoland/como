@@ -14,9 +14,10 @@ import (
 // }
 
 type Child struct {
-	isClose bool
-	rpc     *js.RPC
-	close   func()
+	isClose   bool
+	rpc       *js.RPC
+	close     func()
+	terminate func()
 }
 
 var wg = &sync.WaitGroup{}
@@ -45,6 +46,10 @@ func createChild(parent chan interface{}, parentCtx *js.Context, options workerO
 
 		global := ctx.GlobalObject()
 		onmessage := global.GetValue("onmessage")
+
+		child.terminate = func() {
+			ctx.Channel <- func() { ctx.Terminate() }
+		}
 
 		callback := ctx.Function(func(args js.Arguments) interface{} {
 			arg, isString := args.Get(0).(string)
@@ -145,7 +150,7 @@ func worker2(ctx *js.Context, global js.Value) {
 
 		obj.Set("terminate", func(args js.Arguments) interface{} {
 			if !child.isClose {
-				child.rpc.Send("exit")
+				child.terminate()
 			}
 
 			return nil
