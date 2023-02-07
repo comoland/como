@@ -2,7 +2,6 @@ package core
 
 import (
 	_ "embed"
-	"fmt"
 	"sync"
 
 	"github.com/comoland/como/js"
@@ -14,10 +13,21 @@ import (
 // 	IsLite   bool
 // }
 
+type Child struct {
+	isClose bool
+	rpc     *js.RPC
+	close   func()
+}
+
 var wg = &sync.WaitGroup{}
 
-func createChild(parent chan interface{}, parentCtx *js.Context, options workerOptions) *js.RPC {
-	var child js.RPC
+func createChild(parent chan interface{}, parentCtx *js.Context, options workerOptions) *Child {
+	var child = &Child{isClose: false}
+	child.close = func() {
+		if child.isClose {
+			return
+		}
+	}
 
 	var ctx *js.Context
 	go func() {
@@ -27,8 +37,6 @@ func createChild(parent chan interface{}, parentCtx *js.Context, options workerO
 		} else {
 			ctx.LoadMainModule(options.Filename)
 		}
-
-		fmt.Println("passed to here")
 
 		parentCtx.RegisterWorkerModules(ctx)
 
@@ -53,7 +61,6 @@ func createChild(parent chan interface{}, parentCtx *js.Context, options workerO
 			return nil
 		})
 
-		fmt.Println("setGlobal postMessage")
 		global.SetFunction("postMessage", func(args js.Arguments) interface{} {
 			arg := args.Get(0)
 			parent <- arg
@@ -63,29 +70,31 @@ func createChild(parent chan interface{}, parentCtx *js.Context, options workerO
 		dupped := callback.Dup().AutoFree()
 		callback.Free()
 
-		child = *ctx.NewRPC(callback)
+		child.rpc = ctx.NewRPC(callback)
 		wg.Done()
 
 		if !onmessage.IsFunction() {
-			ctx.UnRef()
-			// ctx.Terminate()
+			if !child.isClose {
+				child.isClose = true
+				ctx.UnRef()
+			}
 		}
 
 		ctx.Loop()
 		dupped.Free()
-		child.Close()
+		child.rpc.Close()
 		callback.Free()
 		onmessage.Free()
 		global.Free()
 		ctx.Free()
-		fmt.Println("exited")
+		child.isClose = true
 
 		go func() {
 			parent <- "exit"
 		}()
 	}()
 
-	return &child
+	return child
 }
 
 func worker2(ctx *js.Context, global js.Value) {
@@ -126,30 +135,32 @@ func worker2(ctx *js.Context, global js.Value) {
 		child := createChild(parent, ctx, options)
 		wg.Wait()
 
-		fmt.Println("wait done")
-
 		obj := ctx.Object()
 
 		obj.Set("postMessage", func(args js.Arguments) interface{} {
 			arg := args.Get(0)
-			child.Send(arg)
+			child.rpc.Send(arg)
 			return nil
 		})
 
 		obj.Set("terminate", func(args js.Arguments) interface{} {
-			child.Send("exit")
+			if !child.isClose {
+				child.rpc.Send("exit")
+			}
+
 			return nil
 		})
 
 		go func() {
 			for ret := range parent {
-				fmt.Println(" got exit message from child", ret)
 				ctx.Channel <- func() {
 					msg, isString := ret.(string)
 					if isString && msg == "exit" {
-						fmt.Println("worker exit")
+						if parent != nil {
+							close(parent)
+						}
+
 						callback.Free()
-						close(parent)
 						ctx.UnRef()
 					} else {
 						callback.Call(ret)
