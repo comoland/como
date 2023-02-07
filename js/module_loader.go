@@ -340,3 +340,11 @@ func (ctx *Context) LoadModuleStr(filename string, codeStr string, isMain int) *
 
 	return m
 }
+
+func (ctx *Context) LoadMainModule(filename string) *C.JSModuleDef {
+	return ctx.LoadModule(filename, 1)
+}
+
+func (ctx *Context) LoadMainModuleString(filename string, code string) *C.JSModuleDef {
+	return ctx.LoadModuleStr(filename, code, 1)
+}
