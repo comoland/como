@@ -6,7 +6,7 @@ import (
 	"github.com/comoland/como/js"
 )
 
-func initContext() *js.Context {
+func ComoContext() *js.Context {
 	runtime.LockOSThread()
 	var rt = js.NewRuntime()
 	ctx := rt.NewContext()
@@ -16,7 +16,7 @@ func initContext() *js.Context {
 }
 
 func Como(filename string) (func(func()), *js.Context) {
-	ctx := initContext()
+	ctx := ComoContext()
 
 	return func(fn func()) {
 		if len(filename) > 0 {
@@ -33,7 +33,7 @@ func Como(filename string) (func(func()), *js.Context) {
 }
 
 func ComoStr(filename string, codeStr string) (func(func()), *js.Context) {
-	ctx := initContext()
+	ctx := ComoContext()
 
 	return func(fn func()) {
 		if len(filename) > 0 {
@@ -50,7 +50,7 @@ func ComoStr(filename string, codeStr string) (func(func()), *js.Context) {
 }
 
 func ComoStr2(filename string, codeStr string) *js.Context {
-	ctx := initContext()
+	ctx := ComoContext()
 	if len(filename) > 0 {
 		ctx.LoadModuleStr(filename, codeStr, 1)
 	}

@@ -19,27 +19,29 @@ var wg = &sync.WaitGroup{}
 func createChild(parent chan interface{}, parentCtx *js.Context, options workerOptions) *js.RPC {
 	var child js.RPC
 
+	var ctx *js.Context
 	go func() {
-		ctx := ComoStr2("test.js", `
-			globalThis.onmessage = function(msg) {
-				(async () => {
-					setTimeout(() => {
-						console.log("got message from parent ", msg)
-						// throw new Error('ss xxxxxxxxxxxxxxxxxxxxxx')
-						postMessage("hi")
-					}, 1)
-				})();
-			};
+		ctx = ComoContext()
+		if options.IsCode == true {
+			ctx.LoadMainModuleString(options.Filename, options.Code)
+		} else {
+			ctx.LoadMainModule(options.Filename)
+		}
 
-			console.log('from child')
-		`)
+		fmt.Println("passed to here")
+
+		parentCtx.RegisterWorkerModules(ctx)
+
+		// inherit parent context embed options
+		ctx.Embed = parentCtx.Embed
 
 		global := ctx.GlobalObject()
 		onmessage := global.GetValue("onmessage")
 
 		callback := ctx.Function(func(args js.Arguments) interface{} {
-			arg := args.Get(0).(string)
-			if arg == "exit" {
+			arg, isString := args.Get(0).(string)
+
+			if isString && arg == "exit" {
 				ctx.Terminate()
 				return nil
 			}
@@ -51,6 +53,7 @@ func createChild(parent chan interface{}, parentCtx *js.Context, options workerO
 			return nil
 		})
 
+		fmt.Println("setGlobal postMessage")
 		global.SetFunction("postMessage", func(args js.Arguments) interface{} {
 			arg := args.Get(0)
 			parent <- arg
@@ -63,6 +66,11 @@ func createChild(parent chan interface{}, parentCtx *js.Context, options workerO
 		child = *ctx.NewRPC(callback)
 		wg.Done()
 
+		if !onmessage.IsFunction() {
+			ctx.UnRef()
+			// ctx.Terminate()
+		}
+
 		ctx.Loop()
 		dupped.Free()
 		child.Close()
@@ -70,6 +78,11 @@ func createChild(parent chan interface{}, parentCtx *js.Context, options workerO
 		onmessage.Free()
 		global.Free()
 		ctx.Free()
+		fmt.Println("exited")
+
+		go func() {
+			parent <- "exit"
+		}()
 	}()
 
 	return &child
@@ -79,8 +92,6 @@ func worker2(ctx *js.Context, global js.Value) {
 	global.Set("worker2", func(args js.Arguments) interface{} {
 		workerFile, isFile := args.Get(0).(string)
 		callback := args.GetValue(1).Dup().AutoFree()
-
-		fmt.Println(workerFile)
 
 		if !isFile {
 			return ctx.Throw("Worker arg(0) must be a file path to worker script")
@@ -98,6 +109,12 @@ func worker2(ctx *js.Context, global js.Value) {
 
 		err := args.GetMap(2, &options)
 
+		if options.IsCode {
+			options.Code = workerFile
+		} else {
+			options.Filename = workerFile
+		}
+
 		if err != nil {
 			return ctx.Throw(err.Error())
 		}
@@ -109,26 +126,34 @@ func worker2(ctx *js.Context, global js.Value) {
 		child := createChild(parent, ctx, options)
 		wg.Wait()
 
+		fmt.Println("wait done")
+
 		obj := ctx.Object()
 
 		obj.Set("postMessage", func(args js.Arguments) interface{} {
 			arg := args.Get(0)
-			go child.Send(arg)
+			child.Send(arg)
 			return nil
 		})
 
 		obj.Set("terminate", func(args js.Arguments) interface{} {
-			go child.Send("exit")
-			callback.Free()
-			close(parent)
-			go ctx.UnRef()
+			child.Send("exit")
 			return nil
 		})
 
 		go func() {
 			for ret := range parent {
+				fmt.Println(" got exit message from child", ret)
 				ctx.Channel <- func() {
-					callback.Call(ret)
+					msg, isString := ret.(string)
+					if isString && msg == "exit" {
+						fmt.Println("worker exit")
+						callback.Free()
+						close(parent)
+						ctx.UnRef()
+					} else {
+						callback.Call(ret)
+					}
 				}
 			}
 		}()
