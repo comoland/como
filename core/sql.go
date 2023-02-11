@@ -6,10 +6,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-type Test struct {
-	num int
-}
-
 func sql(ctx *js.Context, Como js.Value) {
 	Como.Set("sql", func(args js.Arguments) interface{} {
 		driver, ok := args.Get(0).(string)

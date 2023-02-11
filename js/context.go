@@ -28,7 +28,7 @@ type Context struct {
 	isTerminated bool
 
 	// modules
-	modules map[string]Module
+	modules map[string]*Module
 
 	//values
 	values map[string]Value
@@ -218,6 +218,8 @@ func (ctx *Context) GoToJSValue(value interface{}) Value {
 	switch val := value.(type) {
 	case Value:
 		return val
+	case *Value:
+		return *val
 	case C.JSValue:
 		jsValue = val
 	case Promise:
@@ -528,7 +530,9 @@ func (ctx *Context) Free() {
 		value.Free()
 	}
 
+	// C.JS_RunGC(ctx.rt)
 	pointer.Unref(C.JS_GetContextOpaque(ctx.c))
+	// C.js_free(ctx.c, C.JS_GetContextOpaque(ctx.c))
 
 	ctx.DeleteModulesList()
 	ctx.FreeValue(ctx.asyncIterator)
@@ -536,7 +540,7 @@ func (ctx *Context) Free() {
 	ctx.FreeValue(ctx.proxy)
 	C.JS_FreeContext(ctx.c)
 
-	defer ctx.rt.Free()
+	ctx.rt.Free()
 	// fmt.Println("TO DO! the free below should be enabled")
 	runtime.GC()
 }
@@ -556,13 +560,17 @@ func (ctx *Context) Throw(v interface{}) Value {
 }
 
 func (ctx *Context) Throw2(v interface{}) {
-	// err := Value{ctx: ctx, c: C.JS_NewError(ctx.c)}
-	// stack := err.GetValue("stack")
-	// err.Set("message", v)
-	// defer stack.Free()
-	// ctx.ThrowStackError()
 	fn := ctx.EvalFunction("<native>", `(msg) => {
-		throw new Error(msg)
+		let err = new Error();
+		if (typeof msg === "object") {
+			err.message = msg.message;
+			if (msg.stack) {
+				err.stack = msg.stack;
+			}
+		} else {
+			err.message = msg;
+		}
+		throw err;
 	}`)
 
 	defer fn.Free()
@@ -587,4 +595,12 @@ func (ctx *Context) Wait() {
 
 func (ctx *Context) OnExit(cb func()) {
 	ctx.onExit = append(ctx.onExit, cb)
+}
+
+func (ctx *Context) Lock() {
+	ctx.mutex.Lock()
+}
+
+func (ctx *Context) Unlock() {
+	ctx.mutex.Unlock()
 }

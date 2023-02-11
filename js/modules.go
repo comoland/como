@@ -60,7 +60,7 @@ func set_module_exports(c *C.JSContext, m *C.JSModuleDef) C.int {
 	return 0
 }
 
-func (ctx *Context) NewModule(name string) Module {
+func (ctx *Context) NewModule(name string) *Module {
 	cnamestr := C.CString(name)
 	defer C.free(unsafe.Pointer(cnamestr))
 
@@ -69,8 +69,8 @@ func (ctx *Context) NewModule(name string) Module {
 
 	exportList := make(map[string]interface{})
 	module := Module{ctx, m, exportList}
-	ctx.modules[name] = module
-	return module
+	ctx.modules[name] = &module
+	return ctx.modules[name]
 }
 
 func (m *Module) Export(name string, v interface{}) {

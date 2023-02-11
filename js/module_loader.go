@@ -177,7 +177,10 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 		})
 
 		if len(result.Errors) > 0 {
-			debug(result.Errors[0])
+			ctx.Throw2(map[string]interface{}{
+				"message": result.Errors[0].Text,
+			})
+
 			os.Exit(1)
 		}
 
@@ -216,7 +219,10 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 			})
 
 			if len(result.Errors) > 0 {
-				debug(result.Errors[0])
+				ctx.Throw2(map[string]interface{}{
+					"message": result.Errors[0].Text,
+				})
+
 				os.Exit(1)
 			}
 

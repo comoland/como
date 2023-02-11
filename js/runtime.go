@@ -110,7 +110,7 @@ func (rt *C.JSRuntime) NewContext() *Context {
 		proxy:         proxy,
 		asyncIterator: asyncIterator,
 		values:        make(map[string]Value),
-		modules:       make(map[string]Module),
+		modules:       make(map[string]*Module),
 		StackFormatter: func(stack string) string {
 			return stack
 		},

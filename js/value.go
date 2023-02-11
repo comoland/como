@@ -39,17 +39,13 @@ func (val Value) AutoFree() Value {
 	// }
 
 	ctx := val.ctx
-	ctx.mutex.Lock()
+	ctx.Lock()
 	num1 = num1 + 1
 	id := strconv.Itoa(num1)
 	val = Value{ctx: val.ctx, c: val.c, AutoRelease: true, id: id}
 	ctx.values[id] = val
-	ctx.mutex.Unlock()
+	ctx.Unlock()
 	return val
-}
-
-func (val Value) FreeAuto() {
-	val.Free()
 }
 
 func (f Value) Call(args ...interface{}) interface{} {

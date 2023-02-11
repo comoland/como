@@ -60,8 +60,7 @@ test('sql trans', async () => {
 
     const trans = db.begin();
     while (i++ < 1000) {
-        await trans.exec(
-            `
+        await trans.exec(`
             INSERT INTO place (
                 country,
                 telcode,
