@@ -326,6 +326,49 @@ func TestBuffer(t *testing.T) {
 	}
 }
 
+func TestFinalizers(t *testing.T) {
+	Loop, ctx := core.Como("")
+	global := ctx.GlobalObject()
+
+	var list []string
+	obj := ctx.ClassObject(func() {
+		list = append(list, "second")
+	})
+
+	obj1 := ctx.ClassObject(func() {
+		list = append(list, "first")
+	})
+
+	global.Set("insert", func(args js.Arguments) interface{} {
+		list = append(list, "third")
+		return nil
+	})
+
+	// should call finalizer immediately
+	obj1.Free()
+	global.Set("a", obj)
+
+	ctx.Eval(`
+		globalThis.b = {...a}
+		delete globalThis.a
+		// should be called after second finalizer
+		globalThis.insert()
+		delete globalThis.b
+	`)
+
+	Loop(func() {
+		global.Free()
+	})
+
+	if len(list) != 3 {
+		t.Errorf("expected 1 runs, got %d", len(list))
+	}
+
+	if list[0] != "first" || list[1] != "second" || list[2] != "third" {
+		t.Errorf("expected ordered free list")
+	}
+}
+
 func TestJs(t *testing.T) {
 	Loop, _ := core.Como("./test/load.js")
 	Loop(func() {})
