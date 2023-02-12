@@ -22,6 +22,7 @@ import (
 type Context struct {
 	// js main context
 	rt           *C.JSRuntime
+	runtime      *JSRunTime
 	c            *C.JSContext
 	wg           *sync.WaitGroup
 	mutex        *sync.Mutex
@@ -531,8 +532,8 @@ func (ctx *Context) Free() {
 	}
 
 	// C.JS_RunGC(ctx.rt)
-	pointer.Unref(C.JS_GetContextOpaque(ctx.c))
-	// C.js_free(ctx.c, C.JS_GetContextOpaque(ctx.c))
+	runtimeOp := C.JS_GetRuntimeOpaque(ctx.rt)
+	ctxOp := C.JS_GetContextOpaque(ctx.c)
 
 	ctx.DeleteModulesList()
 	ctx.FreeValue(ctx.asyncIterator)
@@ -541,8 +542,10 @@ func (ctx *Context) Free() {
 	C.JS_FreeContext(ctx.c)
 
 	ctx.rt.Free()
-	// fmt.Println("TO DO! the free below should be enabled")
+	pointer.Unref(runtimeOp)
+	pointer.Unref(ctxOp)
 	runtime.GC()
+	// fmt.Println("TO DO! the free below should be enabled")
 }
 
 func (ctx *Context) Error(v interface{}) Value {

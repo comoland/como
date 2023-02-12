@@ -4,46 +4,23 @@ package js
 	#include "quickjs.h"
 	#include "quickjs-libc.h"
 
-	JSValue proxy_call();
-	void finalizer();
-	static JSClassID go_class_id;
+	JSValue _js_proxy_call();
+	void _go_js_object_finalizer();
+	void _go_js_function_finalizer();
 
-	static void como_go_finalizer(JSRuntime *rt, JSValue val) {
-		void *op = JS_GetOpaque(val, go_class_id);
-		finalizer(op, rt, val);
-	}
+	__attribute__((weak))
+	JSClassDef JS_Function_Struct = {
+		"Function",
+		.finalizer = NULL,
+		.call = NULL
+	};
 
-	static JSValue como_class_caller(JSContext *ctx, JSValue func_obj, JSValue this_val, int argc, JSValue *argv, int flags) {
-		void *op = JS_GetOpaque(func_obj, go_class_id);
-		return proxy_call(ctx, this_val, argc, argv, op);
-	}
-
-	static JSValue como_new_class_function(JSContext *ctx, void *op) {
-		JSClassDef go_function = {
-    		"Function",
-			.finalizer = como_go_finalizer,
-			.call = como_class_caller
-		};
-
-		JS_NewClassID(&go_class_id);
-        JS_NewClass(JS_GetRuntime(ctx), go_class_id, &go_function);
-		JSValue obj = JS_NewObjectClass(ctx, go_class_id);
-		JS_SetOpaque(obj, op);
-		return obj;
-	}
-
-	static JSValue como_new_class_object(JSContext *ctx, void *op) {
-		JSClassDef go_function = {
-    		"Object",
-			.finalizer = como_go_finalizer,
-		};
-
-		JS_NewClassID(&go_class_id);
-        JS_NewClass(JS_GetRuntime(ctx), go_class_id, &go_function);
-		JSValue obj = JS_NewObjectClass(ctx, go_class_id);
-		JS_SetOpaque(obj, op);
-		return obj;
-	}
+	__attribute__((weak))
+	JSClassDef JS_Object_Struct = {
+		"Object",
+		.finalizer = NULL,
+		.call = NULL
+	};
 */
 import "C"
 
@@ -76,16 +53,6 @@ func (ctx *Context) JsFunction(val C.JSValue) Function {
 	return o
 }
 
-func (ctx *Context) Function(fn callBackFn) *Function {
-	o := &Function{
-		goFunc: fn,
-	}
-
-	o.ctx = ctx
-	o.c = C.como_new_class_function(ctx.c, pointer.Save(o))
-	return o
-}
-
 func (fn *Function) AutoFree() *Function {
 	if fn.this != nil {
 		fn.this.AutoFree()
@@ -95,9 +62,25 @@ func (fn *Function) AutoFree() *Function {
 	return fn
 }
 
-//export finalizer
-func finalizer(op unsafe.Pointer, rt *C.JSRuntime, val C.JSValue) {
-	ref := pointer.Restore(op).(*Function)
+// TODO: implement js class constructor
+// func (ctx *Context) Class(fn callBackFn) *Function {
+// 	o := ctx.Function(fn)
+// 	C.JS_SetConstructorBit(ctx.c, o.js.c, 1)
+// 	// obj := ctx.Object()
+// 	// C.JS_SetConstructor(ctx.c, o.js.c, obj.c)
+// 	return o
+// }
+
+//export _go_js_object_finalizer
+func _go_js_object_finalizer(rt *C.JSRuntime, val C.JSValue) {
+	runtime := rt.GetOpaque()
+	op := C.JS_GetOpaque(val, C.uint(runtime.classObjectId))
+	ref, isFn := pointer.Restore(op).(*Function)
+
+	if !isFn {
+		return
+	}
+
 	if ref.finalizer != nil {
 		fin := *ref.finalizer
 		fin()
@@ -107,8 +90,37 @@ func finalizer(op unsafe.Pointer, rt *C.JSRuntime, val C.JSValue) {
 	pointer.Unref(op)
 }
 
-//export proxy_call
-func proxy_call(ctx *C.JSContext, thisValue C.JSValueConst, argc int, argvP *C.JSValueConst, op unsafe.Pointer) C.JSValue {
+func (ctx *Context) ClassObject(finalizer func()) *Function {
+	// initialize the class object only once
+	runtime := ctx.runtime
+	if runtime.classObjectId == 0 {
+		s := &C.JS_Object_Struct
+		s.finalizer = (*C.JSClassFinalizer)(C._go_js_object_finalizer)
+		id := C.JS_NewClassID((*C.uint)(&runtime.classObjectId))
+		i := C.JS_NewClass(C.JS_GetRuntime(ctx.c), id, s)
+		if i != 0 {
+			panic("error creating class object")
+		}
+	}
+
+	o := &Function{
+		finalizer: &finalizer,
+	}
+
+	obj := C.JS_NewObjectClass(ctx.c, C.int(runtime.classObjectId))
+	C.JS_SetOpaque(obj, pointer.Save(o))
+
+	o.ctx = ctx
+	o.c = obj
+	return o
+}
+
+//export _js_proxy_call
+func _js_proxy_call(ctx *C.JSContext, fn C.JSValue, thisValue C.JSValueConst, argc int, argvP *C.JSValueConst, flags int) C.JSValue {
+	rt := C.JS_GetRuntime(ctx)
+	runtime := rt.GetOpaque()
+
+	op := C.JS_GetOpaque(fn, C.uint(runtime.classFunctionId))
 	ref := pointer.Restore(op).(*Function)
 	argv := (*[1 << 30]C.JSValueConst)(unsafe.Pointer(argvP))[:argc:argc]
 
@@ -126,24 +138,46 @@ func proxy_call(ctx *C.JSContext, thisValue C.JSValueConst, argc int, argvP *C.J
 	return jsVal.c
 }
 
-// TODO: implement js class constructor
-// func (ctx *Context) Class(fn callBackFn) *Function {
-// 	o := ctx.Function(fn)
-// 	C.JS_SetConstructorBit(ctx.c, o.js.c, 1)
-// 	// obj := ctx.Object()
-// 	// C.JS_SetConstructor(ctx.c, o.js.c, obj.c)
-// 	return o
-// }
+//export _go_js_function_finalizer
+func _go_js_function_finalizer(rt *C.JSRuntime, val C.JSValue) {
+	runtime := rt.GetOpaque()
+	op := C.JS_GetOpaque(val, C.uint(runtime.classFunctionId))
+	ref, isFn := pointer.Restore(op).(*Function)
 
-// ClassObject create an object with a finalizer function,
-// finalizer will run when the object is out of scope,
-// returns a js object value
-func (ctx *Context) ClassObject(finalizer func()) *Function {
-	o := &Function{
-		finalizer: &finalizer,
+	if !isFn {
+		return
 	}
 
+	if ref.finalizer != nil {
+		fin := *ref.finalizer
+		fin()
+	}
+
+	ref.Free()
+	pointer.Unref(op)
+}
+
+func (ctx *Context) Function(fn callBackFn) *Function {
+	runtime := ctx.runtime
+	if runtime.classFunctionId == 0 {
+		s := &C.JS_Function_Struct
+		s.finalizer = (*C.JSClassFinalizer)(C._go_js_function_finalizer)
+		s.call = (*C.JSClassCall)(C._js_proxy_call)
+		id := C.JS_NewClassID((*C.uint)(&runtime.classFunctionId))
+		i := C.JS_NewClass(C.JS_GetRuntime(ctx.c), id, s)
+		if i != 0 {
+			panic("error creating class object")
+		}
+	}
+
+	o := &Function{
+		goFunc: fn,
+	}
+
+	obj := C.JS_NewObjectClass(ctx.c, C.int(runtime.classFunctionId))
+	C.JS_SetOpaque(obj, pointer.Save(o))
+
 	o.ctx = ctx
-	o.c = C.como_new_class_object(ctx.c, pointer.Save(o))
+	o.c = obj
 	return o
 }

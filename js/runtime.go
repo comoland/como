@@ -6,21 +6,42 @@ import "C"
 
 import (
 	"sync"
+
+	"github.com/mattn/go-pointer"
 )
 
-// run time
-func NewRuntime() *C.JSRuntime {
+type JSRunTime struct {
+	rt              *C.JSRuntime
+	mainThread      bool
+	classFunctionId uint32
+	classObjectId   uint32
+}
+
+func NewRuntime() *JSRunTime {
 	rt := C.JS_NewRuntime()
 	C.JS_SetCanBlock(rt, 0)
-	return rt
+
+	runtime := &JSRunTime{
+		rt:              rt,
+		classFunctionId: 0,
+		classObjectId:   0,
+	}
+
+	C.JS_SetRuntimeOpaque(rt, pointer.Save(runtime))
+	return runtime
 }
 
 func (rt *C.JSRuntime) Free() {
 	C.JS_FreeRuntime(rt)
 }
 
-func (rt *C.JSRuntime) NewContext() *Context {
-	ctx := C.como_js_context(rt)
+func (rt *C.JSRuntime) GetOpaque() *JSRunTime {
+	p := pointer.Restore(C.JS_GetRuntimeOpaque(rt)).(*JSRunTime)
+	return p
+}
+
+func (runtime *JSRunTime) NewContext() *Context {
+	ctx := C.como_js_context(runtime.rt)
 
 	promise := ctx.evalFile("<Promise>", `() => {
 		var res, rej;
@@ -101,7 +122,8 @@ func (rt *C.JSRuntime) NewContext() *Context {
 	mutex := new(sync.Mutex)
 
 	context := &Context{
-		rt:            rt,
+		rt:            runtime.rt,
+		runtime:       runtime,
 		c:             ctx,
 		mutex:         mutex,
 		wg:            wg,
