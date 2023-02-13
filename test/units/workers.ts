@@ -242,4 +242,16 @@ test('throw inside a worker should not terminate main process', async () => {
     );
 });
 
+test('worker inherits main thread modules', async () => {
+    const worker = Como.createWorker(async (arg: number) => {
+        // @ts-ignore
+        const {  call } = await import("dump.go")
+        return call(arg)
+    })
+
+    const val = await worker.exec(10);
+    worker.terminate()
+    assert.equal(val, 10)
+});
+
 test.run();

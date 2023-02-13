@@ -370,6 +370,13 @@ func TestFinalizers(t *testing.T) {
 }
 
 func TestJs(t *testing.T) {
-	Loop, _ := core.Como("./test/load.js")
+	Loop, ctx := core.Como("./test/load.js")
+
+	m := ctx.NewModule("dump.go")
+	m.Export("call", func(args js.Arguments) interface{} {
+		arg := args.Get(0)
+		return arg
+	})
+
 	Loop(func() {})
 }
