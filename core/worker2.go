@@ -60,13 +60,6 @@ func createChild(parent chan interface{}, parentCtx *js.Context, options workerO
 
 		onmessage := global.GetValue("onmessage")
 		callback := ctx.Function(func(args js.Arguments) interface{} {
-			arg, isString := args.Get(0).(string)
-
-			if isString && arg == "exit" {
-				ctx.Terminate()
-				return nil
-			}
-
 			if onmessage.IsFunction() {
 				onmessage.CallArgs(args)
 			}

@@ -204,6 +204,7 @@ func build(ctx *js.Context, Como js.Value) {
 				External:          options.External,
 				Format:            api.FormatESModule,
 				Target:            api.ES2015,
+				// Loader:            map[string]api.Loader{"tsx": api.LoaderJSX},
 				// Engines: []api.Engine{
 				// 	{Name: api.EngineEdge, Version: "16"},
 				// 	{Name: api.EngineChrome, Version: "58"},
