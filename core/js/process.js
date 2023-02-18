@@ -48,7 +48,7 @@
 
         hrtime = hrtime;
         nextTick = queueMicrotask;
-        suspense = suspense
+        suspense = suspense;
 
         _env = null;
         get env() {
@@ -69,11 +69,11 @@
 
         get platform() {
             const _platform = platform();
-            if (_platform === "windows") {
-                return win32
+            if (_platform === 'windows') {
+                return win32;
             }
 
-            return _platform
+            return _platform;
         }
 
         constructor() {}

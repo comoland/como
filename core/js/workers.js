@@ -10,7 +10,6 @@
     globalThis.Como.createWorker = (fn, options = { pool: 1 }) => {
         const filename = getFilePath();
 
-
         let _messageId = 0;
         const generateNewMessageId = () => ++_messageId + '_worker';
 
@@ -48,22 +47,22 @@
                 workerCode,
                 args => {
                     const { messageId, error, data, workerId, action } = args;
+
                     const task = _tasks[messageId];
+                    delete _tasks[messageId];
 
                     if (action && typeof action.exit === 'number') {
-                        console.log("got exit message from worker", workerId, action.exit);
-                        [..._inProgress, ..._pool].forEach((w) => {
+                        console.log('got exit message from worker', workerId, action.exit);
+                        [..._inProgress, ..._pool].forEach(w => {
                             if (w.id === workerId) {
-                                console.log("terminate worker", w.id);
+                                console.log('terminate worker', w.id);
                                 w.terminate();
                                 const err = new Error('terminated');
                                 if (task) task.reject(err);
                             }
-                        })
+                        });
                         return;
                     }
-
-
 
                     if (task) {
                         if (error) {
@@ -118,8 +117,8 @@
             terminate: () => {
                 _pool.forEach(w => w.terminate());
                 _inProgress.forEach(w => w.terminate());
-                _pool = []
-                _inProgress = []
+                _pool = [];
+                _inProgress = [];
             },
             exec: async data => {
                 const messageId = generateNewMessageId();
@@ -182,7 +181,7 @@
 
                 setTimeout(() => {
                     worker.terminate();
-                })
+                });
             },
             {
                 isCode: true,
@@ -190,7 +189,7 @@
             }
         );
 
-        worker.postMessage("")
+        worker.postMessage('');
 
         return promise;
     };

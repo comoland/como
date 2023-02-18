@@ -40,7 +40,7 @@ _timeout => {
         }
     }
 
-    const _timeouts = {}
+    const _timeouts = {};
 
     globalThis.setTimeout = function setTimeout(cb, timeout, ...args) {
         return new Timeout(cb, timeout, args, false);
@@ -49,13 +49,13 @@ _timeout => {
     globalThis.setTimeout2 = function setTimeout(cb, timeout, ...args) {
         const nextTimeout = Date.now() + timeout;
         const old = _timeouts[nextTimeout];
-        delete _timeouts[nextTimeout]
+        delete _timeouts[nextTimeout];
         _timeouts[nextTimeout] = () => {
-            cb.call(this,...args);
+            cb.call(this, ...args);
             if (old) {
-                process.nextTick(old)
+                process.nextTick(old);
             }
-        }
+        };
 
         // return new Timeout(cb, timeout, args, false);
     };

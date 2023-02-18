@@ -28,7 +28,7 @@ func sql(ctx *js.Context, Como js.Value) {
 			return ctx.Throw(err.Error())
 		}
 
-		// db.SetMaxOpenConns(10)
+		db.SetMaxOpenConns(1)
 
 		obj := ctx.ClassObject(func() {
 			db.Close()
@@ -73,6 +73,7 @@ func sql(ctx *js.Context, Como js.Value) {
 				promise := ctx.NewPromise()
 				go func() {
 					rows, err := tx.Queryx(sqlStr, bindValues...)
+					defer rows.Close()
 					if err != nil {
 						promise.Reject(ctx.Error(err.Error()))
 					} else {
@@ -278,6 +279,7 @@ func sql(ctx *js.Context, Como js.Value) {
 			promise := ctx.NewPromise()
 			go func() {
 				rows, err := db.Queryx(sqlStr, bindValues...)
+				defer rows.Close()
 				if err != nil {
 					promise.Reject(ctx.Error(err.Error()))
 				} else {

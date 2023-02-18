@@ -522,6 +522,25 @@ func (ctx *Context) Loop() {
 	}
 }
 
+func (ctx *Context) LoopOnce() uint64 {
+	refs := ctx.runPendingJobs()
+
+	if refs > 0 {
+		pending := <-ctx.Channel
+		switch val := pending.(type) {
+		case func():
+			val()
+		case *RPC:
+			ret := val.fn.Call(val.args)
+			val.in <- ret
+		}
+
+		refs = ctx.runPendingJobs()
+	}
+
+	return refs
+}
+
 func (ctx *Context) Free() {
 	for _, cb := range ctx.onExit {
 		cb()
