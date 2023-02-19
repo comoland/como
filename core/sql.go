@@ -28,7 +28,7 @@ func sql(ctx *js.Context, Como js.Value) {
 			return ctx.Throw(err.Error())
 		}
 
-		db.SetMaxOpenConns(1)
+		// db.SetMaxOpenConns(0)
 
 		obj := ctx.ClassObject(func() {
 			db.Close()

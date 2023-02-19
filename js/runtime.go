@@ -107,7 +107,6 @@ func (runtime *JSRunTime) NewContext() *Context {
 						iterator.clean()
 					},
 					async throw(e){
-						console.log('rrrrrrrrrrrrrr')
 						iterator.clean()
 						return e;
 					}
