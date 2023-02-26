@@ -54,7 +54,7 @@ func fileExists(ctx *Context, filename string) (string, bool) {
 			return newFile, true
 		}
 
-		return "", false
+		// return "", false
 	}
 
 	info, err := os.Stat(filename)
@@ -146,7 +146,9 @@ func (ctx *Context) RegisterModuleAlias(name string, alias string) {
 }
 
 func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
-	if s.HasSuffix(filename, ".go") {
+	ext := filepath.Ext(filename)
+
+	if ext == ".go" {
 		ctx.externals = append(ctx.externals, filename)
 	}
 
@@ -269,7 +271,7 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 			// lock.Lock()
 			// sourceMaps[filename] = result.OutputFiles[0].Contents
 			// lock.Unlock()
-		} else {
+		} else if ext != ".js" {
 			codeStr = string(code)
 			result := api.Transform(codeStr, api.TransformOptions{
 				Loader:     api.LoaderTSX,
@@ -284,6 +286,8 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 			lock.Lock()
 			sourceMaps[filename] = result.Map
 			lock.Unlock()
+		} else {
+			codeStr = string(code)
 		}
 	}
 
