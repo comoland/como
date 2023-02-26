@@ -599,6 +599,16 @@ func (ctx *Context) Throw2(v interface{}) {
 	fn.Call(v)
 }
 
+func (ctx *Context) ParseJSON(v string) Value {
+	ptr := C.CString(v)
+	defer C.free(unsafe.Pointer(ptr))
+
+	filenamePtr := C.CString("")
+	defer C.free(unsafe.Pointer(filenamePtr))
+
+	return Value{ctx: ctx, c: C.JS_ParseJSON(ctx.c, ptr, C.size_t(len(v)), filenamePtr)}
+}
+
 func (ctx *Context) CheckError(err error) {
 	if err != nil {
 		var evalErr *Error
@@ -613,6 +623,14 @@ func (ctx *Context) CheckError(err error) {
 
 func (ctx *Context) Wait() {
 	ctx.wg.Wait()
+}
+
+func (ctx *Context) Add() {
+	ctx.wg.Add(1)
+}
+
+func (ctx *Context) Done() {
+	ctx.wg.Done()
 }
 
 func (ctx *Context) OnExit(cb func()) {
