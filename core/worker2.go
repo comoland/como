@@ -55,7 +55,7 @@ func createChild(parent chan interface{}, parentCtx *js.Context, options workerO
 
 		child.terminate = func() {
 			child.isClose = true
-			ctx.Channel <- func() { ctx.Terminate() }
+			ctx.Channel <- func() { ctx.Throw2("exit2") }
 		}
 
 		onmessage := global.GetValue("onmessage")

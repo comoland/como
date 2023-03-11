@@ -380,3 +380,68 @@ func TestJs(t *testing.T) {
 
 	Loop(func() {})
 }
+
+// func TestAwait(t *testing.T) {
+// 	runs := 0
+// 	Loop, ctx := core.Como("")
+// 	global := ctx.GlobalObject()
+// 	global.Set("testAwait", func(args js.Arguments) interface{} {
+// 		runs = runs + 1
+// 		fn := args.GetValue(0)
+
+// 		if !fn.IsFunction() {
+// 			t.Errorf("%s; want function", fn)
+// 		}
+
+// 		async := ctx.EvalFunction(`<ASYNC>`, `async (fn, num) => {
+// 			return await fn(num)
+// 			return 7
+// 		}`)
+
+// 		// ret := fn.CallArgs(args)
+
+// 		// fmt.Println("after", ret)
+
+// 		defer async.Free()
+// 		retm := async.CallArgs(args)
+
+// 		fmt.Println("wwwwwwwwwwwwwwwwwwwwwwwww", retm)
+
+// 		return retm
+// 	})
+
+// 	ctx.Eval(`
+// 		// async function testAwait(fn, num) {
+// 		// 	console.log(fn, num)
+// 		// 	var ret = await fn(num);
+// 		// 	console.log('fn ret ===> ', ret)
+// 		// 	return ret;
+// 		// }
+
+// 		(async function(){
+// 			const m = await testAwait(async (num) => {
+// 				await new Promise((resolve, reject) => setTimeout(resolve, 1000))
+// 				console.log("xxxxxxx ===> ", num)
+// 				return num
+// 			}, 10);
+
+// 			console.log({ m: m })
+// 		})();
+
+// 		(async function(){
+// 			testAwait(async (num) => {
+// 				await new Promise((resolve, reject) => setTimeout(resolve, 1000))
+// 				console.log("xxxxxxx ===> ", num)
+// 				return num
+// 			}, 10);
+// 		})();
+// 	`)
+
+// 	Loop(func() {
+// 		global.Free()
+// 	})
+
+// 	if runs != 1 {
+// 		t.Errorf("expected 1 runs, got %d", runs)
+// 	}
+// }

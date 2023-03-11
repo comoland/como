@@ -80,6 +80,16 @@ func (m *Module) Export(name string, v interface{}) {
 	m.exportList[name] = v
 }
 
+func (m *Module) Exports(exports interface{}) {
+	e := exports.(map[string]interface{})
+	for name, v := range e {
+		cnamestr := C.CString(name)
+		defer C.free(unsafe.Pointer(cnamestr))
+		C.JS_AddModuleExport(m.ctx.c, m.m, cnamestr)
+		m.exportList[name] = v
+	}
+}
+
 func (ctx *Context) DeleteModulesList() {
 	for _, module := range ctx.modules {
 		for key := range module.exportList {
