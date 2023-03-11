@@ -18,6 +18,7 @@ func initCoreModels(ctx *js.Context) {
 	console(ctx, global)
 	buffer(ctx, global)
 	fetch(ctx, global)
+	filesystem(ctx, global)
 
 	// Como methods
 	path(ctx, comoObj)

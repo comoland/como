@@ -137,6 +137,8 @@ func (runtime *JSRunTime) NewContext() *Context {
 		},
 	}
 
+	context.externals = append(context.externals, "fs")
+
 	ctx.setOpaque(context)
 	initError(context)
 	return context
