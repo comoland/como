@@ -36,6 +36,6 @@ func filesystem(ctx *js.Context, global js.Value) {
 	ret := filesystem.Call(exp)
 
 	m := ctx.NewModule("fs")
-	m.Exports(ret)
+	// m.Exports(ret)
 	m.Export("default", ret)
 }

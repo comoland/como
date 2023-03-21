@@ -6,6 +6,7 @@ import "C"
 
 import (
 	// "fmt"
+
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -33,6 +34,12 @@ func (a *Arguments) Add(args ...interface{}) Arguments {
 	}
 
 	return Arguments{Ctx: a.Ctx, argc: len(jsArgs), argv: jsArgs}
+}
+
+func (a *Arguments) Append(arg interface{}) Arguments {
+	val := a.Ctx.goToJSValue(arg)
+	a.argv = append(a.argv, val)
+	return *a
 }
 
 func (args Arguments) Dup() Arguments {
@@ -79,6 +86,25 @@ func (args Arguments) GetString(argIndex int) string {
 	}
 
 	return str
+}
+
+func (args Arguments) GetBuffer(argIndex int) ([]byte, error) {
+	val := args.GetValue(argIndex)
+	if val.IsObject() {
+		buf, ok := val.Get("buffer").([]byte)
+		if !ok {
+			buf, isBuf := args.Get(argIndex).([]byte)
+			if !isBuf {
+				return nil, &Error{Cause: "not a buffer"}
+			}
+
+			return buf, nil
+		}
+
+		return buf, nil
+	}
+
+	return nil, &Error{Cause: "not a buffer"}
 }
 
 func (args Arguments) GetNumber(argIndex int) (float64, bool) {

@@ -108,7 +108,7 @@
                 "'" + JSON.stringify(value).replace(/^"|"$/g, '').replace(/'/g, "\\'").replace(/\\"/g, '"') + "'";
             return ctx.stylize(simple, 'string');
         }
-        if (isNumber(value)) {
+        if (isNumber(value) || typeof value === 'bigint') {
             // Format -0 as '-0'. Strict equality won't distinguish 0 from -0,
             // so instead we use the fact that 1 / -0 < 0 whereas 1 / 0 > 0 .
             if (value === 0 && 1 / value < 0) return ctx.stylize('-0', 'number');

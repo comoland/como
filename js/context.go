@@ -262,6 +262,8 @@ func (ctx *Context) GoToJSValue(value interface{}) Value {
 		jsValue = C.JS_NewInt64(ctx.c, C.int64_t(val))
 	case uint64:
 		jsValue = C.JS_NewBigUint64(ctx.c, C.uint64_t(val))
+	case float64:
+		jsValue = C.JS_NewFloat64(ctx.c, C.double(val))
 	case string:
 		ptr := C.CString(val)
 		defer C.free(unsafe.Pointer(ptr))
@@ -277,12 +279,6 @@ func (ctx *Context) GoToJSValue(value interface{}) Value {
 			o.Set(k, v)
 		}
 		return o
-	case []interface{}:
-		a := ctx.Array()
-		for i, v := range val {
-			a.SetInt(uint(i), v)
-		}
-		return a
 	case []string:
 		a := ctx.Array()
 		for i, v := range val {
@@ -295,8 +291,20 @@ func (ctx *Context) GoToJSValue(value interface{}) Value {
 			a.SetInt(uint(i), v)
 		}
 		return a
-	case float64:
-		jsValue = C.JS_NewFloat64(ctx.c, C.double(val))
+	case []uint64:
+		a := ctx.Array()
+		for i, v := range val {
+			a.SetInt(uint(i), v)
+		}
+		return a
+	case []interface{}:
+		a := ctx.Array()
+		for i, v := range val {
+			a.SetInt(uint(i), v)
+		}
+		return a
+	case *interface{}:
+		return ctx.GoToJSValue(*val)
 	default:
 		log.Fatalf("I don't know about type %T!\n", value)
 	}
