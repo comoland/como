@@ -1,19 +1,12 @@
 package main
 
 import (
-	// "fmt"
-
 	"fmt"
-	"runtime"
 	"testing"
 
 	"github.com/comoland/como/core"
 	"github.com/comoland/como/js"
 )
-
-func init() {
-	runtime.GOMAXPROCS(1)
-}
 
 func TestAutoFree(t *testing.T) {
 	runs := 0

@@ -61,19 +61,44 @@ async function test() {
     // e.terminate()
 };
 
-(async () => {
-    for (let i = 0; i < 1000; i++) {
+// (async () => {
+//     for (let i = 0; i < 1000; i++) {
 
-        const w = Como.worker('./exit.js', ()=> {})
+//         const w = Como.worker2('process.go', ()=> {})
 
-        // const worker = await test()
-        // await worker.exec("start")
-        const t =  w.terminate();
+//         // const worker = await test()
+//         // await worker.exec("start")
+//         const t =  w.terminate();
 
 
-        console.log("terminated", t)
-    }
-})();
+//         console.log("terminated", t)
+//     }
+// })();
+
+
+setInterval(() => {
+    // const w = Como.worker2('process3.go', ()=> {
+    //     console.log("u8uuuuuuuuuuuuuuuuuuuuu")
+    // })
+    // w.terminate()
+
+    const w = Como.createWorker(async () => {
+        setTimeout(() => {
+            import("jsrsasign").then((r) => {
+                import("react")
+                // console.log("u8uuuuuuuuuuuuuuuuuuuuu", typeof r)
+            })
+        }, 100)
+    })
+
+    w.exec()
+
+    setTimeout(() => {
+        w.terminate()
+        console.log('terminated')
+    }, 105)
+
+}, 10)
 
 setTimeout(() => {
 

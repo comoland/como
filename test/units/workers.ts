@@ -140,6 +140,89 @@ test('create worker single should not lock', async () => {
     assert.equal(ret, arr);
 });
 
+
+// test.skip('create worker single should not lock', async () => {
+//     const worker = Como.createWorker(
+//         async (args: number) => {
+//             const file = Como.path.resolve(import.meta.dir, '../fixtures/bundle.ts');
+//     try {
+//         const ret = await Como.build.bundle('', {
+//             stdin: {
+//                 resolveDir: '.',
+//                 contents: `
+//                     import * as React from 'react';
+//                     export default React;
+//                 `
+//             },
+//             minify: false,
+//             plugins: [
+
+//             ]
+//         });
+
+//         const code = `${ret[0].content}`;
+//         // console.log(code.length)
+//         return code.length
+//     } catch (e) {
+//         console.log("xxxxxxxxxxxx => ", e);
+//         // assert.ok(false);
+//     }
+//             // return new Promise((resolve) => {
+//             //     setTimeout(() => { resolve(args) }, 100)
+//             // });
+
+
+//         },
+//         { pool: 20 }
+//     );
+
+//     const arr = Array.from(Array(2000).keys());
+//     // for (const i of arr) {
+//     //     const ret = await worker.exec(i);
+//     //     console.log(ret);
+//     // }
+
+//     (async () => {
+//          (async () => {
+//             for (const i of arr) {
+//                 const ret = await worker.exec(i);
+//                 console.log(ret?.length);
+//             }
+//         })();
+
+//         (async () => {
+//             for (const i of arr) {
+//                 const ret = await worker.exec(i);
+//                 console.log(ret?.length);
+//             }
+//         })();
+
+//         (async () => {
+//             for (const i of arr) {
+//                 const ret = await worker.exec(i);
+//                 console.log(ret?.length);
+//             }
+//         })();
+
+//          (async () => {
+//             for (const i of arr) {
+//                 const ret = await worker.exec(i);
+//                 console.log(ret?.length);
+//             }
+//         })();
+//     })();
+
+
+
+//     return new Promise((resolve) => {
+//         setTimeout(() => {
+//             worker.terminate();
+//             resolve()
+//         }, 4000)
+//     })
+//     // assert.equal(ret, arr);
+// });
+
 test('create worker dispatch', async () => {
     const worker = Como.createWorker(
         async (action: string) => {
@@ -249,9 +332,14 @@ test('worker inherits main thread modules', async () => {
         return call(arg)
     })
 
-    const val = await worker.exec(10);
-    worker.terminate()
-    assert.equal(val, 10)
+    try {
+        const val = await worker.exec(10);
+        worker.terminate()
+        assert.equal(val, 10)
+    } catch (err: any) {
+        worker.terminate()
+        assert.ok(0, err.message)
+    }
 });
 
 test.run();
