@@ -4,7 +4,10 @@ import (
 	"context"
 	"crypto/rand"
 	_ "embed"
+	"fmt"
+	"math/big"
 	"os"
+	"reflect"
 
 	"github.com/comoland/como/js"
 	"github.com/tetratelabs/wazero"
@@ -33,12 +36,21 @@ func wasi(ctx *js.Context, global js.Value) {
 		}
 
 		wctx := context.Background()
-		r := wazero.NewRuntime(wctx)
-
-		wasi_snapshot_preview1.MustInstantiate(wctx, r)
+		// r := wazero.NewRuntime(wctx)
 
 		fsConfig := wazero.NewFSConfig()
 		fsConfig = fsConfig.WithDirMount("./", "./")
+
+		cache, err := wazero.NewCompilationCacheWithDir("./cache")
+		if err != nil {
+			panic(err)
+		}
+		defer cache.Close(wctx)
+
+		runtimeConfig := wazero.NewRuntimeConfig().WithCompilationCache(cache)
+
+		r := wazero.NewRuntimeWithConfig(wctx, runtimeConfig)
+		wasi_snapshot_preview1.MustInstantiate(wctx, r)
 
 		moduleConfig := wazero.NewModuleConfig().
 			WithArgs("cowsay", "wazero is awesome!").
@@ -61,8 +73,8 @@ func wasi(ctx *js.Context, global js.Value) {
 		}
 
 		module := ctx.Object()
-		cache := ctx.Object()
-		module.Set("__fn", cache)
+		cacheObj := ctx.Object()
+		module.Set("__fn", cacheObj)
 
 		var hostFunctions = make(map[string]map[string]M)
 
@@ -77,7 +89,7 @@ func wasi(ctx *js.Context, global js.Value) {
 			if jsObj != nil {
 				jsFn := jsObj[m]
 				if jsFn != nil && jsFn.IsFunction() {
-					cache.Set(n+m, *jsFn)
+					cacheObj.Set(n+m, *jsFn)
 					if hostFunctions[n] == nil {
 						hostFunctions[n] = make(map[string]M)
 					}
@@ -88,7 +100,6 @@ func wasi(ctx *js.Context, global js.Value) {
 					}
 				}
 			}
-
 		}
 
 		// initialization of host functions
@@ -107,16 +118,12 @@ func wasi(ctx *js.Context, global js.Value) {
 				}
 
 				fnName := k + k2
-
 				jsCall := func(_ context.Context, mod api.Module, stack []uint64) {
-					jsFn := cache.GetValue(fnName)
-
+					jsFn := cacheObj.GetValue(fnName)
 					defer jsFn.Free()
 
 					a := ctx.NewArguments()
 					pLength := len(paramTypes)
-
-					// fmt.Println(fnName, paramTypes, resultTypes, pLength)
 
 					for i, v := range stack {
 						if pLength > i {
@@ -134,6 +141,7 @@ func wasi(ctx *js.Context, global js.Value) {
 							}
 						} else {
 							a.Append(v)
+							panic("invalid parameter type")
 						}
 					}
 
@@ -169,30 +177,64 @@ func wasi(ctx *js.Context, global js.Value) {
 
 		module.Set("instance", instance)
 
-		fn := make(map[string]interface{}, len(mod.ExportedFunctionDefinitions()))
+		fn := make(map[string]interface{}, len(mod.ExportedFunctionDefinitions())+len(mod.ExportedMemoryDefinitions()))
 		for k := range mod.ExportedFunctionDefinitions() {
 			key := k
 			fn[k] = func(args js.Arguments) interface{} {
 				bindValues := make([]uint64, args.Len())
 				for i := 0; i < args.Len(); i++ {
-					switch val := args.Get(i).(type) {
+					switch val := ctx.JsToGoValue(args.GetValue(i)).(type) {
 					case uint64:
 						bindValues[i] = val
 					case int64:
 						bindValues[i] = api.EncodeI64(val)
 					case float64:
 						bindValues[i] = api.EncodeF64(val)
+					case js.Value:
+						if val.IsBigInt() {
+							var bignum, _ = new(big.Int).SetString(val.String(), 0)
+							bindValues[i] = bignum.Uint64()
+						} else {
+							return ctx.Throw("not implemented")
+						}
 					default:
-						return ctx.Throw("unknown argument type")
+						return ctx.Throw(fmt.Sprintf("invalid arg type %T!\n", val))
 					}
 				}
 
 				ret, err := mod.ExportedFunction(key).Call(wctx, bindValues...)
+
 				if err != nil {
 					return ctx.Throw(err.Error())
 				}
 
 				if len(ret) == 1 {
+					// fmt.Println("calling ", key, ret[0] > math.MaxUint32, ret[0])
+					// val := ret[0]
+
+					// fn := ctx.EvalFunction("ret", `(str) => {
+
+					// 	if (BigInt(str) > BigInt(Number.MAX_SAFE_INTEGER)) {
+					// 		return BigInt(str)
+					// 	}
+					// 	return Number(str)
+					// }`)
+
+					// // defer fn.Free()
+					// dd := ret[0]
+
+					// return dd
+
+					// if ret[0] < 0 {
+					// 	return int64(ret[0])
+					// }
+
+					// if ret[0] > math.MaxUint32 {
+					// 	return uint64(ret[0])
+					// }
+					// // if ret[0] > math.MaxInt32 {
+					// // 	return int64(ret[0])
+					// // }
 					return api.DecodeI32(ret[0])
 				}
 
@@ -202,6 +244,49 @@ func wasi(ctx *js.Context, global js.Value) {
 				}
 
 				return results
+			}
+		}
+
+		// fmt.Println(buf)
+
+		memory := mod.Memory()
+		if !reflect.ValueOf(memory).IsNil() {
+			buf, _ := mod.Memory().Read(0, 0)
+			fn["memory"] = map[string]interface{}{
+				"buffer": buf,
+				"read": func(args js.Arguments) interface{} {
+					offset, ok := args.GetNumber(0)
+					if !ok {
+						return ctx.Throw("args must be a number")
+					}
+
+					count, ok := args.GetNumber(1)
+					if !ok {
+						return ctx.Throw("args must be a number")
+					}
+
+					buf, ok := memory.Read(uint32(uint64(offset)), uint32(uint64(count)))
+					if !ok {
+						return ctx.Throw(fmt.Sprintf("Memory.Read(%f, %f) out of range", offset, count))
+					}
+
+					return buf
+				},
+				"write": func(args js.Arguments) interface{} {
+					offset := args.Get(0).(int64)
+
+					buf, err := args.GetBuffer(1)
+					if err != nil {
+						return ctx.Throw(err.Error())
+					}
+
+					ok := memory.Write(uint32(offset), buf)
+					if !ok {
+						return ctx.Throw(fmt.Sprintf("Memory.Write out of range of memory size %d", memory.Size()))
+					}
+
+					return buf
+				},
 			}
 		}
 
