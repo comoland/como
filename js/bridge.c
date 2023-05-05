@@ -141,7 +141,7 @@ static JSContext *como_js_context(JSRuntime *rt)
     return ctx;
 }
 
-static void como_js_loop(JSContext *ctx)
+static int como_js_loop(JSContext *ctx)
 {
     JSContext *ctx1;
     int err;
@@ -158,6 +158,8 @@ static void como_js_loop(JSContext *ctx)
             break;
         }
     }
+
+    return err;
 }
 
 static int como_js_loop_once(JSContext *ctx)

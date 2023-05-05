@@ -158,6 +158,7 @@ func worker2(ctx *js.Context, global js.Value) {
 					if isString && msg == "exit" {
 						if parent != nil {
 							close(parent)
+							parent = nil
 						}
 
 						callback.Free()

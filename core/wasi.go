@@ -42,10 +42,10 @@ func wasi(ctx *js.Context, global js.Value) {
 		fsConfig = fsConfig.WithDirMount("./", "./")
 
 		cache, err := wazero.NewCompilationCacheWithDir("./cache")
-		if err != nil {
-			panic(err)
-		}
 		defer cache.Close(wctx)
+		if err != nil {
+			return ctx.Throw(err.Error())
+		}
 
 		runtimeConfig := wazero.NewRuntimeConfig().WithCompilationCache(cache)
 
@@ -72,14 +72,11 @@ func wasi(ctx *js.Context, global js.Value) {
 			resultTypes []byte
 		}
 
-		module := ctx.Object()
 		cacheObj := ctx.Object()
-		module.Set("__fn", cacheObj)
 
 		var hostFunctions = make(map[string]map[string]M)
 
-		importedFns := compiled.ImportedFunctions()
-		for _, fn := range importedFns {
+		for _, fn := range compiled.ImportedFunctions() {
 			n, m, _ := fn.Import()
 			resultTypes := fn.ResultTypes()
 			paramTypes := fn.ParamTypes()
@@ -118,7 +115,7 @@ func wasi(ctx *js.Context, global js.Value) {
 				}
 
 				fnName := k + k2
-				jsCall := func(_ context.Context, mod api.Module, stack []uint64) {
+				hostFn := func(_ context.Context, mod api.Module, stack []uint64) {
 					jsFn := cacheObj.GetValue(fnName)
 					defer jsFn.Free()
 
@@ -135,70 +132,72 @@ func wasi(ctx *js.Context, global js.Value) {
 							case api.ValueTypeF64:
 								a.Append(api.DecodeF64(v))
 							case api.ValueTypeI64:
-								a.Append(api.DecodeF64(v))
+								a.Append(int64(v))
 							default:
 								a.Append(v)
 							}
 						} else {
 							a.Append(v)
-							panic("invalid parameter type")
 						}
 					}
 
-					switch ret := jsFn.CallArgs(a).(type) {
-					case uint64:
-						stack[0] = ret
-					case int64:
-						stack[0] = api.EncodeI64(ret)
-					case float64:
-						stack[0] = api.EncodeF64(ret)
+					ret := jsFn.CallArgs(a)
+					if len(stack) > 0 {
+						switch rr := ret.(type) {
+						case uint64:
+							stack[0] = rr
+						case int64:
+							stack[0] = api.EncodeI64(rr)
+						case float64:
+							stack[0] = api.EncodeF64(rr)
+						}
 					}
 				}
 
-				f.NewFunctionBuilder().WithGoModuleFunction(api.GoModuleFunc(jsCall), paramTypes, resultTypes).Export(k2)
+				f.NewFunctionBuilder().WithGoModuleFunction(api.GoModuleFunc(hostFn), paramTypes, resultTypes).Export(k2)
 			}
 
 			_, err = f.Instantiate(wctx)
 			if err != nil {
-				module.Free()
+				cacheObj.Free()
 				return ctx.Throw(err.Error())
 			}
 		}
 
 		mod, err := r.InstantiateModule(wctx, compiled, moduleConfig)
 		if err != nil {
-			module.Free()
+			cacheObj.Free()
 			return ctx.Throw(err.Error())
 		}
 
-		instance := ctx.ClassObject(func() {
-			defer mod.Close(wctx)
+		module := ctx.ClassObject(func() {
+			mod.Close(wctx)
 		})
 
-		module.Set("instance", instance)
+		module.Set("__fn", cacheObj)
 
+		// exported functions
 		fn := make(map[string]interface{}, len(mod.ExportedFunctionDefinitions())+len(mod.ExportedMemoryDefinitions()))
-		for k := range mod.ExportedFunctionDefinitions() {
+		for k, b := range mod.ExportedFunctionDefinitions() {
 			key := k
+			def := b
 			fn[k] = func(args js.Arguments) interface{} {
 				bindValues := make([]uint64, args.Len())
+				// paramTypes := def.ParamTypes()
 				for i := 0; i < args.Len(); i++ {
-					switch val := ctx.JsToGoValue(args.GetValue(i)).(type) {
-					case uint64:
-						bindValues[i] = val
-					case int64:
-						bindValues[i] = api.EncodeI64(val)
-					case float64:
-						bindValues[i] = api.EncodeF64(val)
-					case js.Value:
-						if val.IsBigInt() {
-							var bignum, _ = new(big.Int).SetString(val.String(), 0)
-							bindValues[i] = bignum.Uint64()
-						} else {
-							return ctx.Throw("not implemented")
-						}
-					default:
-						return ctx.Throw(fmt.Sprintf("invalid arg type %T!\n", val))
+					arg := args.GetValue(i)
+					// ptype := paramTypes[i]
+
+					if !arg.IsNumber() && !arg.IsBigInt() {
+						return ctx.Throw("Expected number")
+					}
+
+					var num, _ = new(big.Int).SetString(arg.String(), 10)
+
+					if num.IsInt64() {
+						bindValues[i] = api.EncodeI64(num.Int64())
+					} else {
+						bindValues[i] = num.Uint64()
 					}
 				}
 
@@ -208,64 +207,48 @@ func wasi(ctx *js.Context, global js.Value) {
 					return ctx.Throw(err.Error())
 				}
 
-				if len(ret) == 1 {
-					// fmt.Println("calling ", key, ret[0] > math.MaxUint32, ret[0])
-					// val := ret[0]
-
-					// fn := ctx.EvalFunction("ret", `(str) => {
-
-					// 	if (BigInt(str) > BigInt(Number.MAX_SAFE_INTEGER)) {
-					// 		return BigInt(str)
-					// 	}
-					// 	return Number(str)
-					// }`)
-
-					// // defer fn.Free()
-					// dd := ret[0]
-
-					// return dd
-
-					// if ret[0] < 0 {
-					// 	return int64(ret[0])
-					// }
-
-					// if ret[0] > math.MaxUint32 {
-					// 	return uint64(ret[0])
-					// }
-					// // if ret[0] > math.MaxInt32 {
-					// // 	return int64(ret[0])
-					// // }
-					return api.DecodeI32(ret[0])
+				retLen := len(ret)
+				results := make([]interface{}, retLen)
+				rTypes := def.ResultTypes()
+				for i, v := range ret {
+					rType := rTypes[0]
+					if rType == api.ValueTypeI64 {
+						results[i] = int64(v)
+					} else if rType == api.ValueTypeI32 {
+						results[i] = api.DecodeI32(v)
+					} else if rType == api.ValueTypeF64 {
+						results[i] = api.DecodeF64(v)
+					} else {
+						results[i] = v
+					}
 				}
 
-				results := make([]interface{}, len(ret))
-				for i, v := range ret {
-					results[i] = api.DecodeI32(v)
+				if retLen == 1 {
+					return results[0]
 				}
 
 				return results
 			}
 		}
 
-		// fmt.Println(buf)
-
+		// memory function
 		memory := mod.Memory()
 		if !reflect.ValueOf(memory).IsNil() {
-			buf, _ := mod.Memory().Read(0, 0)
+			buf, _ := mod.Memory().Read(0, 1)
 			fn["memory"] = map[string]interface{}{
 				"buffer": buf,
 				"read": func(args js.Arguments) interface{} {
-					offset, ok := args.GetNumber(0)
+					var offset, ok = new(big.Int).SetString(args.GetValue(0).String(), 10)
 					if !ok {
 						return ctx.Throw("args must be a number")
 					}
 
-					count, ok := args.GetNumber(1)
+					count, ok := new(big.Int).SetString(args.GetValue(1).String(), 10)
 					if !ok {
 						return ctx.Throw("args must be a number")
 					}
 
-					buf, ok := memory.Read(uint32(uint64(offset)), uint32(uint64(count)))
+					buf, ok := memory.Read(uint32(offset.Uint64()), uint32(count.Uint64()))
 					if !ok {
 						return ctx.Throw(fmt.Sprintf("Memory.Read(%f, %f) out of range", offset, count))
 					}
@@ -290,6 +273,8 @@ func wasi(ctx *js.Context, global js.Value) {
 			}
 		}
 
+		instance := ctx.Object()
+		module.Set("instance", instance)
 		instance.Set("exports", fn)
 		return module
 	})
