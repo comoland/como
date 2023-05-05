@@ -76,7 +76,7 @@ async function test() {
 // })();
 
 
-setInterval(() => {
+setInterval(async () => {
     // const w = Como.worker2('process3.go', ()=> {
     //     console.log("u8uuuuuuuuuuuuuuuuuuuuu")
     // })
@@ -91,7 +91,7 @@ setInterval(() => {
         }, 100)
     })
 
-    w.exec()
+    await w.exec()
 
     setTimeout(() => {
         w.terminate()
