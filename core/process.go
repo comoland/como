@@ -68,6 +68,13 @@ func process(ctx *js.Context, Como js.Value) {
 		return transaction
 	})
 
+	obj.Set("setEnv", func(args js.Arguments) interface{} {
+		key := args.Get(0).(string)
+		val := args.Get(1).(string)
+		os.Setenv(key, val)
+		return nil
+	})
+
 	obj.Set("registerAlias", func(args js.Arguments) interface{} {
 		alias := args.Get(0).(string)
 		location := args.Get(1).(string)

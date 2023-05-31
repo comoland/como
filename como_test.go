@@ -8,6 +8,75 @@ import (
 	"github.com/comoland/como/js"
 )
 
+func TestAsync(t *testing.T) {
+	runs := 0
+	Loop, ctx := core.Como("")
+	global := ctx.GlobalObject()
+	global.Set("testAsync", func(args js.Arguments) interface{} {
+		return ctx.Async(func(async js.Promise) {
+			async.Resolve(func() interface{} {
+				runs = runs + 1
+				return ctx.ParseJSON(`{"type": "json"}`)
+			})
+		})
+	})
+
+	ctx.Eval(`
+		(async function(){
+			const ret = await testAsync();
+			globalThis.ret = ret.type
+		})()
+	`)
+
+	Loop(func() {
+		val := global.Get("ret")
+		if val != "json" {
+			t.Errorf("expected json, got %s", val)
+		}
+
+		global.Free()
+	})
+
+	if runs != 1 {
+		t.Errorf("expected 1 runs, got %d", runs)
+	}
+}
+
+func TestAsyncCatch(t *testing.T) {
+	runs := 0
+	Loop, ctx := core.Como("")
+	global := ctx.GlobalObject()
+	global.Set("testAsync", func(args js.Arguments) interface{} {
+		return ctx.Async(func(async js.Promise) {
+			runs = runs + 1
+			async.Reject("error in async")
+		})
+	})
+
+	ctx.Eval(`
+		(async function(){
+			testAsync().then(() => {
+
+			}).catch(err => {
+				globalThis.ret = err
+			})
+		})()
+	`)
+
+	Loop(func() {
+		val := global.Get("ret")
+		if val != "error in async" {
+			t.Errorf("expected error in async, got %s", val)
+		}
+
+		global.Free()
+	})
+
+	if runs != 1 {
+		t.Errorf("expected 1 runs, got %d", runs)
+	}
+}
+
 func TestAutoFree(t *testing.T) {
 	runs := 0
 	Loop, ctx := core.Como("")

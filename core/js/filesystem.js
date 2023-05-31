@@ -1,6 +1,6 @@
-({ exports, read }) => {
-    exports.read = read;
-    exports.readFileSync = (path, enc) => {
+({ _exports, read }) => {
+    _exports.read = read;
+    _exports.readFileSync = (path, enc) => {
         const ret = read(path);
         if (enc) {
             return  Buffer.from(ret).toString(enc);
@@ -9,5 +9,5 @@
         return Buffer.from(ret);
     };
 
-    return exports;
+    return _exports;
 };

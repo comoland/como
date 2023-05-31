@@ -1,4 +1,4 @@
-({ exit, env, stdout, registerAlias, cwd, args, platform, suspense }) => {
+({ exit, env, setEnv, stdout, registerAlias, cwd, args, platform, suspense }) => {
     let promise;
 
     const queueMicrotask = (cb, ...args) =>
@@ -34,6 +34,17 @@
         return [seconds, nanoseconds];
     }
 
+    const envProxy = new Proxy(env(), {
+        get(target, prop) {
+            return target[prop];
+        },
+        set(target, prop, val) { // to intercept property writing
+            setEnv(String(prop), String(val));
+            target[prop] = String(val);
+            return true;
+        }
+    });
+
     class Process {
         argv = args();
 
@@ -49,15 +60,7 @@
         hrtime = hrtime;
         nextTick = queueMicrotask;
         suspense = suspense;
-
-        _env = null;
-        get env() {
-            if (!this._env) {
-                this._env = env();
-            }
-
-            return this._env;
-        }
+        env = envProxy;
 
         registerAlias(...args) {
             registerAlias(...args);
@@ -70,7 +73,7 @@
         get platform() {
             const _platform = platform();
             if (_platform === 'windows') {
-                return win32;
+                return 'win32';
             }
 
             return _platform;

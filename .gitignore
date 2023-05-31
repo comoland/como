@@ -2,3 +2,5 @@ node_modules
 app
 dev
 files
+cache
+temp

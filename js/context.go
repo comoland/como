@@ -117,6 +117,11 @@ func (ctx *Context) JsToGoValue(value interface{}) interface{} {
 		return int64(val)
 	}
 
+	// if C.JS_IsBigInt(ctx.c, v) == 1 {
+	// 	val := C.uint64_t(0)
+	// 	C.Js(ctx.c, &val, v)
+	// }
+
 	if valueTag == C.JS_TAG_STRING {
 		ptr := C.JS_ToCString(ctx.c, v)
 		defer C.JS_FreeCString(ctx.c, ptr)

@@ -24,6 +24,7 @@ type buildOptions struct {
 	Stdin       StdinOptions
 	Splitting   bool
 	Minify      bool
+	Loader      map[string]api.Loader
 }
 
 func build(ctx *js.Context, Como js.Value) {
@@ -43,6 +44,8 @@ func build(ctx *js.Context, Como js.Value) {
 		"file":   int(api.LoaderFile),
 		"copy":   int(api.LoaderCopy),
 		"css":    int(api.LoaderCSS),
+		"text":   int(api.LoaderText),
+		"json":   int(api.LoaderJSON),
 	})
 
 	// build.bundle
@@ -204,7 +207,7 @@ func build(ctx *js.Context, Como js.Value) {
 				External:          options.External,
 				Format:            api.FormatESModule,
 				Target:            api.ES2015,
-				// Loader:            map[string]api.Loader{"tsx": api.LoaderJSX},
+				Loader:            options.Loader,
 				// Engines: []api.Engine{
 				// 	{Name: api.EngineEdge, Version: "16"},
 				// 	{Name: api.EngineChrome, Version: "58"},

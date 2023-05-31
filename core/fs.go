@@ -16,7 +16,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 	exp := ctx.Object()
 	exp.Dup().AutoFree()
 
-	exp.Set("exports", ctx.Object())
+	exp.Set("_exports", ctx.Object())
 
 	exp.Set("read", func(args js.Arguments) interface{} {
 		file, isString := args.Get(0).(string)
