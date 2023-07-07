@@ -73,10 +73,10 @@ func sql(ctx *js.Context, Como js.Value) {
 				promise := ctx.NewPromise()
 				go func() {
 					rows, err := tx.Queryx(sqlStr, bindValues...)
-					defer rows.Close()
 					if err != nil {
 						promise.Reject(ctx.Error(err.Error()))
 					} else {
+						defer rows.Close()
 						var records []interface{}
 						for rows.Next() {
 							record := map[string]interface{}{}
@@ -279,10 +279,10 @@ func sql(ctx *js.Context, Como js.Value) {
 			promise := ctx.NewPromise()
 			go func() {
 				rows, err := db.Queryx(sqlStr, bindValues...)
-				defer rows.Close()
 				if err != nil {
 					promise.Reject(ctx.Error(err.Error()))
 				} else {
+					defer rows.Close()
 					var records []interface{}
 					for rows.Next() {
 						record := map[string]interface{}{}
