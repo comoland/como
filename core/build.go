@@ -24,6 +24,7 @@ type buildOptions struct {
 	Stdin       StdinOptions
 	Splitting   bool
 	Minify      bool
+	Bundle      bool
 	Loader      map[string]api.Loader
 }
 
@@ -197,7 +198,7 @@ func build(ctx *js.Context, Como js.Value) {
 				EntryPoints:       options.EntryPoints,
 				Platform:          api.PlatformBrowser,
 				Define:            options.Define,
-				Bundle:            true,
+				Bundle:            options.Bundle,
 				Outdir:            "/",
 				Write:             false,
 				MinifySyntax:      options.Minify,
