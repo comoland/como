@@ -141,7 +141,7 @@ func wasi(ctx *js.Context, global js.Value) {
 						}
 					}
 
-					ret := jsFn.CallArgs(a)
+					ret := jsFn.Call(a)
 					if len(stack) > 0 {
 						switch rr := ret.(type) {
 						case uint64:

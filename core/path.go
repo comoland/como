@@ -81,7 +81,7 @@ func path(ctx *js.Context, Como js.Value) {
 
 			defer args.Free()
 
-			ret := callback.CallArgs(args)
+			ret := callback.Call(args)
 			if ret == false {
 				return filepath.SkipDir
 			}

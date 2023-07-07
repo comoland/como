@@ -47,7 +47,6 @@ func timers(ctx *js.Context, global js.Value) {
 
 		tick()
 		this.Set("unref", func(args js.Arguments) interface{} {
-
 			if isFreed {
 				return nil
 			}

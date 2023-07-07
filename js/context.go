@@ -500,7 +500,7 @@ func (ctx *Context) Suspense(fn Value) {
 	defer args.Free()
 
 	if fn.IsFunction() {
-		fn.CallArgs(args)
+		fn.Call(args)
 	}
 
 	ctx.runPendingJobs()
