@@ -7,6 +7,7 @@ test('bundle', async () => {
     try {
         const ret = await Como.build.bundle('', {
             entryPoints: [file],
+            bundle: true,
             minify: true,
             plugins: [
                 {
@@ -54,6 +55,7 @@ test('bundle stdin', async () => {
                 })();
                 `
             },
+            bundle: true,
             minify: true,
             plugins: [
                 {
@@ -115,6 +117,7 @@ test('bundle multiple resolvers', async () => {
                 `
             },
             minify: true,
+            bundle: true,
             plugins: [
                 {
                     name: 'env',
