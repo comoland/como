@@ -271,6 +271,28 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 			// lock.Lock()
 			// sourceMaps[filename] = result.OutputFiles[0].Contents
 			// lock.Unlock()
+		} else if ext == ".json" {
+			codeStr = string(code)
+			result := api.Transform(codeStr, api.TransformOptions{
+				Loader:     api.LoaderJSON,
+				Sourcemap:  api.SourceMapNone,
+				Target:     api.ESNext,
+				Format:     api.FormatESModule,
+				Sourcefile: filename,
+			})
+
+			codeStr = string(result.Code)
+		} else if ext == ".svg" {
+			codeStr = string(code)
+			result := api.Transform(codeStr, api.TransformOptions{
+				Loader:     api.LoaderText,
+				Sourcemap:  api.SourceMapNone,
+				Target:     api.ESNext,
+				Format:     api.FormatESModule,
+				Sourcefile: filename,
+			})
+
+			codeStr = string(result.Code)
 		} else if ext != ".js" {
 			codeStr = string(code)
 			result := api.Transform(codeStr, api.TransformOptions{
