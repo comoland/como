@@ -1,10 +1,12 @@
 package core
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strings"
@@ -15,12 +17,67 @@ import (
 
 type fetchRequestOpt struct {
 	Headers  map[string]string
-	Body     string
+	Body     interface{}
 	Method   string
 	Redirect string
 }
 
 func fetch(ctx *js.Context, global js.Value) {
+	global.Set("formData", func(args js.Arguments) interface{} {
+		form := new(bytes.Buffer)
+		writer := multipart.NewWriter(form)
+
+		return map[string]interface{}{
+			"append": func(args js.Arguments) interface{} {
+				key := args.GetString(0)
+				formField, err := writer.CreateFormField(key)
+
+				if err != nil {
+					return ctx.Throw(err.Error())
+				}
+
+				switch val := args.Get(1).(type) {
+				case string:
+					formField.Write([]byte(val))
+				case []byte:
+					formField.Write(val)
+				case map[string]interface{}:
+					name := val["name"].(string)
+					buf := val["value"].([]uint8)
+
+					if tmp, err := writer.CreateFormFile(key, name); err == nil {
+						// fmt.Println("found file with length ", len(buf))
+						tmp.Write(buf)
+						// r := bytes.NewReader(buf)
+						// io.Copy(tmp, r)
+					} else {
+						return nil
+					}
+				default:
+					err = errors.New(fmt.Sprintf("unknown arg type %T", val))
+				}
+
+				if err != nil {
+					return ctx.Throw(err.Error())
+				}
+
+				return nil
+			},
+			"getHeaders": func(args js.Arguments) interface{} {
+				return writer.FormDataContentType()
+			},
+			"buffer": func(args js.Arguments) interface{} {
+				writer.Close()
+				return form.Bytes()
+			},
+			"body": func(args js.Arguments) interface{} {
+				writer.Close()
+				// fmt.Println("===============> ", form.String())
+				return form.String()
+			},
+		}
+	})
+
 	global.Set("fetch", func(args js.Arguments) interface{} {
 		rawURL, ok := args.Get(0).(string)
 
@@ -43,7 +100,15 @@ func fetch(ctx *js.Context, global js.Value) {
 		}
 
 		var body io.Reader
-		body = strings.NewReader(fetchOptions.Body)
+		switch val := fetchOptions.Body.(type) {
+		case string:
+			body = strings.NewReader(fetchOptions.Body.(string))
+		case []byte:
+			body = bytes.NewReader(fetchOptions.Body.([]byte))
+		default:
+			return ctx.Throw(fmt.Sprintf("unknown body type %T", val))
+		}
+
 		req, err := http.NewRequest(fetchOptions.Method, url.String(), body)
 		if err != nil {
 			return ctx.Throw(err.Error())
