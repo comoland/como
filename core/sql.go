@@ -40,7 +40,11 @@ func sql(ctx *js.Context, Como js.Value) {
 			transaction := ctx.Object()
 
 			transaction.Set("commit", func(args js.Arguments) interface{} {
-				tx.Commit()
+				err := tx.Commit()
+				if err != nil {
+					return ctx.Throw(err.Error())
+				}
+
 				return nil
 			})
 
