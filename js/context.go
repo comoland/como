@@ -657,3 +657,48 @@ func (ctx *Context) Lock() {
 func (ctx *Context) Unlock() {
 	ctx.mutex.Unlock()
 }
+
+type Writer struct {
+	ctx    *Context
+	cb     Value
+	closed bool
+}
+
+func (w *Writer) Write(buf []byte) (int, error) {
+	if w.closed == true {
+		return 0, &Error{Cause: "write after close"}
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	w.ctx.Ref()
+	w.ctx.Channel <- func() {
+		w.cb.Call(buf)
+		w.ctx.UnRef()
+		wg.Done()
+	}
+
+	wg.Wait()
+	return len(buf), nil
+}
+
+func (w *Writer) Close() {
+	fmt.Println("close callled for fn!!!!!!!!!!!!!!!!!!")
+	w.closed = true
+	w.cb.Free()
+}
+
+func (ctx *Context) Writer(cb Value) *Writer {
+	if cb.IsFunction() {
+		cb.Dup()
+		writer := &Writer{
+			ctx,
+			cb,
+			false,
+		}
+
+		return writer
+	}
+
+	return nil
+}
