@@ -1,6 +1,7 @@
 package core
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	s "strings"
@@ -54,6 +55,46 @@ func path(ctx *js.Context, Como js.Value) {
 		}
 
 		return path
+	})
+
+	path.Set("walkFS", func(args js.Arguments) interface{} {
+		dir, ok := args.Get(0).(string)
+		if !ok {
+			return ctx.Throw("path must be a string")
+		}
+
+		callback := args.GetValue(1)
+		if !callback.IsFunction() {
+			return ctx.Throw("callback must be a function")
+		}
+
+		fileSystem := os.DirFS(dir)
+
+		err := fs.WalkDir(fileSystem, ".", func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+
+			args := ctx.NewArguments(path, map[string]interface{}{
+				"isDir": d.IsDir(),
+				"name":  d.Name(),
+			})
+
+			defer args.Free()
+
+			ret := callback.Call(args)
+			if ret == false {
+				return fs.SkipDir
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			return ctx.Throw(err.Error())
+		}
+
+		return nil
 	})
 
 	// path.walk
