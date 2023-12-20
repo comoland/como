@@ -90,6 +90,7 @@ func fetch(ctx *js.Context, global js.Value) {
 
 		fetchOptions := fetchRequestOpt{
 			Method: "GET",
+			Body:   "",
 		}
 
 		err = args.GetMap(1, &fetchOptions)
