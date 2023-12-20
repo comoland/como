@@ -46,7 +46,6 @@ func fetch(ctx *js.Context, global js.Value) {
 					buf := val["value"].([]uint8)
 
 					if tmp, err := writer.CreateFormFile(key, name); err == nil {
-						// fmt.Println("found file with length ", len(buf))
 						tmp.Write(buf)
 						// r := bytes.NewReader(buf)
 						// io.Copy(tmp, r)
@@ -72,7 +71,6 @@ func fetch(ctx *js.Context, global js.Value) {
 			},
 			"body": func(args js.Arguments) interface{} {
 				writer.Close()
-				// fmt.Println("===============> ", form.String())
 				return form.String()
 			},
 		}
