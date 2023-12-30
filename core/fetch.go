@@ -128,6 +128,12 @@ func fetch(ctx *js.Context, global js.Value) {
 
 		req.Header.Set("Redirect", fetchOptions.Redirect)
 
+		// TODO: a proper redirect policy
+		// see https://jonathanmh.com/tracing-preventing-http-redirects-golang/
+		// for a simple example
+
+		// TODO: use cookieJsr?
+
 		return ctx.Async(func(async js.Promise) {
 			redirected := false
 			client := &http.Client{
