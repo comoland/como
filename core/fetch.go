@@ -179,6 +179,7 @@ func fetch(ctx *js.Context, global js.Value) {
 				"ok":         res.StatusCode >= 200 && res.StatusCode < 300,
 				"statusText": res.Status,
 				"status":     res.StatusCode,
+				"bodyUsed":   isBodyUsed,
 				"arrayBuffer": func(args js.Arguments) interface{} {
 					return ctx.Async(func(async js.Promise) {
 						respBody, err := getBody()
@@ -186,6 +187,7 @@ func fetch(ctx *js.Context, global js.Value) {
 							async.Reject(err.Error())
 							return
 						}
+
 						async.Resolve(respBody)
 					})
 				},
