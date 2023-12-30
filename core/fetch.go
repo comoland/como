@@ -136,7 +136,7 @@ func fetch(ctx *js.Context, global js.Value) {
 				CheckRedirect: func(req *http.Request, via []*http.Request) error {
 					switch req.Header.Get("Redirect") {
 					case "error":
-						return errors.New("redirects are not allowed")
+						return http.ErrUseLastResponse
 					default:
 						if len(via) >= 10 {
 							return errors.New("stopped after 10 redirects")
