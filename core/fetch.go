@@ -90,7 +90,6 @@ func fetch(ctx *js.Context, global js.Value) {
 
 		fetchOptions := fetchRequestOpt{
 			Method: "GET",
-			Body:   "",
 		}
 
 		err = args.GetMap(1, &fetchOptions)
@@ -99,13 +98,15 @@ func fetch(ctx *js.Context, global js.Value) {
 		}
 
 		var body io.Reader
-		switch val := fetchOptions.Body.(type) {
+		switch fetchOptions.Body.(type) {
 		case string:
 			body = strings.NewReader(fetchOptions.Body.(string))
 		case []byte:
 			body = bytes.NewReader(fetchOptions.Body.([]byte))
-		default:
-			return ctx.Throw(fmt.Sprintf("unknown body type %T", val))
+		}
+
+		if body == nil {
+			body = strings.NewReader("")
 		}
 
 		req, err := http.NewRequest(fetchOptions.Method, url.String(), body)
