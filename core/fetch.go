@@ -202,12 +202,12 @@ func fetch(ctx *js.Context, global js.Value) {
 					return ctx.Async(func(async js.Promise) {
 						respBody, err := getBody()
 						if err != nil {
-							async.Reject(err.Error())
+							async.Reject(ctx.Error(err.Error()))
 							return
 						}
 
 						if err != nil {
-							async.Reject(err.Error())
+							async.Reject(ctx.Error(err.Error()))
 							return
 						}
 						async.Resolve(string(respBody))
@@ -218,7 +218,7 @@ func fetch(ctx *js.Context, global js.Value) {
 					return ctx.Async(func(async js.Promise) {
 						respBody, err := getBody()
 						if err != nil {
-							async.Reject(err.Error())
+							async.Reject(ctx.Error(err.Error()))
 							return
 						}
 
