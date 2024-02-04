@@ -10,6 +10,7 @@ type Promise struct {
 	Promise Value
 	resolve Value
 	reject  Value
+	finally Value
 }
 
 // NewPromise creates a new prmise
@@ -19,6 +20,7 @@ func (ctx *Context) NewPromise() Promise {
 	promise := Value{ctx: ctx, c: C.JS_DupValue(ctx.c, p)}
 	resolve := promise.GetValue("resolve")
 	reject := promise.GetValue("reject")
+	finally := promise.GetValue("fin")
 
 	// each promise increase ref count
 	ctx.Ref()
@@ -27,6 +29,7 @@ func (ctx *Context) NewPromise() Promise {
 		Promise: promise,
 		resolve: resolve,
 		reject:  reject,
+		finally: finally,
 	}
 }
 
@@ -42,6 +45,7 @@ func (ctx *Context) Async(fn func(async Promise)) Promise {
 func (p Promise) Free() {
 	p.resolve.Free()
 	p.reject.Free()
+	p.finally.Free()
 	p.Promise.Free()
 }
 
@@ -78,4 +82,11 @@ func (p Promise) Resolve(value interface{}) {
 // accepts an interface which must be one of the types that can be converted to js value
 func (p Promise) Reject(value interface{}) {
 	p.settlePromise(value, 1)
+}
+
+func (p Promise) Finally(value interface{}) {
+	ctx := p.ctx
+	dispatch := p.finally.c
+	jsVal := ctx.GoToJSValue(value)
+	C.JS_Call(ctx.c, dispatch, C.JS_NewUndefined(), 1, &jsVal.c)
 }

@@ -53,6 +53,11 @@ func (runtime *JSRunTime) NewContext() *Context {
 
 		promise.resolve = res;
 		promise.reject = rej;
+		promise.fin = (finalCB) => {
+			promise.finally(() => {
+				finalCB()
+			})
+		}
 
 		return promise;
 	}`, 0)
