@@ -164,17 +164,12 @@ func fetch(ctx *js.Context, global js.Value) {
 			res.Header.Set("Redirected", fmt.Sprintf("%v", redirected))
 
 			isBodyUsed := false
-			getBody := func() ([]byte, error) {
-				defer res.Body.Close()
-				respBody, err := ioutil.ReadAll(res.Body)
 
-				if isBodyUsed {
-					return nil, errors.New("body already used")
-				}
-
-				isBodyUsed = true
-				return respBody, err
-			}
+			// TODO: a better way to handle body close
+			// we don't need to read body every time, but this
+			// solution of ensure body close we have to pre read body data
+			defer res.Body.Close()
+			respBody, bodyReadError := ioutil.ReadAll(res.Body)
 
 			headers := make(map[string]interface{})
 			for k, v := range res.Header {
@@ -189,9 +184,8 @@ func fetch(ctx *js.Context, global js.Value) {
 				"bodyUsed":   isBodyUsed,
 				"arrayBuffer": func(args js.Arguments) interface{} {
 					return ctx.Async(func(async js.Promise) {
-						respBody, err := getBody()
-						if err != nil {
-							async.Reject(err.Error())
+						if bodyReadError != nil {
+							async.Reject(ctx.Error(bodyReadError.Error()))
 							return
 						}
 
@@ -200,25 +194,19 @@ func fetch(ctx *js.Context, global js.Value) {
 				},
 				"text": func(args js.Arguments) interface{} {
 					return ctx.Async(func(async js.Promise) {
-						respBody, err := getBody()
-						if err != nil {
-							async.Reject(ctx.Error(err.Error()))
+						if bodyReadError != nil {
+							async.Reject(ctx.Error(bodyReadError.Error()))
 							return
 						}
 
-						if err != nil {
-							async.Reject(ctx.Error(err.Error()))
-							return
-						}
 						async.Resolve(string(respBody))
 					})
 				},
 				"json": func(args js.Arguments) interface{} {
 					args.This.Set("BodyUsed", true)
 					return ctx.Async(func(async js.Promise) {
-						respBody, err := getBody()
-						if err != nil {
-							async.Reject(ctx.Error(err.Error()))
+						if bodyReadError != nil {
+							async.Reject(ctx.Error(bodyReadError.Error()))
 							return
 						}
 
