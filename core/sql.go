@@ -305,6 +305,56 @@ func sql(ctx *js.Context, Como js.Value) {
 			return promise
 		})
 
+		obj.Set("query2", func(args js.Arguments) interface{} {
+			sqlStr, ok := args.Get(0).(string)
+			if !ok {
+				return ctx.Throw("query arg(0) must be a string")
+			}
+
+			bindArgs := args.Slice(1, -1)
+			bindValues := make([]interface{}, bindArgs.Len())
+			for i := 0; i < bindArgs.Len(); i++ {
+				switch val := bindArgs.Get(i).(type) {
+				case js.Value:
+					if val.IsUndefined() {
+						bindValues[i] = nil
+					} else {
+						return ctx.Throw("bind args must be a primative type")
+					}
+				default:
+					bindValues[i] = val
+				}
+			}
+
+			return map[string]interface{}{
+				"stream": func(args js.Arguments) interface{} {
+					writer := ctx.Writer(args.GetValue(0))
+					if writer == nil {
+						return ctx.Throw("query stream must has a writer callback")
+					}
+
+					return ctx.Async(func(async js.Promise) {
+						rows, err := db.Queryx(sqlStr, bindValues...)
+						defer writer.Close()
+						if err != nil {
+							async.Reject(ctx.Error(err.Error()))
+						} else {
+							defer rows.Close()
+							for rows.Next() {
+								record := map[string]interface{}{}
+								rows.MapScan(record)
+								writer.Call(record)
+							}
+
+							async.Resolve(func() interface{} {
+								return nil
+							})
+						}
+					})
+				},
+			}
+		})
+
 		return obj
 	})
 }
