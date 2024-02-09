@@ -57,6 +57,7 @@ func path(ctx *js.Context, Como js.Value) {
 		return path
 	})
 
+	// path.walkFS same as path.walk except it runs on embedded files/directories
 	path.Set("walkFS", func(args js.Arguments) interface{} {
 		dir, ok := args.Get(0).(string)
 		if !ok {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"fmt"
 	"testing"
 
@@ -8,7 +9,46 @@ import (
 	"github.com/comoland/como/js"
 )
 
+//go:embed public/*
+var public embed.FS
+
 func TestAsync(t *testing.T) {
+	runs := 0
+	Loop, ctx := core.ComoStr("@public/test1.ts", `import('@public/test1.ts')`)
+	ctx.RegisterModuleAlias("@public", "./public")
+	global := ctx.GlobalObject()
+	ctx.Embed = &public
+	global.Set("testAsync", func(args js.Arguments) interface{} {
+		return ctx.Async(func(async js.Promise) {
+			async.Resolve(func() interface{} {
+				runs = runs + 1
+				return ctx.ParseJSON(`{"type": "json"}`)
+			})
+		})
+	})
+
+	ctx.Eval(`
+		(async function(){
+			const ret = await testAsync();
+			globalThis.ret = ret.type
+		})()
+	`)
+
+	Loop(func() {
+		val := global.Get("ret")
+		if val != "json" {
+			t.Errorf("expected json, got %s", val)
+		}
+
+		global.Free()
+	})
+
+	if runs != 1 {
+		t.Errorf("expected 1 runs, got %d", runs)
+	}
+}
+
+func TestAsync2(t *testing.T) {
 	runs := 0
 	Loop, ctx := core.Como("")
 	global := ctx.GlobalObject()
