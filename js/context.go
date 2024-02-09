@@ -664,17 +664,37 @@ type Writer struct {
 	closed bool
 }
 
+func (w *Writer) Call(arg interface{}) error {
+	ctx := w.ctx
+	if w.closed == true {
+		return &Error{Cause: "write after close"}
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	ctx.Ref()
+	ctx.Channel <- func() {
+		w.cb.Call(arg)
+		ctx.UnRef()
+		wg.Done()
+	}
+
+	wg.Wait()
+	return nil
+}
+
 func (w *Writer) Write(buf []byte) (int, error) {
+	ctx := w.ctx
 	if w.closed == true {
 		return 0, &Error{Cause: "write after close"}
 	}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
-	w.ctx.Ref()
-	w.ctx.Channel <- func() {
+	ctx.Ref()
+	ctx.Channel <- func() {
 		w.cb.Call(buf)
-		w.ctx.UnRef()
+		ctx.UnRef()
 		wg.Done()
 	}
 
@@ -683,7 +703,6 @@ func (w *Writer) Write(buf []byte) (int, error) {
 }
 
 func (w *Writer) Close() {
-	fmt.Println("close callled for fn!!!!!!!!!!!!!!!!!!")
 	w.closed = true
 	w.cb.Free()
 }
