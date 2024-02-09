@@ -81,7 +81,7 @@ func (args Arguments) Get(argIndex int) interface{} {
 func (args Arguments) GetString(argIndex int) string {
 	str, ok := args.Get(argIndex).(string)
 	if !ok {
-		args.Ctx.Throw("not a string")
+		args.Ctx.Throw2("not a string")
 		args.Ctx.ThrowStackError()
 	}
 
