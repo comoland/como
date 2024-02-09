@@ -28,10 +28,13 @@ func sql(ctx *js.Context, Como js.Value) {
 			return ctx.Throw(err.Error())
 		}
 
-		// db.SetMaxOpenConns(0)
+		db.SetMaxOpenConns(0)
 
-		obj := ctx.ClassObject(func() {
+		obj := ctx.Object()
+
+		obj.Set("close", func(args js.Arguments) interface{} {
 			db.Close()
+			return nil
 		})
 
 		obj.Set("begin", func(args js.Arguments) interface{} {

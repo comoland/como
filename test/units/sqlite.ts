@@ -42,6 +42,8 @@ test('sql basics', async () => {
             city: null
         }
     ]);
+
+    db.close();
 });
 
 test('sql trans', async () => {
@@ -81,6 +83,7 @@ test('sql trans', async () => {
     trans.commit();
     const result = await db.query('SELECT id, country, telcode, city, createdAt FROM place LIMIT ?', 10000);
     assert.equal(result.length, 1000);
+    db.close();
 });
 
 test.run();
