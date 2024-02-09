@@ -11,7 +11,7 @@ import (
 
 //export promiseRejectionTracker
 func promiseRejectionTracker(c *C.JSContext, promise C.JSValueConst, reason C.JSValueConst, is_handled int, opque unsafe.Pointer) {
-	ctx := c.getOpaque()
+	ctx := GetContextOpaque(c)
 	err := Value{ctx: ctx, c: reason}
 
 	if is_handled == 1 {

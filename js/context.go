@@ -349,7 +349,7 @@ func (ctx *Context) EvalFile(filename string, code string) (Value, error) {
 	val := C.JS_Eval(ctx.c, codePtr, C.size_t(len(code)), filenamePtr, C.int(C.JS_EVAL_TYPE_MODULE))
 	defer ctx.FreeValue(val)
 
-	if val.IsException() {
+	if isException(val) {
 		defer ctx.FreeValue(val)
 		C.js_std_dump_error(ctx.c)
 		return Value{c: val, ctx: ctx}, ctx.Exception()
@@ -375,7 +375,7 @@ func (ctx *Context) EvalFunction(filename string, code string) Value {
 
 	val := C.JS_Eval(ctx.c, codePtr, C.size_t(len(code)), filenamePtr, C.int(C.JS_EVAL_FLAG_COMPILE_ONLY))
 
-	if val.IsException() {
+	if isException(val) {
 		defer C.JS_FreeValue(ctx.c, val)
 		ctx.ThrowStackError()
 	}
@@ -572,8 +572,8 @@ func (ctx *Context) Free() {
 	ctx.FreeValue(ctx.promise)
 	ctx.FreeValue(ctx.proxy)
 	C.JS_FreeContext(ctx.c)
+	C.JS_FreeRuntime(ctx.rt)
 
-	ctx.rt.Free()
 	pointer.Unref(runtimeOp)
 	pointer.Unref(ctxOp)
 	runtime.GC()

@@ -37,7 +37,7 @@ var sourceMaps = map[string][]byte{
 
 //export moduleLoader
 func moduleLoader(c *C.JSContext, module_name *C.char, opque unsafe.Pointer) *C.JSModuleDef {
-	ctx := c.getOpaque()
+	ctx := GetContextOpaque(c)
 	filename := C.GoString(module_name)
 	m := ctx.LoadModule(filename, 0)
 	return m
@@ -69,7 +69,7 @@ func moduleNormalizeName(c *C.JSContext, base_name *C.char, name *C.char, opque 
 	lock.Lock()
 	defer lock.Unlock()
 
-	ctx := c.getOpaque()
+	ctx := GetContextOpaque(c)
 
 	basename := C.GoString(base_name)
 	filename := C.GoString(name)
@@ -346,7 +346,7 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 
 func (ctx *Context) LoadModuleStr(filename string, codeStr string, isMain int) *C.JSModuleDef {
 	evalType := C.JS_EVAL_TYPE_MODULE | C.JS_EVAL_FLAG_COMPILE_ONLY
-	val := ctx.c.evalFile(filename, codeStr, evalType)
+	val := evalFile(ctx.c, filename, codeStr, evalType)
 	r := C.como_get_value_ptr(val)
 	m := (*C.JSModuleDef)(unsafe.Pointer(r))
 

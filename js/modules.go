@@ -28,7 +28,7 @@ type Module struct {
 
 //export set_module_exports
 func set_module_exports(c *C.JSContext, m *C.JSModuleDef) C.int {
-	ctx := c.getOpaque()
+	ctx := GetContextOpaque(c)
 	moduleNameAtom := C.JS_GetModuleName(c, m)
 
 	moduleName := C.JS_AtomToCString(c, moduleNameAtom)

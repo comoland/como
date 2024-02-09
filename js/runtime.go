@@ -31,19 +31,10 @@ func NewRuntime() *JSRunTime {
 	return runtime
 }
 
-func (rt *C.JSRuntime) Free() {
-	C.JS_FreeRuntime(rt)
-}
-
-func (rt *C.JSRuntime) GetOpaque() *JSRunTime {
-	p := pointer.Restore(C.JS_GetRuntimeOpaque(rt)).(*JSRunTime)
-	return p
-}
-
 func (runtime *JSRunTime) NewContext() *Context {
 	ctx := C.como_js_context(runtime.rt)
 
-	promise := ctx.evalFile("<Promise>", `() => {
+	promise := evalFile(ctx, "<Promise>", `() => {
 		var res, rej;
 
 		var promise = new Promise((resolve, reject) => {
@@ -62,7 +53,7 @@ func (runtime *JSRunTime) NewContext() *Context {
 		return promise;
 	}`, 0)
 
-	proxy := ctx.evalFile("<Proxy>", `(get) => {
+	proxy := evalFile(ctx, "<Proxy>", `(get) => {
 		let obj = {};
 		return new Proxy(obj, {
 			get(target, key) {
@@ -76,7 +67,7 @@ func (runtime *JSRunTime) NewContext() *Context {
 		});
 	}`, 0)
 
-	asyncIterator := ctx.evalFile("<AsyncIterator>", `() => {
+	asyncIterator := evalFile(ctx, "<AsyncIterator>", `() => {
 		let pullQueue = [];
 		let pushQueue = [];
 		const pushValue = async (args) => {
@@ -144,7 +135,7 @@ func (runtime *JSRunTime) NewContext() *Context {
 
 	context.externals = append(context.externals, "fs")
 
-	ctx.setOpaque(context)
+	SetContextOpaque(ctx, context)
 	initError(context)
 	return context
 }

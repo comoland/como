@@ -73,7 +73,7 @@ func (fn *Function) AutoFree() *Function {
 
 //export _go_js_object_finalizer
 func _go_js_object_finalizer(rt *C.JSRuntime, val C.JSValue) {
-	runtime := rt.GetOpaque()
+	runtime := GetRuntimeOpaque(rt)
 	op := C.JS_GetOpaque(val, C.uint(runtime.classObjectId))
 	ref, isFn := pointer.Restore(op).(*Function)
 
@@ -118,7 +118,7 @@ func (ctx *Context) ClassObject(finalizer func()) *Function {
 //export _js_proxy_call
 func _js_proxy_call(ctx *C.JSContext, fn C.JSValue, thisValue C.JSValueConst, argc int, argvP *C.JSValueConst, flags int) C.JSValue {
 	rt := C.JS_GetRuntime(ctx)
-	runtime := rt.GetOpaque()
+	runtime := GetRuntimeOpaque(rt)
 
 	op := C.JS_GetOpaque(fn, C.uint(runtime.classFunctionId))
 	ref := pointer.Restore(op).(*Function)
@@ -140,7 +140,7 @@ func _js_proxy_call(ctx *C.JSContext, fn C.JSValue, thisValue C.JSValueConst, ar
 
 //export _go_js_function_finalizer
 func _go_js_function_finalizer(rt *C.JSRuntime, val C.JSValue) {
-	runtime := rt.GetOpaque()
+	runtime := GetRuntimeOpaque(rt)
 	op := C.JS_GetOpaque(val, C.uint(runtime.classFunctionId))
 	ref, isFn := pointer.Restore(op).(*Function)
 
