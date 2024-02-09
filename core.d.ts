@@ -85,6 +85,10 @@ declare namespace Como {
 			path: string,
 			callback: (path: string, info: { isDir: boolean; name: string }) => Promise<boolean | void> | void | boolean
 		) => void | Promise<void>;
+		walkFS: (
+			path: string,
+			callback: (path: string, info: { isDir: boolean; name: string }) => Promise<boolean | void> | void | boolean
+		) => void | Promise<void>;
 	};
 
 	export const build: {
