@@ -282,6 +282,17 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 			})
 
 			codeStr = string(result.Code)
+		} else if ext == ".txt" {
+			codeStr = string(code)
+			result := api.Transform(codeStr, api.TransformOptions{
+				Loader:     api.LoaderText,
+				Sourcemap:  api.SourceMapNone,
+				Target:     api.ESNext,
+				Format:     api.FormatESModule,
+				Sourcefile: filename,
+			})
+
+			codeStr = string(result.Code)
 		} else if ext == ".svg" {
 			codeStr = string(code)
 			result := api.Transform(codeStr, api.TransformOptions{
