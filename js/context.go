@@ -612,6 +612,24 @@ func (ctx *Context) Throw2(v interface{}) {
 	fn.Call(v)
 }
 
+func (ctx *Context) IsException(v interface{}) bool {
+	goVal, ok := v.(Value)
+	if ok && goVal.IsException() {
+		return true
+	}
+
+	return false
+}
+
+func (ctx *Context) IsError(v interface{}) bool {
+	goVal, ok := v.(Value)
+	if ok && goVal.IsError() {
+		return true
+	}
+
+	return false
+}
+
 func (ctx *Context) ParseJSON(v string) Value {
 	ptr := C.CString(v)
 	defer C.free(unsafe.Pointer(ptr))
