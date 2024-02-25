@@ -68,6 +68,33 @@ func (f Value) Call(args ...interface{}) interface{} {
 	return f.CallArgs(a)
 }
 
+func (fn Value) SafeCall(args ...interface{}) interface{} {
+	var a Arguments
+	i := len(args)
+
+	ctx := fn.ctx
+
+	if i == 1 {
+		if argType, ok := args[0].(Arguments); ok {
+			a = argType.Dup()
+		} else {
+			a = fn.ctx.NewArguments(args[0])
+		}
+	} else if i > 1 {
+		a = ctx.NewArguments(args...)
+	} else {
+		a = ctx.NewArguments(nil)
+	}
+
+	defer a.Free()
+	cArgs := (*C.JSValueConst)(unsafe.Pointer(&a.argv[0]))
+	ret := C.JS_Call(ctx.c, fn.c, a.This.c, C.int(len(a.argv)), cArgs)
+	defer ctx.FreeValue(ret)
+
+	var goRet = ctx.JsToGoValue(ret)
+	return goRet
+}
+
 func (v Value) CallArgs(args Arguments) interface{} {
 	if !v.IsFunction() {
 		panic("only works on function value")

@@ -679,6 +679,7 @@ func (ctx *Context) Unlock() {
 type Writer struct {
 	ctx    *Context
 	cb     Value
+	err    *Error
 	closed bool
 }
 
@@ -688,16 +689,33 @@ func (w *Writer) Call(arg interface{}) error {
 		return &Error{Cause: "write after close"}
 	}
 
+	if w.err != nil {
+		fmt.Println("called while has error!!!!!!!!!")
+	}
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	ctx.Ref()
 	ctx.Channel <- func() {
-		w.cb.Call(arg)
-		ctx.UnRef()
-		wg.Done()
+		defer ctx.UnRef()
+		defer wg.Done()
+
+		ret := w.cb.SafeCall(arg)
+		if ctx.IsException(ret) {
+			stackErr := ctx.GetStackError()
+			if stackErr != nil {
+				w.err = stackErr
+			} else {
+				w.err = &Error{Cause: "unknow error", Stack: ""}
+			}
+		}
 	}
 
 	wg.Wait()
+	if w.err != nil {
+		return w.err
+	}
+
 	return nil
 }
 
@@ -721,8 +739,10 @@ func (w *Writer) Write(buf []byte) (int, error) {
 }
 
 func (w *Writer) Close() {
-	w.closed = true
-	w.cb.Free()
+	if !w.closed {
+		w.closed = true
+		w.cb.Free()
+	}
 }
 
 func (ctx *Context) Writer(cb Value) *Writer {
@@ -731,6 +751,7 @@ func (ctx *Context) Writer(cb Value) *Writer {
 		writer := &Writer{
 			ctx,
 			cb,
+			nil,
 			false,
 		}
 
