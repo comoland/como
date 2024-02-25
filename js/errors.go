@@ -39,6 +39,28 @@ func promiseRejectionTracker(c *C.JSContext, promise C.JSValueConst, reason C.JS
 	}
 }
 
+func (ctx *Context) GetStackError() *Error {
+	val := Value{ctx: ctx, c: C.JS_GetException(ctx.c)}
+	defer val.Free()
+
+	var err *Error = nil
+
+	if val.IsError() {
+		stack := val.GetValue("stack")
+		isFormatted, _ := val.Get("__error_formatted").(bool)
+		defer stack.Free()
+
+		stackError := stack.String()
+		if isFormatted != true {
+			stackError = ctx.StackFormatter(stackError)
+		}
+
+		err = &Error{Cause: val.String(), Stack: stackError}
+	}
+
+	return err
+}
+
 func (ctx *Context) ThrowStackError() {
 	val := Value{ctx: ctx, c: C.JS_GetException(ctx.c)}
 	defer val.Free()
