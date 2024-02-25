@@ -88,5 +88,6 @@ func (p Promise) Finally(value interface{}) {
 	ctx := p.ctx
 	dispatch := p.finally.c
 	jsVal := ctx.GoToJSValue(value)
+	defer jsVal.Free()
 	C.JS_Call(ctx.c, dispatch, C.JS_NewUndefined(), 1, &jsVal.c)
 }
