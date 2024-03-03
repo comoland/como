@@ -38,6 +38,7 @@ func (ctx *Context) Async(fn func(async Promise)) Promise {
 	go func() {
 		fn(async)
 	}()
+
 	return async
 }
 
