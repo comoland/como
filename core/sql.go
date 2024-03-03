@@ -1,6 +1,9 @@
 package core
 
 import (
+	"encoding/json"
+	"sync"
+
 	"github.com/comoland/como/js"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
@@ -31,7 +34,6 @@ func sql(ctx *js.Context, Como js.Value) {
 		db.SetMaxOpenConns(0)
 
 		obj := ctx.Object()
-
 		obj.Set("close", func(args js.Arguments) interface{} {
 			db.Close()
 			return nil
@@ -64,6 +66,7 @@ func sql(ctx *js.Context, Como js.Value) {
 
 				bindArgs := args.Slice(1, -1)
 				bindValues := make([]interface{}, bindArgs.Len())
+
 				for i := 0; i < bindArgs.Len(); i++ {
 					switch val := bindArgs.Get(i).(type) {
 					case js.Value:
@@ -78,24 +81,38 @@ func sql(ctx *js.Context, Como js.Value) {
 				}
 
 				promise := ctx.NewPromise()
+				arr := ctx.Array()
+				var wg sync.WaitGroup
+
 				go func() {
 					rows, err := tx.Queryx(sqlStr, bindValues...)
 					if err != nil {
 						promise.Reject(ctx.Error(err.Error()))
 					} else {
-						defer rows.Close()
-						var records []interface{}
 						for rows.Next() {
-							record := map[string]interface{}{}
+							record := make(map[string]interface{})
 							rows.MapScan(record)
-							records = append(records, record)
+							jsonStr, err := json.Marshal(record)
+							if err != nil {
+								panic(err)
+							}
+
+							wg.Add(1)
+							ctx.Channel <- func() {
+								arr.Push(ctx.ParseJSON(string(jsonStr)))
+								wg.Done()
+							}
+
+							wg.Wait()
 						}
 
 						promise.Resolve(func() interface{} {
-							return records
+							defer rows.Close()
+							return arr
 						})
 					}
 				}()
+
 				return promise
 			})
 

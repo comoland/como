@@ -50,6 +50,7 @@ declare namespace Como {
 				(statement: string, ...bind: any[]): Promise<SqlExecResult>;
 				sync(statement: string, ...bind: any[]): SqlExecResult;
 			};
+			query<E extends any = any>(sql: string, ...bind: (string | number)[]): Promise<E[]>;
 			commit(): void;
 			rollBack(): void;
 		}

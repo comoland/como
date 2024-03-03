@@ -47,7 +47,7 @@ test('sql basics', async () => {
 });
 
 test('sql trans', async () => {
-    const db = Como.sql('sqlite3', 'file::memory:?cache=shared&_loc=auto');
+    const db = Como.sql('sqlite3', 'file::memory:?cache=shared');
 
     db.exec.sync(`
         CREATE TABLE place (
@@ -80,9 +80,18 @@ test('sql trans', async () => {
         );
     }
 
-    trans.commit();
-    const result = await db.query('SELECT id, country, telcode, city, createdAt FROM place LIMIT ?', 10000);
+
+    const result = await trans.query('SELECT id, country, telcode, city, createdAt FROM place LIMIT ?', 10000);
+    result.forEach((record, i) => {
+        assert.equal(record.id, i+1);
+    })
+
     assert.equal(result.length, 1000);
+    trans.rollBack();
+
+    const result2 = await db.query('SELECT id, country, telcode, city, createdAt FROM place LIMIT ?', 10000);
+    assert.equal(result2.length, 0);
+
     db.close();
 });
 
