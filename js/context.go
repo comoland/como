@@ -680,10 +680,11 @@ type Writer struct {
 	ctx    *Context
 	cb     Value
 	err    *Error
+	ret    interface{}
 	closed bool
 }
 
-func (w *Writer) Call(arg interface{}) error {
+func (w *Writer) Call(arg interface{}) *Error {
 	ctx := w.ctx
 	if w.closed == true {
 		return &Error{Cause: "write after close"}
@@ -708,6 +709,8 @@ func (w *Writer) Call(arg interface{}) error {
 			} else {
 				w.err = &Error{Cause: "unknow error", Stack: ""}
 			}
+		} else {
+			w.ret = ret
 		}
 	}
 
@@ -717,6 +720,10 @@ func (w *Writer) Call(arg interface{}) error {
 	}
 
 	return nil
+}
+
+func (w *Writer) Data() interface{} {
+	return w.ret
 }
 
 func (w *Writer) Write(buf []byte) (int, error) {
@@ -751,6 +758,7 @@ func (ctx *Context) Writer(cb Value) *Writer {
 		writer := &Writer{
 			ctx,
 			cb,
+			nil,
 			nil,
 			false,
 		}
