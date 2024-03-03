@@ -136,6 +136,16 @@ func (v Value) SetInt(i uint, value interface{}) Value {
 	return Value{ctx: ctx, c: jsVal}
 }
 
+func (v Value) Push(value interface{}) Value {
+	ctx := v.ctx
+	arr := v.c
+
+	len := v.Get("length").(int64)
+	jsVal := ctx.goToJSValue(value)
+	C.JS_SetPropertyUint32(ctx.c, arr, C.uint32_t(uint(len)), jsVal)
+	return Value{ctx: ctx, c: jsVal}
+}
+
 func (v Value) Get(name string) interface{} {
 	namePtr := C.CString(name)
 	defer C.free(unsafe.Pointer(namePtr))
