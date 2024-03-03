@@ -98,6 +98,82 @@ func createChild(parent chan interface{}, parentCtx *js.Context, options workerO
 }
 
 func worker2(ctx *js.Context, global js.Value) {
+	// var mx sync.Mutex
+	// var wg = &sync.WaitGroup{}
+	global.Set("thread", func(args js.Arguments) interface{} {
+		fn := args.GetValue(0)
+		if !fn.IsFunction() {
+			return ctx.Throw("ddddddd")
+		}
+
+		toStringFn := ctx.EvalFunction(`<>`, `(fn) => {
+			return fn.toString()
+		}`)
+
+		defer toStringFn.Free()
+		fnString := toStringFn.Call(fn).(string)
+
+		var childWriter *js.Writer
+		var parentWriter *js.Writer
+		return ctx.Async(func(async js.Promise) {
+			wg.Add(1)
+			go func() {
+				thread := ComoContext()
+				main := thread.EvalFunction("<native>", fnString)
+
+				// parent object
+				parent := thread.Object()
+				parent.Set("on", func(args js.Arguments) interface{} {
+					childWriter = thread.Writer(args.GetValue(1))
+					return nil
+				})
+
+				parent.Set("send", func(args js.Arguments) interface{} {
+					arg := args.Get(0)
+					if parentWriter != nil {
+						go func() {
+							parentWriter.Call(arg)
+						}()
+					}
+
+					return nil
+				})
+
+				main.Call(parent)
+				thread.Ref()
+				wg.Done()
+
+				thread.Loop()
+				// main.Free()
+				// onData.Free()
+				// childWriter.Close()
+				// thread.Free()
+			}()
+
+			wg.Wait()
+
+			// child object
+			child := ctx.Object()
+			child.Set("on", func(args js.Arguments) interface{} {
+				parentWriter = ctx.Writer(args.GetValue(1))
+				return nil
+			})
+
+			child.Set("send", func(args js.Arguments) interface{} {
+				arg := args.Get(0)
+				if childWriter != nil {
+					go func() {
+						childWriter.Call(arg)
+					}()
+				}
+
+				return nil
+			})
+
+			async.Resolve(child)
+		})
+	})
+
 	global.Set("worker2", func(args js.Arguments) interface{} {
 		workerFile, isFile := args.Get(0).(string)
 		callback := args.GetValue(1).Dup().AutoFree()

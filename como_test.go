@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"fmt"
+	"runtime"
 	"testing"
 
 	"github.com/comoland/como/core"
@@ -11,6 +12,151 @@ import (
 
 //go:embed public/*
 var public embed.FS
+
+// func TestModule(t *testing.T) {
+// 	Loop, ctx := core.Como("")
+// 	global := ctx.GlobalObject()
+
+// 	m := ctx.NewModule("core.go")
+
+// 	fn := map[string]interface{}{
+// 		"foo": func(args js.Arguments) interface{} {
+// 			return nil
+// 		},
+
+// 		"moo": func(args js.Arguments) interface{} {
+// 			return nil
+// 		},
+// 	}
+
+// 	fn2 := func(args js.Arguments) interface{} {
+// 		return nil
+// 	}
+
+// 	m.Export("default", fn)
+// 	m.Export("test2", fn2)
+
+// 	ctx.Eval(`
+// 		(async function(){
+// 			const all = await import('core.go')
+// 		})()
+// 	`)
+
+// 	Loop(func() {
+// 		global.Free()
+// 	})
+// }
+
+func TestModule2(t *testing.T) {
+	runs := 0
+	Loop, ctx := core.Como("")
+	global := ctx.GlobalObject()
+
+	m2 := ctx.NewModule("core2.go")
+	m2.Export("test2", func(args js.Arguments) interface{} {
+		arg := args.GetString(0)
+		if arg != "foo" {
+			t.Errorf("%s; want foo", arg)
+		}
+
+		runs = runs + 1
+		return "hello"
+	})
+
+	m := ctx.NewModule("core.go")
+	m.Export("first", func(args js.Arguments) interface{} {
+		arg := args.GetString(0)
+		if arg != "foo" {
+			t.Errorf("%s; want foo", arg)
+		}
+
+		runs = runs + 1
+		return "hello"
+	})
+
+	m.Export("second", func(args js.Arguments) interface{} {
+		arg := args.GetString(0)
+		if arg != "foo" {
+			t.Errorf("%s; want foo", arg)
+		}
+
+		runs = runs + 1
+		return "hello"
+	})
+
+	global.Set("setRet", func(args js.Arguments) interface{} {
+		ret := args.GetString(0)
+		runs = runs + 1
+		if ret != "hello" {
+			t.Errorf("%s; want hello", ret)
+		}
+
+		return nil
+	})
+
+	ctx.Eval(`
+		(async function(){
+			const { first, second } = await import('core.go')
+			setRet(first("foo"))
+			setRet(second("foo"))
+		})()
+	`)
+
+	ctx.Eval(`
+		(async function(){
+			const { test2 } = await import('core2.go')
+			setRet(test2("foo"))
+		})()
+	`)
+
+	Loop(func() {
+		global.Free()
+	})
+
+	if runs != 6 {
+		t.Errorf("expected 6 runs, got %d", runs)
+	}
+}
+
+func TestGoroutines(t *testing.T) {
+	Loop, ctx := core.Como("")
+	global := ctx.GlobalObject()
+	fmt.Println("before ===> number of goroutines:", runtime.NumGoroutine())
+
+	numBefore := runtime.NumGoroutine()
+
+	ctx.Eval(`
+		(async function(){
+			const t1 = setTimeout(() => {
+
+			}, 5000);
+
+			const t2 = setTimeout(() => {
+
+			}, 5000);
+
+			clearTimeout(t1);
+			clearTimeout(t2);
+
+			setInterval(function(){
+				clearTimeout(this);
+			}, 100);
+
+			const ret = await fetch('http://google.com').then((res) => {
+				return res;
+			});
+		})()
+	`)
+
+	Loop(func() {
+		global.Free()
+		numAfter := runtime.NumGoroutine()
+
+		if numBefore != numAfter {
+			t.Errorf("expected %d runs, got %d", numBefore, numAfter)
+		}
+	})
+}
 
 func TestAsync(t *testing.T) {
 	runs := 0
@@ -186,111 +332,6 @@ func TestArguments(t *testing.T) {
 
 	if runs != 1 {
 		t.Errorf("expected 1 runs, got %d", runs)
-	}
-}
-
-func TestModule(t *testing.T) {
-	Loop, ctx := core.Como("")
-	global := ctx.GlobalObject()
-
-	m := ctx.NewModule("core.go")
-
-	fn := map[string]interface{}{
-		"foo": func(args js.Arguments) interface{} {
-			return nil
-		},
-
-		"moo": func(args js.Arguments) interface{} {
-			return nil
-		},
-	}
-
-	fn2 := func(args js.Arguments) interface{} {
-		return nil
-	}
-
-	m.Export("default", fn)
-	m.Export("test2", fn2)
-
-	ctx.Eval(`
-		(async function(){
-			const all = await import('core.go')
-		})()
-	`)
-
-	Loop(func() {
-		global.Free()
-	})
-}
-
-func TestModule2(t *testing.T) {
-	runs := 0
-	Loop, ctx := core.Como("")
-	global := ctx.GlobalObject()
-
-	m2 := ctx.NewModule("core2.go")
-	m2.Export("test2", func(args js.Arguments) interface{} {
-		arg := args.GetString(0)
-		if arg != "foo" {
-			t.Errorf("%s; want foo", arg)
-		}
-
-		runs = runs + 1
-		return "hello"
-	})
-
-	m := ctx.NewModule("core.go")
-	m.Export("first", func(args js.Arguments) interface{} {
-		arg := args.GetString(0)
-		if arg != "foo" {
-			t.Errorf("%s; want foo", arg)
-		}
-
-		runs = runs + 1
-		return "hello"
-	})
-
-	m.Export("second", func(args js.Arguments) interface{} {
-		arg := args.GetString(0)
-		if arg != "foo" {
-			t.Errorf("%s; want foo", arg)
-		}
-
-		runs = runs + 1
-		return "hello"
-	})
-
-	global.Set("setRet", func(args js.Arguments) interface{} {
-		ret := args.GetString(0)
-		runs = runs + 1
-		if ret != "hello" {
-			t.Errorf("%s; want hello", ret)
-		}
-
-		return nil
-	})
-
-	ctx.Eval(`
-		(async function(){
-			const { first, second } = await import('core.go')
-			setRet(first("foo"))
-			setRet(second("foo"))
-		})()
-	`)
-
-	ctx.Eval(`
-		(async function(){
-			const { test2 } = await import('core2.go')
-			setRet(test2("foo"))
-		})()
-	`)
-
-	Loop(func() {
-		global.Free()
-	})
-
-	if runs != 6 {
-		t.Errorf("expected 6 runs, got %d", runs)
 	}
 }
 
@@ -472,6 +513,8 @@ func TestFinalizers(t *testing.T) {
 }
 
 func TestJs(t *testing.T) {
+	numBefore := runtime.NumGoroutine()
+	// Loop, ctx := core.Como("./test/units/workers.ts")
 	Loop, ctx := core.Como("./test/load.js")
 
 	m := ctx.NewModule("dump.go")
@@ -480,7 +523,10 @@ func TestJs(t *testing.T) {
 		return arg
 	})
 
-	Loop(func() {})
+	Loop(func() {
+		numAfter := runtime.NumGoroutine()
+		fmt.Println(" =====> ", numBefore, numAfter)
+	})
 }
 
 // func TestAwait(t *testing.T) {

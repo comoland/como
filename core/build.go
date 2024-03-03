@@ -63,10 +63,15 @@ func build(ctx *js.Context, Como js.Value) {
 		}
 
 		for _, plugin := range options.Plugins {
-			plugin.Setup.Dup()
+			v := ctx.GoToJSValue(plugin.Setup)
+			defer v.Free()
+			writer := ctx.Writer(v)
+
+			// plugin.Setup.Dup()
 			buildObject := ctx.ClassObject(func() {
 				// FIX ME: with multiple plugins it will crash
-				plugin.Setup.Free()
+				writer.Close()
+				// plugin.Setup.Free()
 			})
 
 			plugins = append(plugins, api.Plugin{
@@ -183,9 +188,11 @@ func build(ctx *js.Context, Como js.Value) {
 						return nil
 					})
 
-					ctx.WaitCall(func() {
-						plugin.Setup.Call(buildObject)
-					}).Wait()
+					writer.Call(buildObject)
+
+					// ctx.WaitCall(func() {
+					// 	plugin.Setup.Call(buildObject)
+					// }).Wait()
 
 				},
 			})
