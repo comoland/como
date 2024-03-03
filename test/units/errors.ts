@@ -1,5 +1,5 @@
 import { suite, assert } from '../mod';
-import { Child1 } from '../fixtures/nested/child1.mjs';
+import { Child1 } from '../fixtures/nested/child1.js';
 
 const test = suite('errors');
 
@@ -51,7 +51,7 @@ test('nested async functions', async () => {
     try {
         await Child1();
     } catch (err: any) {
-        const reg = new RegExp('fixtures/nested/child1.mjs:7', 'g');
+        const reg = new RegExp('fixtures/nested/child1.js:7', 'g');
         assert.ok(reg.test(err.stack));
         assert.equal(err.message, '[object Object]');
     }
