@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	_ "embed"
 	"time"
 
@@ -16,31 +17,37 @@ func timers(ctx *js.Context, global js.Value) {
 
 	timeout := ctx.Function(func(args js.Arguments) interface{} {
 		this := args.GetValue(0)
-		callback := this.Get("trigger").(js.Function)
+		callback := this.GetValue("trigger")
 		timeout, okIsNumber := this.Get("timeout").(int64)
 
 		if !okIsNumber {
 			timeout = 0
 		}
 
-		dupped := callback.Dup().AutoFree()
 		ctx.Ref()
 		isFreed := false
+		timerCxt, cancel := context.WithCancel(context.Background())
 
 		tick := func() {
 			go func() {
-				time.Sleep(time.Duration(timeout) * time.Millisecond)
-				if isFreed {
+				select {
+				case <-timerCxt.Done():
 					return
-				}
-
-				ctx.Channel <- func() {
-					// might be freed in celar timeout
-					if !callback.IsFunction() {
+				case <-time.After(time.Duration(timeout) * time.Millisecond):
+					if isFreed {
 						return
 					}
 
-					callback.Call()
+					ctx.Channel <- func() {
+						// might be freed in celar timeout
+						if !callback.IsFunction() {
+							return
+						}
+
+						callback.Call()
+					}
+
+					return
 				}
 			}()
 		}
@@ -52,8 +59,9 @@ func timers(ctx *js.Context, global js.Value) {
 			}
 
 			isFreed = true
-			dupped.Free()
+			callback.Free()
 			ctx.UnRef()
+			cancel()
 
 			return nil
 		})
