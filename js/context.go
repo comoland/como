@@ -347,7 +347,7 @@ func (ctx *Context) EvalFile(filename string, code string) (Value, error) {
 	defer C.free(unsafe.Pointer(filenamePtr))
 
 	val := C.JS_Eval(ctx.c, codePtr, C.size_t(len(code)), filenamePtr, C.int(C.JS_EVAL_TYPE_MODULE))
-	defer ctx.FreeValue(val)
+	// defer ctx.FreeValue(val)
 
 	if isException(val) {
 		defer ctx.FreeValue(val)
@@ -383,8 +383,10 @@ func (ctx *Context) EvalFunction(filename string, code string) Value {
 	return Value{c: C.JS_EvalFunction(ctx.c, val), ctx: ctx}
 }
 
-func (ctx *Context) Eval(code string) (Value, error) {
-	return ctx.EvalFile("<eval>", code)
+func (ctx *Context) Eval(code string) error {
+	v, err := ctx.EvalFile("<eval>", code)
+	defer v.Free()
+	return err
 }
 
 // GlobalObject returns javascript globalThis object

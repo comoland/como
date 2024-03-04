@@ -434,7 +434,7 @@ func TestBuffer(t *testing.T) {
 		return nil
 	})
 
-	_, err := ctx.Eval(`
+	err := ctx.Eval(`
 		function ab2str(buf) {
 			return String.fromCharCode.apply(null, new Uint16Array(buf));
 		}
