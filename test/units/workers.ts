@@ -325,21 +325,21 @@ test('throw inside a worker should not terminate main process', async () => {
 });
 
 // TODO module inheritance crash
-// test('worker inherits main thread modules', async () => {
-//     const worker = Como.createWorker(async (arg: number) => {
-//         // @ts-ignore
-//         const {  call } = await import("dump.go")
-//         return call(arg)
-//     })
+test('worker inherits main thread modules', async () => {
+    const worker = Como.createWorker(async (arg: number) => {
+        // @ts-ignore
+        const {  call } = await import("dump.go")
+        return call(arg)
+    })
 
-//     try {
-//         const val = await worker.exec(10);
-//         worker.terminate()
-//         assert.equal(val, 10)
-//     } catch (err: any) {
-//         worker.terminate()
-//         assert.ok(0, err.message)
-//     }
-// });
+    try {
+        const val = await worker.exec(10);
+        worker.terminate()
+        assert.equal(val, 10)
+    } catch (err: any) {
+        worker.terminate()
+        assert.ok(0, err.message)
+    }
+});
 
 test.run();

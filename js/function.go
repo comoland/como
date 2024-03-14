@@ -153,7 +153,8 @@ func _go_js_function_finalizer(rt *C.JSRuntime, val C.JSValue) {
 		fin()
 	}
 
-	ref.Free()
+	// BUG fix! this Free seems not needed
+	// ref.Free()
 	pointer.Unref(op)
 }
 

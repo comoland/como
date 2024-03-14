@@ -13,39 +13,39 @@ import (
 //go:embed public/*
 var public embed.FS
 
-// func TestModule(t *testing.T) {
-// 	Loop, ctx := core.Como("")
-// 	global := ctx.GlobalObject()
+func TestModule(t *testing.T) {
+	Loop, ctx := core.Como("")
+	global := ctx.GlobalObject()
 
-// 	m := ctx.NewModule("core.go")
+	m := ctx.NewModule("core.go")
 
-// 	fn := map[string]interface{}{
-// 		"foo": func(args js.Arguments) interface{} {
-// 			return nil
-// 		},
+	fn := map[string]interface{}{
+		"foo": func(args js.Arguments) interface{} {
+			return nil
+		},
 
-// 		"moo": func(args js.Arguments) interface{} {
-// 			return nil
-// 		},
-// 	}
+		"moo": func(args js.Arguments) interface{} {
+			return nil
+		},
+	}
 
-// 	fn2 := func(args js.Arguments) interface{} {
-// 		return nil
-// 	}
+	fn2 := func(args js.Arguments) interface{} {
+		return nil
+	}
 
-// 	m.Export("default", fn)
-// 	m.Export("test2", fn2)
+	m.Export("default", fn)
+	m.Export("test2", fn2)
 
-// 	ctx.Eval(`
-// 		(async function(){
-// 			const all = await import('core.go')
-// 		})()
-// 	`)
+	ctx.Eval(`
+		(async function(){
+			const all = await import('core.go')
+		})()
+	`)
 
-// 	Loop(func() {
-// 		global.Free()
-// 	})
-// }
+	Loop(func() {
+		global.Free()
+	})
+}
 
 func TestModule2(t *testing.T) {
 	runs := 0

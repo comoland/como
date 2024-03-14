@@ -42,15 +42,10 @@ func set_module_exports(c *C.JSContext, m *C.JSModuleDef) C.int {
 	// loop through exports and register them
 	for key, val := range module.exportList {
 		exportName := C.CString(key)
-		// defer C.free(unsafe.Pointer(exportName))
-		// fn, isFn := val.(func(args Arguments) interface{})
-		// if isFn {
-		// value := ctx.Function(fn).AutoFree()
-		// C.JS_SetModuleExport(c, m, exportName, ctx.GoToJSValue(value).Dup().c)
-		// } else {
+		defer C.free(unsafe.Pointer(exportName))
+
 		value := ctx.GoToJSValue(val)
 		C.JS_SetModuleExport(c, m, exportName, value.c)
-		// }
 	}
 
 	// for key := range module.exportList {
