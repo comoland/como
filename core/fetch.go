@@ -185,7 +185,7 @@ func fetch(ctx *js.Context, global js.Value) {
 				"arrayBuffer": func(args js.Arguments) interface{} {
 					return ctx.Async(func(async js.Promise) {
 						if bodyReadError != nil {
-							async.Reject(ctx.Error(bodyReadError.Error()))
+							async.Reject(bodyReadError.Error())
 							return
 						}
 
@@ -195,7 +195,7 @@ func fetch(ctx *js.Context, global js.Value) {
 				"text": func(args js.Arguments) interface{} {
 					return ctx.Async(func(async js.Promise) {
 						if bodyReadError != nil {
-							async.Reject(ctx.Error(bodyReadError.Error()))
+							async.Reject(bodyReadError.Error())
 							return
 						}
 
@@ -206,7 +206,7 @@ func fetch(ctx *js.Context, global js.Value) {
 					args.This.Set("BodyUsed", true)
 					return ctx.Async(func(async js.Promise) {
 						if bodyReadError != nil {
-							async.Reject(ctx.Error(bodyReadError.Error()))
+							async.Reject(bodyReadError.Error())
 							return
 						}
 

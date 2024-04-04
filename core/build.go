@@ -241,7 +241,7 @@ func build(ctx *js.Context, Como js.Value) {
 
 			if len(result.Errors) > 0 {
 				fmt.Println("bundle error ", result.Errors[0].Text)
-				promise.Reject(ctx.Error(result.Errors[0].Text))
+				promise.Reject(result.Errors[0].Text)
 			} else {
 				var array = []interface{}{}
 				for _, output := range result.OutputFiles {

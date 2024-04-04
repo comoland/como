@@ -87,7 +87,7 @@ func sql(ctx *js.Context, Como js.Value) {
 				go func() {
 					rows, err := tx.Queryx(sqlStr, bindValues...)
 					if err != nil {
-						promise.Reject(ctx.Error(err.Error()))
+						promise.Reject(err.Error())
 					} else {
 						for rows.Next() {
 							record := make(map[string]interface{})
@@ -141,7 +141,7 @@ func sql(ctx *js.Context, Como js.Value) {
 				go func() {
 					result, err := tx.Exec(stmt, bindValues...)
 					if err != nil {
-						promise.Reject(ctx.Error(err.Error()))
+						promise.Reject(err.Error())
 					} else {
 						lastInserId, _ := result.LastInsertId()
 						rowsAffected, _ := result.RowsAffected()
@@ -224,7 +224,7 @@ func sql(ctx *js.Context, Como js.Value) {
 			go func() {
 				result, err := db.Exec(stmt, bindValues...)
 				if err != nil {
-					promise.Reject(ctx.Error(err.Error()))
+					promise.Reject(err.Error())
 				} else {
 					lastInserId, _ := result.LastInsertId()
 					rowsAffected, _ := result.RowsAffected()
@@ -304,7 +304,7 @@ func sql(ctx *js.Context, Como js.Value) {
 			go func() {
 				rows, err := db.Queryx(sqlStr, bindValues...)
 				if err != nil {
-					promise.Reject(ctx.Error(err.Error()))
+					promise.Reject(err.Error())
 				} else {
 					defer rows.Close()
 					var records []interface{}
@@ -354,7 +354,7 @@ func sql(ctx *js.Context, Como js.Value) {
 						rows, err := db.Queryx(sqlStr, bindValues...)
 						defer writer.Close()
 						if err != nil {
-							async.Reject(ctx.Error(err.Error()))
+							async.Reject(err.Error())
 						} else {
 							defer rows.Close()
 							for rows.Next() {

@@ -58,7 +58,14 @@ func (p Promise) settlePromise(value interface{}, reject int) {
 	// ctx refs should be decreased
 	ctx.Channel <- func() {
 		ctx.UnRef()
-		jsVal := ctx.GoToJSValue(value)
+		var jsVal Value
+		str, isString := value.(string)
+		if isString && reject == 1 {
+			jsVal = ctx.Error(str)
+		} else {
+			jsVal = ctx.GoToJSValue(value)
+		}
+
 		defer func() {
 			p.Free()
 			jsVal.Free()
