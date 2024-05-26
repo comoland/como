@@ -20,6 +20,7 @@ func initCoreModels(ctx *js.Context) {
 	fetch(ctx, global)
 	filesystem(ctx, global)
 	wasi(ctx, global)
+	webPolyfills(ctx, global)
 
 	// Como methods
 	path(ctx, comoObj)
