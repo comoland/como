@@ -170,7 +170,6 @@ test('create worker single should not lock', async () => {
 //             //     setTimeout(() => { resolve(args) }, 100)
 //             // });
 
-
 //         },
 //         { pool: 20 }
 //     );
@@ -210,8 +209,6 @@ test('create worker single should not lock', async () => {
 //             }
 //         })();
 //     })();
-
-
 
 //     return new Promise((resolve) => {
 //         setTimeout(() => {
@@ -291,7 +288,8 @@ test('nested workers', async () => {
 // });
 
 test('multiple terminate should not lock', async () => {
-    const worker = Como.worker2(`
+    const worker = Como.worker2(
+        `
         globalThis.onmessage = () => {
             postMessage(1)
         }
@@ -311,7 +309,8 @@ test('multiple terminate should not lock', async () => {
 });
 
 test('throw inside a worker should not terminate main process', async () => {
-    const worker = Como.worker2(`
+    const worker = Como.worker2(
+        `
         throw new Error("error from worker")
     `,
         () => {
@@ -328,17 +327,17 @@ test('throw inside a worker should not terminate main process', async () => {
 test('worker inherits main thread modules', async () => {
     const worker = Como.createWorker(async (arg: number) => {
         // @ts-ignore
-        const {  call } = await import("dump.go")
-        return call(arg)
-    })
+        const { call } = await import('dump.go');
+        return call(arg);
+    });
 
     try {
         const val = await worker.exec(10);
-        worker.terminate()
-        assert.equal(val, 10)
+        worker.terminate();
+        assert.equal(val, 10);
     } catch (err: any) {
-        worker.terminate()
-        assert.ok(0, err.message)
+        worker.terminate();
+        assert.ok(0, err.message);
     }
 });
 

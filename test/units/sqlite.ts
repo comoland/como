@@ -62,7 +62,8 @@ test('sql trans', async () => {
 
     const trans = db.begin();
     while (i++ < 1000) {
-        await trans.exec(`
+        await trans.exec(
+            `
             INSERT INTO place (
                 country,
                 telcode,
@@ -80,11 +81,10 @@ test('sql trans', async () => {
         );
     }
 
-
     const result = await trans.query('SELECT id, country, telcode, city, createdAt FROM place LIMIT ?', 10000);
     result.forEach((record, i) => {
-        assert.equal(record.id, i+1);
-    })
+        assert.equal(record.id, i + 1);
+    });
 
     assert.equal(result.length, 1000);
     trans.rollBack();

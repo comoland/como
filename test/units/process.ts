@@ -20,24 +20,23 @@ test('it should call nextTick', async () => {
 });
 
 test('process suspense', async () => {
-    const list : any = [];
+    const list: any = [];
     const inter = setInterval(() => {
         // will run twice
-        list.push('b')
+        list.push('b');
     }, 90);
 
-    process.suspense((unsuspense) => {
-        list.push('a')
+    process.suspense(unsuspense => {
+        list.push('a');
         setTimeout(() => {
             clearInterval(inter);
-            list.push('c')
-            unsuspense()
-        }, 200)
+            list.push('c');
+            unsuspense();
+        }, 200);
     });
 
-    list.push('d')
-    console.log(list)
-    assert.equal(list, ['a', 'b', 'b', 'c', 'd'])
+    list.push('d');
+    assert.equal(list, ['a', 'b', 'b', 'c', 'd']);
 });
 
 test.run();
