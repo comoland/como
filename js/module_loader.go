@@ -78,6 +78,10 @@ func moduleNormalizeName(c *C.JSContext, base_name *C.char, name *C.char, opque 
 	resolvedFile := filename
 
 	// start by resolving internal registered module aliases
+	// Como has a process.registerAlias method
+	// this can register namespaces ex:
+	// process.registerAlias('@como', './src')
+	// this will replace all occurances with @como/.. to ./src/..
 	for key, element := range internalModules {
 		m1 := regexp.MustCompile("^" + key)
 		newResolvedName := m1.ReplaceAllString(resolvedFile, element)
@@ -188,6 +192,8 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 
 		codeStr = string(result.OutputFiles[0].Contents)
 	} else {
+		// error reading file normally, it's most likely a node_module
+		// Como doesn't has a module loader so we will let esbuild load that
 		if err != nil {
 			contents := fmt.Sprintf(`
 				import * as _COMO_IMPORT from '%s'
