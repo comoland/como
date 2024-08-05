@@ -201,9 +201,10 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 					module.exports[key] = _COMO_IMPORT[key]
 				});
 
-				globalThis['%s'] = _COMO_IMPORT;
+				globalThis["modules_exports"] = globalThis["modules_exports"] ?? {};
+				globalThis["modules_exports"]['%s'] = _COMO_IMPORT;
 				globalThis.require = function(f) {
-					return globalThis[f]
+					return globalThis["modules_exports"][f]
 				};
 		`, filename, filename)
 
