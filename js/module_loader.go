@@ -327,6 +327,8 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 	ctx.StackFormatter = func(stack string) string {
 		lines := s.Split(stack, "\n")
 
+		lock.Lock()
+		defer lock.Unlock()
 		for idx, line := range lines {
 			regex := regexp.MustCompile(`(.*?)\((.*):(\d+)\)`)
 			matches := regex.FindStringSubmatch(line)

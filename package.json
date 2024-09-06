@@ -1,0 +1,27 @@
+{
+  "name": "como",
+  "version": "1.0.0",
+  "description": "A complete mess, but working awesomely :)",
+  "main": "imp.js",
+  "directories": {
+    "example": "examples",
+    "test": "test"
+  },
+  "dependencies": {
+    "uvu": "^0.5.6"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/comoland/como.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/comoland/como/issues"
+  },
+  "homepage": "https://github.com/comoland/como#readme"
+}

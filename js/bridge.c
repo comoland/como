@@ -5,17 +5,17 @@
 #include "quickjs.h"
 #include "quickjs-libc.h"
 
-const uint32_t qjsc_ts_size;
-const uint8_t qjsc_ts[2141516];
+static const uint32_t qjsc_ts_size;
+static const uint8_t qjsc_ts[2141516];
 
-const uint32_t qjsc_babel_size;
-const uint8_t qjsc_babel[1083920];
+static const uint32_t qjsc_babel_size;
+static const uint8_t qjsc_babel[1083920];
 
 JSModuleDef *moduleLoader();
 char *moduleNormalizeName();
 void promiseRejectionTracker();
 
-struct _promise
+static struct _promise
 {
     JSContext *ctx;
     JSValue promise;
