@@ -26,6 +26,7 @@ type buildOptions struct {
 	Minify      bool
 	Bundle      bool
 	Loader      map[string]api.Loader
+	SourceMap   api.SourceMap
 }
 
 func build(ctx *js.Context, Como js.Value) {
@@ -49,13 +50,21 @@ func build(ctx *js.Context, Como js.Value) {
 		"json":   int(api.LoaderJSON),
 	})
 
+	build.Set("sourceMap", map[string]interface{}{
+		"external": int(api.SourceMapExternal),
+		"inline":   int(api.SourceMapInline),
+		"linked":   int(api.SourceMapLinked),
+		"none":     int(api.SourceMapNone),
+	})
+
 	// build.bundle
 	build.Set("bundle", func(args1 js.Arguments) interface{} {
-		// var buildOptions = api.BuildOptions{}
-		// filename := args1.GetString(0)
 		rpcList := []*js.RPC{}
 		plugins := []api.Plugin{}
-		options := buildOptions{}
+		options := buildOptions{
+			SourceMap: api.SourceMapNone,
+		}
+
 		err := args1.GetMap(1, &options)
 
 		if err != nil {
@@ -199,7 +208,6 @@ func build(ctx *js.Context, Como js.Value) {
 		}
 
 		promise := ctx.NewPromise()
-
 		go func() {
 			opt := api.BuildOptions{
 				EntryPoints:       options.EntryPoints,
@@ -220,8 +228,8 @@ func build(ctx *js.Context, Como js.Value) {
 				// 	{Name: api.EngineEdge, Version: "16"},
 				// 	{Name: api.EngineChrome, Version: "58"},
 				// },
-				// Sourcemap: api.SourceMapInline,
-				Plugins: plugins,
+				Sourcemap: options.SourceMap,
+				Plugins:   plugins,
 			}
 
 			if len(options.Stdin.Contents) > 0 {

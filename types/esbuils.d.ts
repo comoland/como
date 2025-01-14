@@ -7,7 +7,7 @@ export type Charset = 'ascii' | 'utf8';
 export type TreeShaking = true | 'ignore-annotations';
 
 interface CommonOptions {
-  sourcemap?: boolean | 'inline' | 'external';
+  sourcemap?: boolean | 'inline' | 'external' | 'linked' | 'none';
   format?: Format;
   globalName?: string;
   target?: string | string[];
