@@ -35,7 +35,7 @@ declare namespace Como {
 			sync(statement: string, ...bind: any[]): SqlExecResult;
 		};
 
-		query(sql: string, ...bind: (string | number)[]): Promise<any[]>;
+		query<E extends any = any>(sql: string, ...bind: (string | number)[]): Promise<E[]>;
 		close(): any;
 
 		begin() : {
@@ -50,22 +50,71 @@ declare namespace Como {
 				(statement: string, ...bind: any[]): Promise<SqlExecResult>;
 				sync(statement: string, ...bind: any[]): SqlExecResult;
 			};
-			query<E extends any = any>(sql: string, ...bind: (string | number)[]): Promise<E[]>;
 			commit(): void;
 			rollBack(): void;
 		}
 	};
 
+	type ICookie = { Name: string,
+		Value: string;
+		Path: string;
+		Domain: string;
+		Expires: string;
+		RawExpires: string;
+		MaxAge: number;
+		Secure: boolean;
+		HttpOnly: boolean;
+		SameSite: number;
+		Raw: string;
+		Unparsed: any;
+	}
+
 	export type HTTPRequest = {
+		id: number;
+		method: string;
 		body: () => string;
-		query: Record<string, string>;
+		buffer: () => ArrayBuffer;
+		cookie: (key: string) => string | undefined;
+		cookies: () => ICookie[];
+		on: <k extends "disconnect" | "data">(event: k) => k extends "disconnect"  ? Promise<true> : Promise<string>;
+		query: (key: string) => string;
+		header: (key: string) => string;
+		headers: () => Record<string, string>;
+		form: (maxSize?: number) => Promise<{
+			fromValue: (name: string) => Psomise<ArrayBuffer>,
+			fromFile: (name: string) => Promise<{
+				size: number;
+				name: string;
+				mime: string;
+				data: ArrayBuffer;
+			}>
+		}>
+		host: string;
 		path: string;
 		uri: string;
+		ipInfo: () => Promise<{
+			country: string,
+			city: string,
+			region: string
+		}>;
+		file: (name: string) => Promise<{
+			size: number;
+			name: string;
+			mime: string;
+			data: ArrayBuffer;
+		}>
 	};
 
 	export type HTTPResponse = {
+		status: (status: number) => void;
 		header: (key: string, value: string) => void;
-		body: (a: string) => void;
+		body: (a: string | ArrayBuffer) => void;
+		cookie: (key: string, val: string) => void;
+		write: (a: string | ArrayBuffer) => void;
+		stream: (a: string | ArrayBuffer) => void;
+		flush: () => void;
+		redirect: (utl: string, code?: number) => void;
+		end: () => void;
 		serve: any;
 	};
 
@@ -86,16 +135,26 @@ declare namespace Como {
 			path: string,
 			callback: (path: string, info: { isDir: boolean; name: string }) => Promise<boolean | void> | void | boolean
 		) => void | Promise<void>;
-		walkFS: (
-			path: string,
-			callback: (path: string, info: { isDir: boolean; name: string }) => Promise<boolean | void> | void | boolean
-		) => void | Promise<void>;
 	};
 
 	export const build: {
 		plugin(...args: any[]): any
 		bundle2(...args: any[]) : string
-		bundle(file:string, options: esbuild.BuildOptions) : Promise<Array<{ path: string, content: string }>>
+		bundle(file:string, options: esbuild.BuildOptions) : Promise<Array<{ path: string, content: string }>>,
+		loader: {
+			js: "js",
+			text: "text",
+			ts: "ts",
+			tsx: "tsx",
+			json: "json",
+			base64: "base64"
+		},
+		sourceMap: {
+			none: "none",
+			inline: "inline",
+			external: "external",
+			linked: "linked"
+		}
 	}
 
 	export function worker(
@@ -118,7 +177,7 @@ declare namespace Como {
 		cb: (...arg: T) => Promise<R> | R,
 		opt?: { pool?: number }
 	): {
-		exec: (...arg: T) => Promise<R>;
+		exec: <E extends any = R>(...arg: T) => Promise<E>;
 		terminate: () => void;
 	};
 
