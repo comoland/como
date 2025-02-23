@@ -250,11 +250,12 @@ func TestAsyncCatch(t *testing.T) {
 	`)
 
 	Loop(func() {
-		val := global.Get("ret")
-		if val != "error in async" {
+		val := global.GetValue("ret")
+		if val.ToString() != "Error: error in async" {
 			t.Errorf("expected error in async, got %s", val)
 		}
 
+		val.Free()
 		global.Free()
 	})
 
