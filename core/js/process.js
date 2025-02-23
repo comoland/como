@@ -66,6 +66,8 @@
             registerAlias(...args);
         }
 
+        on() {}
+
         cwd() {
             return cwd();
         }
