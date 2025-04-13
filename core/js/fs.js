@@ -43,7 +43,7 @@
     // _exports.write = async (file, data) => await write(file, data);
     // _exports.append = async (file, data) => await append(file, data);
     // _exports.mkdir = async (path, mode) => await mkdir(path, mode);
-    // _exports.readdir = async (path) => await readdir(path);
+
     // _exports.stat = async (path) => await stat(path);
     // _exports.unlink = async (path) => await unlink(path);
     // _exports.rmdir = async (path) => await rmdir(path);
@@ -62,6 +62,56 @@
     // _exports.ftruncate = async (fd, size) => await ftruncate(fd, size);
     // _exports.open = async (path, flags, mode) => await open(path, flags, mode);
     // _exports.close = async (fd) => await close(fd);
+    _exports.readdir = async (path, options, cb) => {
+        let callback = cb;
+        let opts = {};
+
+        // Handle different argument patterns
+        if (typeof options === 'function') {
+            callback = options;
+        } else if (typeof options === 'object') {
+            opts = options;
+        } else if (typeof options === 'string') {
+            opts.encoding = options;
+        }
+
+        // Default options
+        const defaultOpts = {
+            encoding: 'utf8',
+            withFileTypes: false,
+            recursive: false
+        };
+
+        // Merge options with defaults
+        opts = { ...defaultOpts, ...opts };
+
+        const promise = readdir(path, opts).then((entries) => {
+            // If withFileTypes is true, return the entries as is
+            if (opts.withFileTypes) {
+                return entries;
+            }
+
+            // If recursive is true, return the entries as is
+            if (opts.recursive) {
+                return entries;
+            }
+
+            // Otherwise, just return the names
+            return entries;
+        });
+
+        if (callback) {
+            try {
+                callback(null, await promise);
+            } catch (err) {
+                callback(err.message);
+            }
+            return;
+        }
+
+        return promise;
+    };
+
     _exports.readFile = async (path, options, cb) => {
         let callback = cb;
         let enc = null;

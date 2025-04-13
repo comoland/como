@@ -108,12 +108,82 @@ func filesystem(ctx *js.Context, global js.Value) {
 		if !isString {
 			return ctx.Throw("TypeError: First argument to readdir must be a string")
 		}
+
+		// Get options if provided
+		var opts map[string]interface{}
+		if args.Len() > 1 {
+			if o, ok := args.Get(1).(map[string]interface{}); ok {
+				opts = o
+			}
+		}
+
 		return ctx.Async(func(async js.Promise) {
+			// Handle recursive mode
+			if opts != nil && opts["recursive"] == true {
+				var entries []map[string]interface{}
+				err := filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+
+					// Skip the root directory
+					if p == path {
+						return nil
+					}
+
+					entry := map[string]interface{}{
+						"name":        info.Name(),
+						"path":        p,
+						"isDirectory": info.IsDir(),
+						"size":        info.Size(),
+						"mode":        info.Mode().String(),
+						"modTime":     info.ModTime().UnixNano() / int64(time.Millisecond),
+					}
+
+					entries = append(entries, entry)
+					return nil
+				})
+
+				if err != nil {
+					async.Reject(err.Error())
+					return
+				}
+
+				async.Resolve(entries)
+				return
+			}
+
+			// Non-recursive mode
 			entries, err := os.ReadDir(path)
 			if err != nil {
 				async.Reject(err.Error())
 				return
 			}
+
+			// Handle withFileTypes option
+			if opts != nil && opts["withFileTypes"] == true {
+				fileTypes := make([]map[string]interface{}, len(entries))
+				for i, entry := range entries {
+					info, err := entry.Info()
+					if err != nil {
+						async.Reject(err.Error())
+						return
+					}
+
+					fileTypes[i] = map[string]interface{}{
+						"name":        entry.Name(),
+						"isDirectory": entry.IsDir(),
+						"isFile":      !entry.IsDir(),
+						"size":        info.Size(),
+						"mode":        info.Mode(),
+						"modTime":     info.ModTime().UnixNano() / int64(time.Millisecond),
+					}
+				}
+				async.Resolve(fileTypes)
+				return
+			}
+
+			// Default behavior - just return names
 			names := make([]string, len(entries))
 			for i, entry := range entries {
 				names[i] = entry.Name()
