@@ -38,34 +38,67 @@
         S_IXOTH: 0o1
     };
 
-    // Export all methods
-    _exports.read = read;
-    _exports.write = write;
-    _exports.append = append;
-    _exports.mkdir = mkdir;
-    _exports.readdir = readdir;
-    _exports.stat = stat;
-    _exports.unlink = unlink;
-    _exports.rmdir = rmdir;
-    _exports.rename = rename;
-    _exports.copyFile = copyFile;
-    _exports.chmod = chmod;
-    _exports.chown = chown;
-    _exports.utimes = utimes;
-    _exports.realpath = realpath;
-    _exports.exists = exists;
-    _exports.access = access;
-    _exports.readlink = readlink;
-    _exports.symlink = symlink;
-    _exports.lstat = lstat;
-    _exports.truncate = truncate;
-    _exports.ftruncate = ftruncate;
-    _exports.open = open;
-    _exports.close = close;
-    _exports.readFile = readFile;
-    _exports.writeFile = writeFile;
-    _exports.appendFile = appendFile;
-    _exports.mkdtemp = mkdtemp;
+    // Export all methods with promise handling
+    // _exports.read = async (file) => await read(file);
+    // _exports.write = async (file, data) => await write(file, data);
+    // _exports.append = async (file, data) => await append(file, data);
+    // _exports.mkdir = async (path, mode) => await mkdir(path, mode);
+    // _exports.readdir = async (path) => await readdir(path);
+    // _exports.stat = async (path) => await stat(path);
+    // _exports.unlink = async (path) => await unlink(path);
+    // _exports.rmdir = async (path) => await rmdir(path);
+    // _exports.rename = async (oldPath, newPath) => await rename(oldPath, newPath);
+    // _exports.copyFile = async (src, dst) => await copyFile(src, dst);
+    // _exports.chmod = async (path, mode) => await chmod(path, mode);
+    // _exports.chown = async (path, uid, gid) => await chown(path, uid, gid);
+    // _exports.utimes = async (path, atime, mtime) => await utimes(path, atime, mtime);
+    // _exports.realpath = async (path) => await realpath(path);
+    // _exports.exists = async (path) => await exists(path);
+    // _exports.access = async (path, mode) => await access(path, mode);
+    // _exports.readlink = async (path) => await readlink(path);
+    // _exports.symlink = async (target, path) => await symlink(target, path);
+    // _exports.lstat = async (path) => await lstat(path);
+    // _exports.truncate = async (path, size) => await truncate(path, size);
+    // _exports.ftruncate = async (fd, size) => await ftruncate(fd, size);
+    // _exports.open = async (path, flags, mode) => await open(path, flags, mode);
+    // _exports.close = async (fd) => await close(fd);
+    _exports.readFile = async (path, options, cb) => {
+        let callback = cb;
+        let enc = null;
+
+        if (typeof options === 'function') {
+            callback = options;
+        } else if (typeof options === 'object') {
+            enc = options.encoding;
+        } else {
+            enc = options;
+        }
+
+        const promise = readFile(path).then((data) => {
+            const buffer = Buffer.from(data)
+            if (enc) {
+                return buffer.toString(enc)
+            }
+
+            return buffer;
+        });
+
+        if (callback) {
+            try {
+                callback(null, await promise)
+            } catch (err) {
+                callback(err.message, null)
+            }
+
+            return;
+        }
+
+        return promise;
+    };
+
+    // _exports.writeFile = async (path, data) => await writeFile(path, data);
+    // _exports.appendFile = async (path, data) => await appendFile(path, data);
+    // _exports.mkdtemp = async (prefix) => await mkdtemp(prefix);
 
     // Export constants
     _exports.constants = constants;
@@ -74,11 +107,23 @@
 
     // Export synchronous versions
     _exports.readFileSync = (path, options) => {
-        const ret = readFile(path, options);
-        if (options && options.encoding) {
-            return Buffer.from(ret).toString(options.encoding);
+        let ret = null;
+        let error = null;
+        process.suspense(async (unsuspense) => {
+            try {
+                ret = await _exports.readFile(path, options);
+            } catch (e) {
+                error = e;
+            } finally {
+                unsuspense()
+            }
+        });
+
+        if (error) {
+            throw error;
         }
-        return Buffer.from(ret);
+
+        return ret;
     };
 
     _exports.writeFileSync = (path, data, options) => {
@@ -117,8 +162,8 @@
         return rename(oldPath, newPath);
     };
 
-    _exports.copyFileSync = (src, dest, flags) => {
-        return copyFile(src, dest, flags);
+    _exports.copyFileSync = (src, dst) => {
+        return copyFile(src, dst);
     };
 
     _exports.chmodSync = (path, mode) => {
@@ -133,8 +178,8 @@
         return utimes(path, atime, mtime);
     };
 
-    _exports.realpathSync = (path, options) => {
-        return realpath(path, options);
+    _exports.realpathSync = (path) => {
+        return realpath(path);
     };
 
     _exports.existsSync = (path) => {
@@ -145,20 +190,20 @@
         return access(path, mode);
     };
 
-    _exports.readlinkSync = (path, options) => {
-        return readlink(path, options);
+    _exports.readlinkSync = (path) => {
+        return readlink(path);
     };
 
-    _exports.symlinkSync = (target, path, type) => {
-        return symlink(target, path, type);
+    _exports.symlinkSync = (target, path) => {
+        return symlink(target, path);
     };
 
-    _exports.truncateSync = (path, len) => {
-        return truncate(path, len);
+    _exports.truncateSync = (path, size) => {
+        return truncate(path, size);
     };
 
-    _exports.ftruncateSync = (fd, len) => {
-        return ftruncate(fd, len);
+    _exports.ftruncateSync = (fd, size) => {
+        return ftruncate(fd, size);
     };
 
     _exports.openSync = (path, flags, mode) => {
@@ -169,8 +214,8 @@
         return close(fd);
     };
 
-    _exports.mkdtempSync = (prefix, options) => {
-        return mkdtemp(prefix, options);
+    _exports.mkdtempSync = (prefix) => {
+        return mkdtemp(prefix);
     };
 
     return _exports;
