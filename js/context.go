@@ -290,6 +290,12 @@ func (ctx *Context) GoToJSValue(value interface{}) Value {
 			a.SetInt(uint(i), v)
 		}
 		return a
+	case [][]string:
+		a := ctx.Array()
+		for i, v := range val {
+			a.SetInt(uint(i), ctx.GoToJSValue(v))
+		}
+		return a
 	case []int:
 		a := ctx.Array()
 		for i, v := range val {
