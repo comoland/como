@@ -2,9 +2,13 @@ package main
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/comoland/como/core"
 	"github.com/comoland/como/js"
@@ -12,6 +16,203 @@ import (
 
 //go:embed public/*
 var public embed.FS
+
+func toJSON(v interface{}) string {
+	if v == nil {
+		return "undefined"
+	}
+	b, _ := json.Marshal(v)
+	return string(b)
+}
+
+func toJSONString(v interface{}) string {
+	if v == nil {
+		return "undefined"
+	}
+
+	b, err := json.Marshal(v)
+	if err != nil {
+		return "" // or panic/log
+	}
+	return string(b)
+}
+
+func TestFetch(t *testing.T) {
+	// Create a test server
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/test":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{"message": "test response"})
+		case "/redirect":
+			http.Redirect(w, r, "/test", http.StatusFound)
+		case "/error":
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("error response"))
+		case "/timeout":
+			time.Sleep(2 * time.Second)
+			w.Write([]byte("timeout response"))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	// Test cases
+	tests := []struct {
+		name       string
+		url        string
+		options    map[string]interface{}
+		expected   interface{}
+		statusCode interface{}
+	}{
+		{
+			name: "GET request",
+			url:  ts.URL + "/test",
+			options: map[string]interface{}{
+				"method": "GET",
+			},
+			expected:   map[string]string{"message": "test response"},
+			statusCode: 200,
+		},
+		{
+			name: "POST request",
+			url:  ts.URL + "/test",
+			options: map[string]interface{}{
+				"method": "POST",
+				"body":   "test body",
+			},
+			expected:   map[string]string{"message": "test response"},
+			statusCode: 200,
+		},
+		{
+			name: "Redirect",
+			url:  ts.URL + "/redirect",
+			options: map[string]interface{}{
+				"redirect": "follow",
+			},
+			expected:   map[string]string{"message": "test response"},
+			statusCode: 200,
+		},
+		{
+			name: "Error response",
+			url:  ts.URL + "/error",
+			options: map[string]interface{}{
+				"method": "GET",
+			},
+			expected:   "error response",
+			statusCode: 500,
+		},
+		{
+			name: "Timeout",
+			url:  ts.URL + "/timeout",
+			options: map[string]interface{}{
+				"method": "GET",
+			},
+			expected:   "timeout response",
+			statusCode: 200,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a new context
+			Loop, ctx := core.Como("")
+
+			// Execute the fetch request
+			ctx.Eval(fmt.Sprintf(`
+				fetch("%s", %s)
+					.then(res => {
+						globalThis.statusCode = res.status;
+						return res.text();
+					})
+					.then(text => {
+						try {
+							const json = JSON.parse(text);
+							globalThis.result = json;
+						} catch {
+							globalThis.result = text;
+						}
+					})
+					.catch(err => {
+						globalThis.result = err;
+					});
+			`, tt.url, toJSON(tt.options)))
+
+			// Wait for the response
+			Loop(func() {
+				global := ctx.GlobalObject()
+				defer global.Free()
+				result := global.Get("result")
+				statusCode := global.Get("statusCode")
+				fmt.Println(statusCode)
+
+				if toJSONString(statusCode) != toJSONString(tt.statusCode) {
+					t.Errorf("status code expected %v, got %v", tt.statusCode, statusCode)
+				}
+
+				if toJSONString(result) != toJSONString(tt.expected) {
+					t.Errorf("response expected %v, got %v", tt.expected, result)
+				}
+			})
+		})
+	}
+}
+
+func TestHeaders(t *testing.T) {
+	Loop, ctx := core.Como("")
+
+	// Test Headers constructor
+	code := `
+		const headers = new Headers({
+			'Content-Type': 'application/json',
+			'X-Custom': 'value'
+		});
+
+		headers.append('X-Custom', 'value2');
+		headers.set('X-New', 'new-value');
+
+		const result = {
+			hasContentType: headers.has('Content-Type'),
+			getContentType: headers.get('Content-Type'),
+			getCustom: headers.get('X-Custom'),
+			getNew: headers.get('X-New'),
+			entries: Array.from(headers.entries()),
+			keys: Array.from(headers.keys()),
+			values: Array.from(headers.values())
+		};
+
+		globalThis.result = result;
+	`
+
+	ctx.Eval(code)
+
+	// Wait for the response and verify headers
+	Loop(func() {
+		global := ctx.GlobalObject()
+		defer global.Free()
+		result := global.GetValue("result")
+		defer result.Free()
+
+		hasContentType := result.GetValue("hasContentType")
+		defer hasContentType.Free()
+		if !hasContentType.IsBool() || hasContentType.String() != "true" {
+			t.Error("Expected Content-Type header to exist")
+		}
+
+		if result.Get("getContentType") != "application/json" {
+			t.Error("Expected Content-Type to be application/json")
+		}
+
+		if result.Get("getCustom") != "value, value2" {
+			t.Error("Expected X-Custom to be value, value2")
+		}
+
+		if result.Get("getNew") != "new-value" {
+			t.Error("Expected X-New to be new-value")
+		}
+	})
+}
 
 func TestModule(t *testing.T) {
 	Loop, ctx := core.Como("")

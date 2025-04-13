@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"strings"
 	"time"
@@ -15,15 +16,77 @@ import (
 	"github.com/comoland/como/js"
 )
 
-type fetchRequestOpt struct {
-	Headers  map[string]string
-	Body     interface{}
-	Method   string
-	Redirect string
+// FetchRequestOptions represents the options for a fetch request
+type FetchRequestOptions struct {
+	Method         string            `json:"method"`
+	Headers        map[string]string `json:"headers"`
+	Body           interface{}       `json:"body"`
+	Mode           string            `json:"mode"`
+	Credentials    string            `json:"credentials"`
+	Cache          string            `json:"cache"`
+	Redirect       string            `json:"redirect"`
+	Referrer       string            `json:"referrer"`
+	ReferrerPolicy string            `json:"referrerPolicy"`
+	Integrity      string            `json:"integrity"`
+	Keepalive      bool              `json:"keepalive"`
+	Signal         interface{}       `json:"signal"`
+}
+
+// Headers represents the Headers interface
+type Headers struct {
+	headers map[string]string
+}
+
+// NewHeaders creates a new Headers instance
+func NewHeaders() *Headers {
+	return &Headers{
+		headers: make(map[string]string),
+	}
+}
+
+// Append adds a new value to a header
+func (h *Headers) Append(name, value string) {
+	if existing, ok := h.headers[name]; ok {
+		h.headers[name] = existing + ", " + value
+	} else {
+		h.headers[name] = value
+	}
+}
+
+// Delete removes a header
+func (h *Headers) Delete(name string) {
+	delete(h.headers, name)
+}
+
+// Get returns a header value
+func (h *Headers) Get(name string) string {
+	return h.headers[name]
+}
+
+// Has checks if a header exists
+func (h *Headers) Has(name string) bool {
+	_, ok := h.headers[name]
+	return ok
+}
+
+// Set sets a header value
+func (h *Headers) Set(name, value string) {
+	h.headers[name] = value
+}
+
+// FetchError represents a fetch error
+type FetchError struct {
+	Type    string
+	Message string
+}
+
+func (e *FetchError) Error() string {
+	return fmt.Sprintf("%s: %s", e.Type, e.Message)
 }
 
 func fetch(ctx *js.Context, global js.Value) {
-	global.Set("formData", func(args js.Arguments) interface{} {
+	// FormData implementation
+	global.Set("FormData", func(args js.Arguments) interface{} {
 		form := new(bytes.Buffer)
 		writer := multipart.NewWriter(form)
 
@@ -47,8 +110,6 @@ func fetch(ctx *js.Context, global js.Value) {
 
 					if tmp, err := writer.CreateFormFile(key, name); err == nil {
 						tmp.Write(buf)
-						// r := bytes.NewReader(buf)
-						// io.Copy(tmp, r)
 					} else {
 						return nil
 					}
@@ -62,23 +123,110 @@ func fetch(ctx *js.Context, global js.Value) {
 
 				return nil
 			},
-			"getHeaders": func(args js.Arguments) interface{} {
-				return writer.FormDataContentType()
+			"delete": func(args js.Arguments) interface{} {
+				// Not implemented in standard FormData
+				return nil
 			},
-			"buffer": func(args js.Arguments) interface{} {
-				writer.Close()
-				return form.Bytes()
+			"get": func(args js.Arguments) interface{} {
+				// Not implemented in standard FormData
+				return nil
 			},
-			"body": func(args js.Arguments) interface{} {
-				writer.Close()
-				return form.String()
+			"getAll": func(args js.Arguments) interface{} {
+				// Not implemented in standard FormData
+				return nil
+			},
+			"has": func(args js.Arguments) interface{} {
+				// Not implemented in standard FormData
+				return false
+			},
+			"set": func(args js.Arguments) interface{} {
+				// Not implemented in standard FormData
+				return nil
+			},
+			"entries": func(args js.Arguments) interface{} {
+				// Not implemented in standard FormData
+				return nil
+			},
+			"keys": func(args js.Arguments) interface{} {
+				// Not implemented in standard FormData
+				return nil
+			},
+			"values": func(args js.Arguments) interface{} {
+				// Not implemented in standard FormData
+				return nil
+			},
+			"forEach": func(args js.Arguments) interface{} {
+				// Not implemented in standard FormData
+				return nil
 			},
 		}
 	})
 
+	// Headers implementation
+	global.SetConstructor("Headers", func(args js.Arguments) interface{} {
+		headers := NewHeaders()
+
+		if args.Len() > 0 {
+			switch val := args.Get(0).(type) {
+			case map[string]interface{}:
+				for k, v := range val {
+					headers.Set(k, v.(string))
+				}
+			case []interface{}:
+				for _, pair := range val {
+					if arr, ok := pair.([]interface{}); ok && len(arr) == 2 {
+						headers.Set(arr[0].(string), arr[1].(string))
+					}
+				}
+			}
+		}
+
+		return map[string]interface{}{
+			"append": func(args js.Arguments) interface{} {
+				headers.Append(args.GetString(0), args.GetString(1))
+				return nil
+			},
+			"delete": func(args js.Arguments) interface{} {
+				headers.Delete(args.GetString(0))
+				return nil
+			},
+			"get": func(args js.Arguments) interface{} {
+				return headers.Get(args.GetString(0))
+			},
+			"has": func(args js.Arguments) interface{} {
+				return headers.Has(args.GetString(0))
+			},
+			"set": func(args js.Arguments) interface{} {
+				headers.Set(args.GetString(0), args.GetString(1))
+				return nil
+			},
+			"entries": func(args js.Arguments) interface{} {
+				entries := make([][]string, 0)
+				for k, v := range headers.headers {
+					entries = append(entries, []string{k, v})
+				}
+				return entries
+			},
+			"keys": func(args js.Arguments) interface{} {
+				keys := make([]string, 0)
+				for k := range headers.headers {
+					keys = append(keys, k)
+				}
+				return keys
+			},
+			"values": func(args js.Arguments) interface{} {
+				values := make([]string, 0)
+				for _, v := range headers.headers {
+					values = append(values, v)
+				}
+				return values
+			},
+		}
+	})
+
+	// Fetch implementation
 	global.Set("fetch", func(args js.Arguments) interface{} {
 		rawURL, ok := args.Get(0).(string)
-
 		if !ok {
 			return ctx.Throw("fetch arg(0) must be a string")
 		}
@@ -88,37 +236,54 @@ func fetch(ctx *js.Context, global js.Value) {
 			return ctx.Throw(fmt.Sprintf("url '%s' is not valid", rawURL))
 		}
 
-		fetchOptions := fetchRequestOpt{
-			Method: "GET",
+		options := FetchRequestOptions{
+			Method:         "GET",
+			Mode:           "cors",
+			Credentials:    "same-origin",
+			Cache:          "default",
+			Redirect:       "follow",
+			Referrer:       "about:client",
+			ReferrerPolicy: "no-referrer-when-downgrade",
+			Keepalive:      false,
 		}
 
-		err = args.GetMap(1, &fetchOptions)
-		if err != nil {
-			return ctx.Throw(err.Error())
+		if args.Len() > 1 {
+			err = args.GetMap(1, &options)
+			if err != nil {
+				return ctx.Throw(err.Error())
+			}
 		}
 
 		var body io.Reader
-		switch fetchOptions.Body.(type) {
+		switch b := options.Body.(type) {
 		case string:
-			body = strings.NewReader(fetchOptions.Body.(string))
+			body = strings.NewReader(b)
 		case []byte:
-			body = bytes.NewReader(fetchOptions.Body.([]byte))
+			body = bytes.NewReader(b)
+		case map[string]interface{}:
+			if form, ok := b["buffer"]; ok {
+				if buf, ok := form.([]byte); ok {
+					body = bytes.NewReader(buf)
+				}
+			}
 		}
 
 		if body == nil {
 			body = strings.NewReader("")
 		}
 
-		req, err := http.NewRequest(fetchOptions.Method, url.String(), body)
+		req, err := http.NewRequest(options.Method, url.String(), body)
 		if err != nil {
 			return ctx.Throw(err.Error())
 		}
 
-		for k, v := range fetchOptions.Headers {
+		// Set headers
+		for k, v := range options.Headers {
 			headerName := http.CanonicalHeaderKey(k)
 			req.Header.Set(headerName, v)
 		}
 
+		// Set default headers if not present
 		if req.Header.Get("Accept") == "" {
 			req.Header.Set("Accept", "*/*")
 		}
@@ -127,31 +292,45 @@ func fetch(ctx *js.Context, global js.Value) {
 			req.Header.Set("Connection", "close")
 		}
 
-		req.Header.Set("Redirect", fetchOptions.Redirect)
+		// Set referrer
+		if options.Referrer != "" {
+			req.Header.Set("Referer", options.Referrer)
+		}
 
-		// TODO: a proper redirect policy
-		// see https://jonathanmh.com/tracing-preventing-http-redirects-golang/
-		// for a simple example
-
-		// TODO: use cookieJsr?
+		// Create cookie jar if needed
+		var jar *cookiejar.Jar
+		if options.Credentials == "include" {
+			var err error
+			jar, err = cookiejar.New(nil)
+			if err != nil {
+				return ctx.Throw(fmt.Sprintf("failed to create cookie jar: %v", err))
+			}
+		} else {
+			// Create an empty jar for other cases to avoid nil pointer dereference
+			jar, _ = cookiejar.New(nil)
+		}
 
 		return ctx.Async(func(async js.Promise) {
 			redirected := false
 			client := &http.Client{
 				Transport: http.DefaultTransport,
 				Timeout:   30 * time.Second,
+				Jar:       jar,
 				CheckRedirect: func(req *http.Request, via []*http.Request) error {
-					switch req.Header.Get("Redirect") {
+					switch options.Redirect {
 					case "error":
 						return http.ErrUseLastResponse
-					default:
+					case "manual":
+						return http.ErrUseLastResponse
+					case "follow":
 						if len(via) >= 10 {
 							return errors.New("stopped after 10 redirects")
 						}
+						redirected = true
+						return nil
+					default:
+						return errors.New("invalid redirect option")
 					}
-
-					redirected = true
-					return nil
 				},
 			}
 
@@ -161,13 +340,6 @@ func fetch(ctx *js.Context, global js.Value) {
 				return
 			}
 
-			res.Header.Set("Redirected", fmt.Sprintf("%v", redirected))
-
-			isBodyUsed := false
-
-			// TODO: a better way to handle body close
-			// we don't need to read body every time, but this
-			// solution of ensure body close we have to pre read body data
 			defer res.Body.Close()
 			respBody, bodyReadError := ioutil.ReadAll(res.Body)
 
@@ -176,47 +348,89 @@ func fetch(ctx *js.Context, global js.Value) {
 				headers[strings.ToLower(k)] = strings.Join(v, ",")
 			}
 
-			async.Resolve(map[string]interface{}{
+			response := map[string]interface{}{
 				"headers":    headers,
 				"ok":         res.StatusCode >= 200 && res.StatusCode < 300,
 				"statusText": res.Status,
 				"status":     res.StatusCode,
-				"bodyUsed":   isBodyUsed,
-				"arrayBuffer": func(args js.Arguments) interface{} {
-					return ctx.Async(func(async js.Promise) {
-						if bodyReadError != nil {
-							async.Reject(bodyReadError.Error())
-							return
-						}
+				"type":       "basic", // or "cors", "opaque", "opaqueredirect"
+				"url":        res.Request.URL.String(),
+				"redirected": redirected,
+				"bodyUsed":   false,
+			}
 
-						async.Resolve(respBody)
-					})
-				},
-				"text": func(args js.Arguments) interface{} {
-					return ctx.Async(func(async js.Promise) {
-						if bodyReadError != nil {
-							async.Reject(bodyReadError.Error())
-							return
-						}
+			// Add body methods
+			response["arrayBuffer"] = func(args js.Arguments) interface{} {
+				return ctx.Async(func(async js.Promise) {
+					if bodyReadError != nil {
+						async.Reject(bodyReadError.Error())
+						return
+					}
+					response["bodyUsed"] = true
+					async.Resolve(respBody)
+				})
+			}
 
-						async.Resolve(string(respBody))
+			response["blob"] = func(args js.Arguments) interface{} {
+				return ctx.Async(func(async js.Promise) {
+					if bodyReadError != nil {
+						async.Reject(bodyReadError.Error())
+						return
+					}
+					response["bodyUsed"] = true
+					async.Resolve(map[string]interface{}{
+						"type": res.Header.Get("Content-Type"),
+						"size": len(respBody),
+						"arrayBuffer": func(args js.Arguments) interface{} {
+							return respBody
+						},
 					})
-				},
-				"json": func(args js.Arguments) interface{} {
-					args.This.Set("BodyUsed", true)
-					return ctx.Async(func(async js.Promise) {
-						if bodyReadError != nil {
-							async.Reject(bodyReadError.Error())
-							return
-						}
+				})
+			}
 
-						async.Resolve(func() interface{} {
-							val := ctx.ParseJSON(string(respBody))
-							return val
-						})
+			response["formData"] = func(args js.Arguments) interface{} {
+				return ctx.Async(func(async js.Promise) {
+					if bodyReadError != nil {
+						async.Reject(bodyReadError.Error())
+						return
+					}
+					response["bodyUsed"] = true
+					// Not implemented
+					async.Reject("FormData parsing not implemented")
+				})
+			}
+
+			response["json"] = func(args js.Arguments) interface{} {
+				return ctx.Async(func(async js.Promise) {
+					if bodyReadError != nil {
+						async.Reject(bodyReadError.Error())
+						return
+					}
+					response["bodyUsed"] = true
+					async.Resolve(func() interface{} {
+						val := ctx.ParseJSON(string(respBody))
+						return val
 					})
-				},
-			})
+				})
+			}
+
+			response["text"] = func(args js.Arguments) interface{} {
+				return ctx.Async(func(async js.Promise) {
+					if bodyReadError != nil {
+						async.Reject(bodyReadError.Error())
+						return
+					}
+					response["bodyUsed"] = true
+					async.Resolve(string(respBody))
+				})
+			}
+
+			response["clone"] = func(args js.Arguments) interface{} {
+				// Not implemented
+				return ctx.Throw("Response.clone() not implemented")
+			}
+
+			async.Resolve(response)
 		})
 	})
 }
