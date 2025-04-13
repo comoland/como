@@ -186,6 +186,26 @@ func (v Value) SetFunction(name string, fn func(args Arguments) interface{}) *Fu
 	return val
 }
 
+func (v Value) SetConstructor(name string, fn func(args Arguments) interface{}) *Function {
+	ctx := v.ctx
+	val := ctx.Function(fn)
+	v.Set(name, val)
+
+	args := ctx.NewArguments(v, name, val)
+	constructor := ctx.EvalFunction("<constructor>", `(obj, name, fn) => {
+		const _old = obj[name];
+		obj[name] = function (...init) {
+			const _this = this;
+			Object.assign(_this, _old(...init));
+			return _this;
+		}
+	}`)
+
+	defer constructor.Free()
+	constructor.Call(args)
+	return val
+}
+
 func (v Value) String() string {
 	ptr := C.JS_ToCString(v.ctx.c, v.c)
 	defer C.JS_FreeCString(v.ctx.c, ptr)
