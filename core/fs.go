@@ -467,12 +467,83 @@ func filesystem(ctx *js.Context, global js.Value) {
 		if err != nil {
 			return ctx.Throw(err.Error())
 		}
+
+		// Get options if provided
+		var opts map[string]interface{}
+		if args.Len() > 2 {
+			if o, ok := args.Get(2).(map[string]interface{}); ok {
+				opts = o
+			}
+		}
+
 		return ctx.Async(func(async js.Promise) {
-			err = os.WriteFile(path, data, 0644)
+			// Open file with appropriate flags
+			var flags int = os.O_WRONLY | os.O_CREATE | os.O_TRUNC
+			if opts != nil {
+				if flag, ok := opts["flag"].(string); ok {
+					switch flag {
+					case "a":
+						flags = os.O_WRONLY | os.O_CREATE | os.O_APPEND
+					case "ax":
+						flags = os.O_WRONLY | os.O_CREATE | os.O_EXCL | os.O_APPEND
+					case "a+":
+						flags = os.O_RDWR | os.O_CREATE | os.O_APPEND
+					case "ax+":
+						flags = os.O_RDWR | os.O_CREATE | os.O_EXCL | os.O_APPEND
+					case "as":
+						flags = os.O_WRONLY | os.O_CREATE | os.O_APPEND | os.O_SYNC
+					case "as+":
+						flags = os.O_RDWR | os.O_CREATE | os.O_APPEND | os.O_SYNC
+					case "r":
+						flags = os.O_RDONLY
+					case "r+":
+						flags = os.O_RDWR
+					case "w":
+						flags = os.O_WRONLY | os.O_CREATE | os.O_TRUNC
+					case "wx":
+						flags = os.O_WRONLY | os.O_CREATE | os.O_EXCL | os.O_TRUNC
+					case "w+":
+						flags = os.O_RDWR | os.O_CREATE | os.O_TRUNC
+					case "wx+":
+						flags = os.O_RDWR | os.O_CREATE | os.O_EXCL | os.O_TRUNC
+					}
+				}
+			}
+
+			// Get mode from options or use default
+			mode := os.FileMode(0644)
+			if opts != nil {
+				if m, ok := opts["mode"].(int64); ok {
+					mode = os.FileMode(m)
+				}
+			}
+
+			// Open file
+			f, err := os.OpenFile(path, flags, mode)
 			if err != nil {
 				async.Reject(err.Error())
 				return
 			}
+			defer f.Close()
+
+			// Write data
+			_, err = f.Write(data)
+			if err != nil {
+				async.Reject(err.Error())
+				return
+			}
+
+			// Handle flush if specified
+			if opts != nil {
+				if flush, ok := opts["flush"].(bool); ok && flush {
+					err = f.Sync()
+					if err != nil {
+						async.Reject(err.Error())
+						return
+					}
+				}
+			}
+
 			async.Resolve(nil)
 		})
 	})

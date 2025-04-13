@@ -96,7 +96,52 @@
         return promise;
     };
 
-    // _exports.writeFile = async (path, data) => await writeFile(path, data);
+    _exports.writeFile = async (file, data, options, cb) => {
+        let callback = cb;
+        let opts = {};
+
+        // Handle different argument patterns
+        if (typeof options === 'function') {
+            callback = options;
+        } else if (typeof options === 'object') {
+            opts = options;
+        } else if (typeof options === 'string') {
+            opts.encoding = options;
+        }
+
+        // Default options
+        const defaultOpts = {
+            encoding: 'utf8',
+            mode: 0o666,
+            flag: 'w',
+            flush: false
+        };
+
+        // Merge options with defaults
+        opts = { ...defaultOpts, ...opts };
+
+        // Convert data to buffer if it's a string
+        if (typeof data === 'string') {
+            data = Buffer.from(data, opts.encoding);
+        }
+
+        const promise = writeFile(file, data, opts).then(() => {
+            return undefined; // writeFile returns void
+        });
+
+        if (callback) {
+            try {
+                await promise;
+                callback(null);
+            } catch (err) {
+                callback(err.message);
+            }
+            return;
+        }
+
+        return promise;
+    };
+
     // _exports.appendFile = async (path, data) => await appendFile(path, data);
     // _exports.mkdtemp = async (prefix) => await mkdtemp(prefix);
 
@@ -126,8 +171,24 @@
         return ret;
     };
 
-    _exports.writeFileSync = (path, data, options) => {
-        return writeFile(path, data, options);
+    _exports.writeFileSync = (file, data, options) => {
+        let ret = null;
+        let error = null;
+        process.suspense(async (unsuspense) => {
+            try {
+                ret = await _exports.writeFile(file, data, options);
+            } catch (e) {
+                error = e;
+            } finally {
+                unsuspense()
+            }
+        });
+
+        if (error) {
+            throw error;
+        }
+
+        return ret;
     };
 
     _exports.appendFileSync = (path, data, options) => {
