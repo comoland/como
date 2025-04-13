@@ -114,7 +114,7 @@ func fetch(ctx *js.Context, global js.Value) {
 						return nil
 					}
 				default:
-					err = errors.New(fmt.Sprintf("unknown arg type %T", val))
+					err = fmt.Errorf("unknown arg type %T", val)
 				}
 
 				if err != nil {

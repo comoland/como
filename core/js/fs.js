@@ -43,7 +43,6 @@
     // _exports.write = async (file, data) => await write(file, data);
     // _exports.append = async (file, data) => await append(file, data);
     // _exports.mkdir = async (path, mode) => await mkdir(path, mode);
-
     // _exports.stat = async (path) => await stat(path);
     // _exports.unlink = async (path) => await unlink(path);
     // _exports.rmdir = async (path) => await rmdir(path);
@@ -62,6 +61,9 @@
     // _exports.ftruncate = async (fd, size) => await ftruncate(fd, size);
     // _exports.open = async (path, flags, mode) => await open(path, flags, mode);
     // _exports.close = async (fd) => await close(fd);
+    // _exports.appendFile = async (path, data) => await appendFile(path, data);
+    // _exports.mkdtemp = async (prefix) => await mkdtemp(prefix);
+
     _exports.readdir = async (path, options, cb) => {
         let callback = cb;
         let opts = {};
@@ -192,142 +194,39 @@
         return promise;
     };
 
-    // _exports.appendFile = async (path, data) => await appendFile(path, data);
-    // _exports.mkdtemp = async (prefix) => await mkdtemp(prefix);
-
     // Export constants
     _exports.constants = constants;
     _exports.flags = flags;
     _exports.modes = modes;
 
-    // Export synchronous versions
-    _exports.readFileSync = (path, options) => {
-        let ret = null;
-        let error = null;
-        process.suspense(async (unsuspense) => {
-            try {
-                ret = await _exports.readFile(path, options);
-            } catch (e) {
-                error = e;
-            } finally {
-                unsuspense()
+    // synchronous versions
+    const makeSync = () => {
+        Object.entries(_exports).forEach(([key, value]) => {
+            if (typeof value === "function") {
+                key = `${key}Sync`;
+                _exports[key] = (...args) => {
+                    let ret = null;
+                    let error = null;
+                    process.suspense(async (unsuspense) => {
+                        try {
+                            ret = await value(...args);
+                        } catch (e) {
+                            error = e;
+                        } finally {
+                            unsuspense()
+                        }
+                    });
+
+                    if (error) {
+                        throw error;
+                    }
+
+                    return ret;
+                }
             }
-        });
+        })
+    }
 
-        if (error) {
-            throw error;
-        }
-
-        return ret;
-    };
-
-    _exports.writeFileSync = (file, data, options) => {
-        let ret = null;
-        let error = null;
-        process.suspense(async (unsuspense) => {
-            try {
-                ret = await _exports.writeFile(file, data, options);
-            } catch (e) {
-                error = e;
-            } finally {
-                unsuspense()
-            }
-        });
-
-        if (error) {
-            throw error;
-        }
-
-        return ret;
-    };
-
-    _exports.appendFileSync = (path, data, options) => {
-        return appendFile(path, data, options);
-    };
-
-    _exports.readdirSync = (path, options) => {
-        return readdir(path, options);
-    };
-
-    _exports.mkdirSync = (path, options) => {
-        return mkdir(path, options);
-    };
-
-    _exports.statSync = (path) => {
-        return stat(path);
-    };
-
-    _exports.lstatSync = (path) => {
-        return lstat(path);
-    };
-
-    _exports.unlinkSync = (path) => {
-        return unlink(path);
-    };
-
-    _exports.rmdirSync = (path) => {
-        return rmdir(path);
-    };
-
-    _exports.renameSync = (oldPath, newPath) => {
-        return rename(oldPath, newPath);
-    };
-
-    _exports.copyFileSync = (src, dst) => {
-        return copyFile(src, dst);
-    };
-
-    _exports.chmodSync = (path, mode) => {
-        return chmod(path, mode);
-    };
-
-    _exports.chownSync = (path, uid, gid) => {
-        return chown(path, uid, gid);
-    };
-
-    _exports.utimesSync = (path, atime, mtime) => {
-        return utimes(path, atime, mtime);
-    };
-
-    _exports.realpathSync = (path) => {
-        return realpath(path);
-    };
-
-    _exports.existsSync = (path) => {
-        return exists(path);
-    };
-
-    _exports.accessSync = (path, mode) => {
-        return access(path, mode);
-    };
-
-    _exports.readlinkSync = (path) => {
-        return readlink(path);
-    };
-
-    _exports.symlinkSync = (target, path) => {
-        return symlink(target, path);
-    };
-
-    _exports.truncateSync = (path, size) => {
-        return truncate(path, size);
-    };
-
-    _exports.ftruncateSync = (fd, size) => {
-        return ftruncate(fd, size);
-    };
-
-    _exports.openSync = (path, flags, mode) => {
-        return open(path, flags, mode);
-    };
-
-    _exports.closeSync = (fd) => {
-        return close(fd);
-    };
-
-    _exports.mkdtempSync = (prefix) => {
-        return mkdtemp(prefix);
-    };
-
+    makeSync();
     return _exports;
 };
