@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -407,10 +408,21 @@ func fetch(ctx *js.Context, global js.Value) {
 						return
 					}
 					response["bodyUsed"] = true
-					async.Resolve(func() interface{} {
-						val := ctx.ParseJSON(string(respBody))
-						return val
-					})
+
+					var result map[string]interface{}
+
+					err := json.Unmarshal(respBody, &result)
+					if err != nil {
+						async.Reject(err.Error())
+						return
+					}
+
+					async.Resolve(result)
+
+					// async.Resolve(func() interface{} {
+					// 	val := ctx.ParseJSON(string(respBody))
+					// 	return val
+					// })
 				})
 			}
 

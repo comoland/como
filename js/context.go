@@ -661,7 +661,8 @@ func (ctx *Context) CheckError(err error) {
 			fmt.Println(evalErr.Cause)
 			fmt.Println(evalErr.Stack)
 		}
-		fmt.Println(fmt.Sprintf("%v", err))
+
+		fmt.Printf("%v", err)
 		os.Exit(2)
 	}
 }
