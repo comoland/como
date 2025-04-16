@@ -6,7 +6,7 @@ import (
 	"github.com/comoland/como/js"
 )
 
-//go:embed js/buffer.js
+//go:embed js/polyfills.js
 var bufferJs string
 
 func buffer(ctx *js.Context, _ js.Value) {
