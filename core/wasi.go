@@ -15,9 +15,6 @@ import (
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 )
 
-//go:embed js/webassembly.js
-var webassemblyJs string
-
 func wasi(ctx *js.Context, global js.Value) {
 	webassembly := ctx.Object()
 	global.Set("WebAssembly", webassembly)
