@@ -25,6 +25,7 @@ type buildOptions struct {
 	Splitting   bool
 	Minify      bool
 	Bundle      bool
+	Target      api.Target
 	Loader      map[string]api.Loader
 	SourceMap   api.SourceMap
 }
@@ -57,12 +58,20 @@ func build(ctx *js.Context, Como js.Value) {
 		"none":     int(api.SourceMapNone),
 	})
 
+	build.Set("target", map[string]interface{}{
+		"ESNext": int(api.ESNext),
+		"es2015": int(api.ES2015),
+		"es2016": int(api.ES2016),
+		"es5":    int(api.ES5),
+	})
+
 	// build.bundle
 	build.Set("bundle", func(args1 js.Arguments) interface{} {
 		rpcList := []*js.RPC{}
 		plugins := []api.Plugin{}
 		options := buildOptions{
 			SourceMap: api.SourceMapNone,
+			Target:    api.ESNext,
 		}
 
 		err := args1.GetMap(1, &options)
@@ -222,7 +231,7 @@ func build(ctx *js.Context, Como js.Value) {
 				Splitting:         options.Splitting,
 				External:          options.External,
 				Format:            api.FormatESModule,
-				Target:            api.ES2015,
+				Target:            options.Target,
 				Loader:            options.Loader,
 				// Engines: []api.Engine{
 				// 	{Name: api.EngineEdge, Version: "16"},
