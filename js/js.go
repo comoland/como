@@ -15,6 +15,9 @@ type Error struct {
 	Stack string
 }
 
-func (err Error) Error() string       { return err.Cause }
-func (err Error) StackTrace() string  { return err.Stack }
-func (v C.JSValue) IsException() bool { return C.JS_IsException(v) == 1 }
+func (err Error) Error() string      { return err.Cause }
+func (err Error) StackTrace() string { return err.Stack }
+
+type JSValue C.JSValue
+
+func (v JSValue) IsException() bool { return C.JS_IsException(C.JSValue(v)) == 1 }
