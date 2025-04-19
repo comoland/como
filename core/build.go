@@ -1,8 +1,6 @@
 package core
 
 import (
-	"fmt"
-
 	"github.com/comoland/como/js"
 	"github.com/evanw/esbuild/pkg/api"
 )
@@ -218,58 +216,71 @@ func build(ctx *js.Context, Como js.Value) {
 
 		promise := ctx.NewPromise()
 		go func() {
-			opt := api.BuildOptions{
-				EntryPoints:       options.EntryPoints,
-				Platform:          api.PlatformBrowser,
-				Define:            options.Define,
-				Bundle:            options.Bundle,
-				Outdir:            "/",
-				Write:             false,
-				MinifySyntax:      options.Minify,
-				MinifyWhitespace:  options.Minify,
-				MinifyIdentifiers: options.Minify,
-				Splitting:         options.Splitting,
-				External:          options.External,
-				Format:            api.FormatESModule,
-				Target:            options.Target,
-				Loader:            options.Loader,
-				// Engines: []api.Engine{
-				// 	{Name: api.EngineEdge, Version: "16"},
-				// 	{Name: api.EngineChrome, Version: "58"},
-				// },
-				Sourcemap: options.SourceMap,
-				Plugins:   plugins,
+			// Create a channel to receive the build result
+			resultChan := make(chan struct {
+				result api.BuildResult
+				err    error
+			})
+
+			// Run esbuild in a separate goroutine
+			go func() {
+				opt := api.BuildOptions{
+					EntryPoints:       options.EntryPoints,
+					Platform:          api.PlatformBrowser,
+					Define:            options.Define,
+					Bundle:            options.Bundle,
+					Outdir:            "/",
+					Write:             false,
+					MinifySyntax:      options.Minify,
+					MinifyWhitespace:  options.Minify,
+					MinifyIdentifiers: options.Minify,
+					Splitting:         options.Splitting,
+					External:          options.External,
+					Format:            api.FormatESModule,
+					Target:            options.Target,
+					Loader:            options.Loader,
+					Sourcemap:         options.SourceMap,
+					Plugins:           plugins,
+				}
+
+				if len(options.Stdin.Contents) > 0 {
+					opt.Stdin = &api.StdinOptions{
+						Contents:   options.Stdin.Contents,
+						ResolveDir: options.Stdin.ResolveDir,
+						Sourcefile: options.Stdin.Sourcefile,
+						Loader:     api.LoaderTSX,
+					}
+				}
+
+				result := api.Build(opt)
+				resultChan <- struct {
+					result api.BuildResult
+					err    error
+				}{result: result, err: nil}
+			}()
+
+			// Wait for the build result
+			buildResult := <-resultChan
+
+			if buildResult.err != nil {
+				promise.Reject(buildResult.err.Error())
+				return
 			}
 
-			if len(options.Stdin.Contents) > 0 {
-				opt.Stdin = &api.StdinOptions{
-					Contents:   options.Stdin.Contents,
-					ResolveDir: options.Stdin.ResolveDir,
-					Sourcefile: options.Stdin.Sourcefile,
-					Loader:     api.LoaderTSX,
+			if len(buildResult.result.Errors) > 0 {
+				promise.Reject(buildResult.result.Errors[0].Text)
+				return
+			}
+
+			outputs := make([]map[string]interface{}, len(buildResult.result.OutputFiles))
+			for i, file := range buildResult.result.OutputFiles {
+				outputs[i] = map[string]interface{}{
+					"path":    file.Path,
+					"content": string(file.Contents),
 				}
 			}
 
-			result := api.Build(opt)
-
-			for _, rpc := range rpcList {
-				rpc.Close()
-			}
-
-			if len(result.Errors) > 0 {
-				fmt.Println("bundle error ", result.Errors[0].Text)
-				promise.Reject(result.Errors[0].Text)
-			} else {
-				var array = []interface{}{}
-				for _, output := range result.OutputFiles {
-					array = append(array, map[string]interface{}{
-						"path":    output.Path,
-						"content": string(output.Contents),
-					})
-				}
-
-				promise.Resolve(array)
-			}
+			promise.Resolve(outputs)
 		}()
 
 		return promise

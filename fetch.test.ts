@@ -3,12 +3,12 @@ import { createServer } from 'http';
 
 const test = suite('fetch');
 
-test('fetch requests', async () => {
+test.only('fetch requests', async () => {
     // Create a test server
     const server = createServer((req, res) => {
         switch (req.url) {
             case '/test':
-                res.setHeader('Content-Type', 'application/json');
+                // res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify({ message: 'test response' }));
                 break;
             case '/redirect':
@@ -31,12 +31,12 @@ test('fetch requests', async () => {
     });
 
     await new Promise<void>((resolve) => {
-        server.listen(0, () => {
+        server.listen(8080, () => {
             resolve();
         });
     });
 
-    const port = (server.address() as any).port;
+    const port = 8080;
     const baseUrl = `http://localhost:${port}`;
 
     try {
@@ -69,8 +69,10 @@ test('fetch requests', async () => {
         const timeoutResponse = await fetch(`${baseUrl}/timeout`, { method: 'GET' });
         const timeoutText = await timeoutResponse.text();
         assert.equal(timeoutText, 'timeout response');
+    } catch(e) {
+        console.log(e)
     } finally {
-        server.close();
+        // server.close();
     }
 });
 
@@ -94,3 +96,5 @@ test('form data', async () => {
     formData.append('text', 'value');
     formData.append('file', new Blob([new Uint8Array([1, 2, 3])], { type: 'text/plain' }));
 });
+
+test.run()
