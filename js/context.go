@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"runtime"
 	"sync"
@@ -258,15 +259,33 @@ func (ctx *Context) GoToJSValue(value interface{}) Value {
 			jsValue = C.JS_NewArrayBufferCopy(ctx.c, b, C.size_t(len(val)))
 		}
 	case int:
+		if val > math.MaxInt32 || val < math.MinInt32 {
+			jsValue = C.JS_NewInt64(ctx.c, C.int64_t(val))
+		} else {
+			jsValue = C.JS_NewInt32(ctx.c, C.int32_t(val))
+		}
+	case int8:
+		jsValue = C.JS_NewInt32(ctx.c, C.int32_t(val))
+	case int16:
 		jsValue = C.JS_NewInt32(ctx.c, C.int32_t(val))
 	case int32:
 		jsValue = C.JS_NewInt32(ctx.c, C.int32_t(val))
-	case uint32:
-		jsValue = C.JS_NewUint32(ctx.c, C.uint32_t(val))
 	case int64:
 		jsValue = C.JS_NewInt64(ctx.c, C.int64_t(val))
+	case uint8:
+		jsValue = C.JS_NewUint32(ctx.c, C.uint32_t(val))
+	case uint16:
+		jsValue = C.JS_NewUint32(ctx.c, C.uint32_t(val))
+	case uint32:
+		jsValue = C.JS_NewUint32(ctx.c, C.uint32_t(val))
 	case uint64:
-		jsValue = C.JS_NewBigUint64(ctx.c, C.uint64_t(val))
+		if val <= 0xFFFFFFFF {
+			jsValue = C.JS_NewUint32(ctx.c, C.uint32_t(val))
+		} else {
+			jsValue = C.JS_NewBigUint64(ctx.c, C.uint64_t(val))
+		}
+	case float32:
+		jsValue = C.JS_NewFloat64(ctx.c, C.double(val))
 	case float64:
 		jsValue = C.JS_NewFloat64(ctx.c, C.double(val))
 	case string:
@@ -323,7 +342,17 @@ func (ctx *Context) GoToJSValue(value interface{}) Value {
 	case *interface{}:
 		return ctx.GoToJSValue(*val)
 	default:
-		log.Fatalf("I don't know about type %T!\n", value)
+		var payload = map[string]interface{}{}
+		payload["_safe"] = val
+		str, err := ctx.ToSafeJSONString(payload)
+		if err != nil {
+			log.Fatalf("I don't know about type %T!\n", value)
+		}
+
+		vjs := ctx.ParseJSON(str)
+		defer vjs.Free()
+		return vjs.GetValue("_safe")
+
 	}
 
 	return ctx.Value(jsValue)

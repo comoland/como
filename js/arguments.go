@@ -7,6 +7,10 @@ import "C"
 import (
 	// "fmt"
 
+	"encoding/json"
+	"fmt"
+	"reflect"
+
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -128,6 +132,123 @@ func (args Arguments) GetMap(argIndex int, output interface{}) error {
 func (ctx *Context) GetMap(input interface{}, output interface{}) error {
 	er := mapstructure.Decode(input, output)
 	return er
+}
+
+func makeSafe(val reflect.Value, seen map[uintptr]bool) interface{} {
+	if !val.IsValid() {
+		return nil
+	}
+
+	// Dereference pointers
+	for val.Kind() == reflect.Ptr {
+		ptr := val.Pointer()
+		if seen[ptr] {
+			return nil
+		}
+		seen[ptr] = true
+		if val.IsNil() {
+			return nil
+		}
+		val = val.Elem()
+	}
+
+	typ := val.Type()
+
+	// If it implements fmt.Stringer, use its String() value
+	if typ.Implements(reflect.TypeOf((*fmt.Stringer)(nil)).Elem()) {
+		return val.Interface().(fmt.Stringer).String()
+	}
+
+	switch val.Kind() {
+	case reflect.Struct:
+		result := make(map[string]interface{})
+		for i := 0; i < val.NumField(); i++ {
+			field := typ.Field(i)
+			if field.PkgPath != "" {
+				continue
+			}
+			result[field.Name] = makeSafe(val.Field(i), seen)
+		}
+		return result
+
+	case reflect.Map:
+		result := make(map[string]interface{})
+		for _, key := range val.MapKeys() {
+			result[fmt.Sprint(key.Interface())] = makeSafe(val.MapIndex(key), seen)
+		}
+		return result
+
+	case reflect.Slice, reflect.Array:
+		elemType := val.Type().Elem()
+		stringerType := reflect.TypeOf((*fmt.Stringer)(nil)).Elem()
+
+		// Check if element type implements fmt.Stringer
+		if elemType.Implements(stringerType) {
+			result := make([]interface{}, val.Len())
+			for i := 0; i < val.Len(); i++ {
+				stringVal := val.Index(i).Interface().(fmt.Stringer).String()
+				result[i] = stringVal
+			}
+			return result
+		}
+
+		// For pointers to Stringers (e.g. []*CustomEnum)
+		if elemType.Kind() == reflect.Ptr && elemType.Implements(stringerType) {
+			result := make([]interface{}, val.Len())
+			for i := 0; i < val.Len(); i++ {
+				item := val.Index(i)
+				if item.IsNil() {
+					result[i] = nil
+				} else {
+					result[i] = item.Interface().(fmt.Stringer).String()
+				}
+			}
+			return result
+		}
+
+		// Default case: recurse
+		result := make([]interface{}, val.Len())
+		for i := 0; i < val.Len(); i++ {
+			result[i] = makeSafe(val.Index(i), seen)
+		}
+		return result
+
+	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16,
+		reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8,
+		reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Float32,
+		reflect.Float64, reflect.String:
+		return val.Interface()
+
+	case reflect.Interface:
+		if !val.IsNil() {
+			return makeSafe(val.Elem(), seen)
+		}
+		return nil
+
+	default:
+		// If it's a custom int/float/uint type, convert to underlying kind
+		kind := val.Kind()
+		switch kind {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+			reflect.Float32, reflect.Float64, reflect.Bool:
+			return val.Interface()
+		}
+		return nil
+	}
+}
+
+func (ctx *Context) ToSafeJSONString(v interface{}) (string, error) {
+	seen := make(map[uintptr]bool)
+	safe := makeSafe(reflect.ValueOf(v), seen)
+	bytes, err := json.MarshalIndent(safe, "", "  ")
+	return string(bytes), err
+}
+
+func (ctx *Context) ToSafeValue(v interface{}) interface{} {
+	seen := make(map[uintptr]bool)
+	safe := makeSafe(reflect.ValueOf(v), seen)
+	return safe
 }
 
 // get js.Value at index return undefined js value
