@@ -4,41 +4,18 @@ declare namespace Como {
 		static loadLibrary: (arg: null | string) => number;
 	}
 
-	export class sql {
-		open: (
-			driver: string,
-			options: string
-		) => {
-			exec(): any;
-		};
-	}
-
 	type SqlExecResult = {
 		'lastInsertId': number;
 		'rowsAffected': number;
 		'error': string | null;
 	};
 
-	export function sql(
-		driver: string,
-		options: string
-	): {
-		exec: {
-			/**
-             * description: exec sql string
-             *
-             * Example:
-             *
-             * await dd.exec('INSERT INTO place (country, telcode) VALUES ("a", 1)', "Hong Kong", 852);
-            */
-			(statement: string, ...bind: any[]): Promise<SqlExecResult>;
-			sync(statement: string, ...bind: any[]): SqlExecResult;
-		};
-
-		query<E extends any = any>(sql: string, ...bind: (string | number)[]): Promise<E[]>;
-		close(): any;
-
-		begin() : {
+	interface SQL {
+		register(name: string, extensiosns: Array<string>): void;
+		(
+			driver: string,
+			options: string
+		): {
 			exec: {
 				/**
 				 * description: exec sql string
@@ -50,10 +27,29 @@ declare namespace Como {
 				(statement: string, ...bind: any[]): Promise<SqlExecResult>;
 				sync(statement: string, ...bind: any[]): SqlExecResult;
 			};
-			commit(): void;
-			rollBack(): void;
+
+			query<E extends any = any>(sql: string, ...bind: (string | number)[]): Promise<E[]>;
+			close(): any;
+
+			begin() : {
+				exec: {
+					/**
+					 * description: exec sql string
+					 *
+					 * Example:
+					 *
+					 * await dd.exec('INSERT INTO place (country, telcode) VALUES ("a", 1)', "Hong Kong", 852);
+					*/
+					(statement: string, ...bind: any[]): Promise<SqlExecResult>;
+					sync(statement: string, ...bind: any[]): SqlExecResult;
+				};
+				commit(): void;
+				rollBack(): void;
+			}
 		}
-	};
+	}
+
+	export const sql : SQL
 
 	type ICookie = { Name: string,
 		Value: string;
@@ -81,7 +77,7 @@ declare namespace Como {
 		header: (key: string) => string;
 		headers: () => Record<string, string>;
 		form: (maxSize?: number) => Promise<{
-			fromValue: (name: string) => Psomise<ArrayBuffer>,
+			fromValue: (name: string) => Promise<ArrayBuffer>,
 			fromFile: (name: string) => Promise<{
 				size: number;
 				name: string;
@@ -109,7 +105,7 @@ declare namespace Como {
 		status: (status: number) => void;
 		header: (key: string, value: string) => void;
 		body: (a: string | ArrayBuffer) => void;
-		cookie: (key: string, val: string) => void;
+		cookie: (key: string, val: string, options?: { maxAge?: number, path?: string,secure?: boolean }) => void;
 		write: (a: string | ArrayBuffer) => void;
 		stream: (a: string | ArrayBuffer) => void;
 		flush: () => void;

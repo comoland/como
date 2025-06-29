@@ -4,13 +4,20 @@ import (
 	"encoding/json"
 	"sync"
 
+	dbSQL "database/sql"
+
 	"github.com/comoland/como/js"
 	"github.com/jmoiron/sqlx"
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/mattn/go-sqlite3"
 )
 
 func sql(ctx *js.Context, Como js.Value) {
+
 	Como.Set("sql", func(args js.Arguments) interface{} {
+		return nil
+	})
+
+	sqlObj := Como.Set("sql", func(args js.Arguments) interface{} {
 		driver, ok := args.Get(0).(string)
 		if !ok {
 			return ctx.Throw("sql arg(0) must be a string")
@@ -373,5 +380,19 @@ func sql(ctx *js.Context, Como js.Value) {
 		})
 
 		return obj
+	})
+
+	sqlObj.Set("register", func(args js.Arguments) interface{} {
+		name := args.GetString(0)
+		var extensions []string
+		args.GetMap(1, &extensions)
+
+		dbSQL.Register(name,
+			&sqlite3.SQLiteDriver{
+				Extensions: extensions,
+			})
+
+		return nil
+
 	})
 }
