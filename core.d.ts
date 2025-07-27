@@ -4,6 +4,13 @@ declare namespace Como {
 		static loadLibrary: (arg: null | string) => number;
 	}
 
+	export function embedFs(dir?: string): {
+		walkFS: (
+			callback: (path: string, info: { isDir: boolean; name: string }) => Promise<boolean | void> | void | boolean
+		) => void | Promise<void>;
+		extract: (dest?: string) => void
+	}
+
 	type SqlExecResult = {
 		'lastInsertId': number;
 		'rowsAffected': number;

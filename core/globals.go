@@ -24,6 +24,7 @@ func initCoreModels(ctx *js.Context) {
 
 	// Como methods
 	path(ctx, comoObj)
+	embedFs(ctx, comoObj)
 	build(ctx, comoObj)
 	sql(ctx, comoObj)
 	worker(ctx, comoObj)

@@ -637,6 +637,11 @@ func (ctx *Context) Throw(v interface{}) Value {
 	return Value{ctx: ctx, c: C.JS_Throw(ctx.c, err.c)}
 }
 
+func (ctx *Context) Throwf(format string, a ...any) Value {
+	err := fmt.Sprintf(format, a)
+	return ctx.Throw(err)
+}
+
 func (ctx *Context) Throw2(v interface{}) {
 	fn := ctx.EvalFunction("<native>", `(msg) => {
 		let err = new Error();
