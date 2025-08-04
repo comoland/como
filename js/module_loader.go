@@ -53,8 +53,6 @@ func fileExists(ctx *Context, filename string) (string, bool) {
 			defer file.Close()
 			return newFile, true
 		}
-
-		// return "", false
 	}
 
 	info, err := os.Stat(filename)
@@ -161,17 +159,20 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 	var err error
 	var code []byte
 
-	if ctx.Embed != nil {
-		rel, _ := os.Getwd()
-		newFile := s.ReplaceAll(filename, rel+string(os.PathSeparator), "")
-		code, err = ctx.Embed.ReadFile(newFile)
+	resolvedFromEmded := false
+
+	// if embedder enabled try to read files from embedding files system
+	code, err = ctx.FSEmbedder.ReadJsFile(filename)
+	if err == nil {
+		resolvedFromEmded = true
 	}
 
-	if err != nil || ctx.Embed == nil {
+	if err != nil {
+		fmt.Println(filename, " ====> reading it from filesystem ")
 		code, err = ioutil.ReadFile(filename)
 	}
 
-	if s.Contains(filename, "mod.ts") {
+	if s.Contains(filename, "mod.ts") && !resolvedFromEmded {
 		result := api.Build(api.BuildOptions{
 			EntryPoints: []string{filename},
 			External:    ctx.externals,
@@ -190,41 +191,26 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 			os.Exit(1)
 		}
 
+		ctx.FSEmbedder.tryToWriteBundleToModulesLib(filename, result.OutputFiles[0].Contents)
 		codeStr = string(result.OutputFiles[0].Contents)
+
 	} else {
 		// error reading file normally, it's most likely a node_module
 		// Como doesn't has a module loader so we will let esbuild load that
 		if err != nil {
-			contents := fmt.Sprintf(`
-				import * as _COMO_IMPORT from '%s'
-				Object.keys(_COMO_IMPORT).forEach((key) => {
-					module.exports[key] = _COMO_IMPORT[key]
-				});
-
-				globalThis["modules_exports"] = globalThis["modules_exports"] ?? {};
-				globalThis["modules_exports"]['%s'] = _COMO_IMPORT;
-				globalThis.require = function(f) {
-					return globalThis["modules_exports"][f]
-				};
-		`, filename, filename)
-
 			result := api.Build(api.BuildOptions{
-				Stdin: &api.StdinOptions{
-					Contents:   contents,
-					ResolveDir: "./",
-					Sourcefile: filename,
-					Loader:     api.LoaderTSX,
-				},
-				External: ctx.externals,
-				Platform: api.PlatformBrowser,
-				Define:   map[string]string{"process.env.NODE_ENV": "'development'"},
-				Bundle:   true,
-				Target:   api.ESNext,
-				Format:   api.FormatESModule,
-				Outdir:   "./",
-				// Outfile:   s.Join([]string{"./public/", filename, ".js"}, ""),
-				Write:     false,
-				Sourcemap: api.SourceMapExternal,
+				EntryPoints:      []string{filename},
+				MinifyWhitespace: true,
+				MinifySyntax:     true,
+				External:         ctx.externals,
+				Platform:         api.PlatformBrowser,
+				Define:           map[string]string{"process.env.NODE_ENV": "'development'"},
+				Bundle:           true,
+				Target:           api.ESNext,
+				Format:           api.FormatESModule,
+				Outdir:           "./",
+				Write:            false,
+				Sourcemap:        api.SourceMapExternal,
 			})
 
 			if len(result.Errors) > 0 {
@@ -236,48 +222,59 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 			}
 
 			codeStr = string(result.OutputFiles[1].Contents)
-			codeStr = s.Replace(codeStr, "export default ", "var _COMO_EXPORT = ", 1)
 
-			trans := api.Transform(codeStr, api.TransformOptions{
-				Loader:     api.LoaderTSX,
-				Sourcemap:  api.SourceMapExternal,
-				Target:     api.ESNext,
-				Format:     api.FormatCommonJS,
-				Sourcefile: filename,
-			})
+			if s.Contains(codeStr, "export default ") {
+				codeStr = s.Replace(codeStr, "export default ", "var _COMO_EXPORT = ", 1)
+				contents := fmt.Sprintf(`
+					%s
 
-			codeStr = string(trans.Code)
+					globalThis["modules_exports"] = globalThis["modules_exports"] ?? {};
+					globalThis["modules_exports"]['%s'] = _COMO_EXPORT;
+					globalThis.require = function(f) {
+						return globalThis["modules_exports"][f]
+					};
+			`, codeStr, filename)
 
-			fn := ctx.EvalFunction(filename, fmt.Sprintf(`() => {
-	%s
+				trans := api.Transform(contents, api.TransformOptions{
+					Loader:           api.LoaderTSX,
+					Sourcemap:        api.SourceMapExternal,
+					Target:           api.ESNext,
+					Format:           api.FormatCommonJS,
+					Sourcefile:       filename,
+					JSX:              api.JSXAutomatic,
+					MinifyWhitespace: true,
+					MinifySyntax:     true,
+				})
 
-	return Object.keys(_COMO_EXPORT)
-};
-`, codeStr))
+				codeStr = string(trans.Code)
 
-			defer fn.Free()
-			ret := fn.Call().([]interface{})
+				fn := ctx.EvalFunction(filename, fmt.Sprintf(`() => {
+				%s
 
-			nStr := ""
-			for _, plugin := range ret {
-				name := plugin.(string)
-				if name == "default" {
-					nStr = nStr + "export " + name + " _COMO_EXPORT['default']" + `;
-				`
-				} else {
-					nStr = nStr + "export var " + name + " = _COMO_EXPORT['" + name + "']" + `;
-				`
+				return Object.keys(_COMO_EXPORT)
+			};
+			`, codeStr))
+
+				defer fn.Free()
+				ret := fn.Call().([]interface{})
+
+				nStr := "export default _COMO_EXPORT;"
+				for _, plugin := range ret {
+					name := plugin.(string)
+					if name == "default" {
+						nStr = nStr + "export " + name + " _COMO_EXPORT['default']" + `;
+							`
+					} else {
+						nStr = nStr + "export var " + name + " = _COMO_EXPORT['" + name + "']" + `;
+							`
+					}
 				}
+
+				ctx.externals = append(ctx.externals, filename)
+				codeStr = codeStr + nStr
 			}
 
-			ctx.externals = append(ctx.externals, filename)
-			codeStr = codeStr + nStr
-			// err := os.WriteFile(s.Join([]string{"./public/", filename, ".js"}, ""), []byte(codeStr), 0644)
-			// fmt.Println("error ========> ", err)
-
-			// lock.Lock()
-			// sourceMaps[filename] = result.OutputFiles[0].Contents
-			// lock.Unlock()
+			ctx.FSEmbedder.tryToWriteBundleToModulesLib(filename, []byte(codeStr))
 		} else if ext == ".json" {
 			codeStr = string(code)
 			result := api.Transform(codeStr, api.TransformOptions{

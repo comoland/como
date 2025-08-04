@@ -133,6 +133,11 @@ func (runtime *JSRunTime) NewContext() *Context {
 		},
 	}
 
+	context.FSEmbedder = &Embedder{
+		ctx:        context,
+		modulesLib: "",
+	}
+
 	context.externals = append(context.externals, "fs")
 
 	SetContextOpaque(ctx, context)

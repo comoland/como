@@ -8,10 +8,13 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"math"
 	"os"
+	"path/filepath"
 	"runtime"
+	s "strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -51,7 +54,10 @@ type Context struct {
 	//  //go:embed src/*
 	//  var src embed.FS
 	//  ctx.Embed = &src
-	Embed *embed.FS
+	Embed      *embed.FS
+	FSEmbedder *Embedder
+
+	NodeModulesLib fs.FS
 
 	// InitWorkerContext called when a new worker created
 	// this will enable you initiate go modules on workers separately
@@ -83,6 +89,118 @@ type Context struct {
 	// internal refs count, javascript loop exit
 	// if this refs count == 0
 	refs uint64
+}
+
+type Embedder struct {
+	// js main context
+	ctx *Context
+
+	// pass embed.FS to js ctx
+	// if Embed is set then module resolution will be searched
+	// from the embedded embed.FS
+	// this will enable you to build a stand alone executable
+	//
+	// ex:
+	//  //go:embed src/*
+	//  var src embed.FS
+	//  ctx.Embed = &src
+	Embed      *embed.FS
+	modulesLib string
+}
+
+func (ctx *Context) SetNodeModulesLib(value string) {
+	if ctx.Embed != nil {
+		f, err := fs.Sub(ctx.Embed, value)
+		if err != nil {
+			ctx.NodeModulesLib = f
+		}
+	}
+}
+
+func (ctx *Context) Embedder(f embed.FS) *Embedder {
+	ctx.Embed = &f
+	em := &Embedder{
+		ctx:        ctx,
+		Embed:      &f,
+		modulesLib: "",
+	}
+
+	ctx.FSEmbedder = em
+	return em
+}
+
+func (em *Embedder) ReadFile(filename string) ([]byte, error) {
+	if em.ctx.Embed == nil {
+		return nil, fmt.Errorf("embed is not enabled")
+	}
+
+	rel, _ := os.Getwd()
+	newFile := s.ReplaceAll(filename, rel+string(os.PathSeparator), "")
+	return em.Embed.ReadFile(newFile)
+}
+
+func (em *Embedder) SetModulesLib(path string) {
+	ctx := em.ctx
+	if ctx.Embed == nil {
+		return
+	}
+
+	dirFS, err := fs.Sub(ctx.Embed, path)
+	if err == nil {
+		f, err2 := dirFS.Open(".")
+		if err2 == nil {
+			em.modulesLib = path
+			defer f.Close()
+		}
+	}
+}
+
+func (em *Embedder) hasModulesLib() bool {
+	if em.modulesLib != "" {
+		return true
+	}
+
+	return false
+}
+
+func (em *Embedder) tryToWriteBundleToModulesLib(filename string, code []byte) {
+	if em.hasModulesLib() {
+		rel, _ := os.Getwd()
+		newFile := s.ReplaceAll(filename, rel+string(os.PathSeparator), "")
+		dir := filepath.Dir(newFile)
+		// 2. Create the directory (and any necessary parent directories)
+		moduleBasePath := s.Join([]string{"./", em.modulesLib, "/"}, "")
+		err := os.MkdirAll(moduleBasePath+dir, 0755)
+		if err != nil {
+			fmt.Printf("Error creating directory: %s = %v\n", "./public/"+dir, err)
+		}
+
+		err = os.WriteFile(s.Join([]string{moduleBasePath, newFile, ".js"}, ""), code, 0644)
+		if err != nil {
+			fmt.Printf("Error creating file: %s = %v\n", filename, err)
+		}
+	}
+}
+
+func (em *Embedder) ReadJsFile(filename string) ([]byte, error) {
+	if em.ctx.Embed == nil {
+		return nil, fmt.Errorf("embed is not enabled")
+	}
+
+	rel, _ := os.Getwd()
+	newFile := s.ReplaceAll(filename, rel+string(os.PathSeparator), "")
+	c, err := em.ctx.Embed.ReadFile(newFile)
+
+	// try to Read from embedded lib\
+	if (err != nil || s.Contains(filename, "mod.ts")) && em.hasModulesLib() {
+		fmt.Println("trying from lib ", newFile+".js")
+		c, err = em.ctx.Embed.ReadFile(em.modulesLib + "/" + newFile + ".js")
+		if err != nil {
+			fmt.Println("failed loading from lib!!! ", newFile+".js")
+		}
+	}
+
+	return c, err
 }
 
 // convert js values to their go equivalent
