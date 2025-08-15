@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,6 +17,9 @@ import (
 
 	"github.com/comoland/como/js"
 )
+
+//go:embed js/fetch.js
+var fetchJs string
 
 // FetchRequestOptions represents the options for a fetch request
 type FetchRequestOptions struct {
@@ -220,6 +224,7 @@ func fetch(ctx *js.Context, global js.Value) {
 				for _, v := range headers.headers {
 					values = append(values, v)
 				}
+
 				return values
 			},
 		}
@@ -445,4 +450,8 @@ func fetch(ctx *js.Context, global js.Value) {
 			async.Resolve(response)
 		})
 	})
+
+	process := ctx.EvalFunction("fetch", fetchJs)
+	defer process.Free()
+	process.Call()
 }

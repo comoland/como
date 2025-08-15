@@ -49,13 +49,17 @@ export class URL2 {
     }
 
     toString() {
-      let result = `${this.protocol}//`;
+      let result = `${this.protocol}://`;
 
       if (this.username || this.password) {
         result += `${this.username}:${this.password}@`;
       }
 
       result += this.host;
+
+      if (this.port) {
+        result += `:${this.port}`;
+      }
 
       if (this.pathname) {
         result += this.pathname;
@@ -75,6 +79,12 @@ export class URL2 {
     toJSON() {
       return this.toString();
     }
+
+	get href() {
+		return this.toString()
+	}
+
+	set href(v) {}
 }
 
 function toErr(msg, code, err) {
@@ -282,25 +292,8 @@ export function URL(url, base) {
 	base = String(base || '').trim();
 	url = String(url).trim();
 
-  var tmp = new URL2(url, base);
-  var link = new URL2(url, base);
-
-		link.href = base;
-		if (url) { // non-empty string
-			usp = url.match(/^\/+/);
-			if (usp && usp[0].length == 2) {
-				link.href = link.protocol + url;
-			} else if (/[?#]/.test(url[0])) {
-				link.href += url;
-			} else if (url[0] == '/' || link.pathname == '/') {
-				link.href = link.origin + '/' + url.replace(/^\/+/, '');
-			} else {
-				segs = link.pathname.split('/');
-				base = url.replace(/^(\.\/)?/, '').split('../');
-				link.href = link.origin + segs.slice(0, Math.max(1, segs.length - base.length)).concat(base.pop()).join('/')
-			}
-		}
-
+	var tmp = new URL2(url, base);
+	var link = new URL2(url, base);
 
 	function proxy(key) {
 		tmp.href=link.href; tmp.protocol='http:';
@@ -329,11 +322,14 @@ export function URL(url, base) {
 	}
 
 	usp = new URLSearchParams(link.search, link);
-	$.toString = link.toString;
 
-  $.toJSON = () => {
-    return link;
-  }
+	$.toJSON = () => {
+		return link;
+	}
+
+	$.toString = () => {
+		return link.toString();
+	}
 
 	return Object.defineProperties($, {
 		href: block('href'),

@@ -1,6 +1,2 @@
-console.log(import.meta.url)
-export const test = () => {
-
-    // throw new Error("sss")
-    return 'hi there!!!!!'
-}
+import z, * as all from "awesome-phonenumber"
+console.log(Object.keys(z), typeof z, all)

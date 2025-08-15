@@ -21,6 +21,7 @@ func initCoreModels(ctx *js.Context) {
 	filesystem(ctx, global)
 	wasi(ctx, global)
 	httpModule(ctx, global)
+	cryptoModule(ctx, global)
 
 	// Como methods
 	path(ctx, comoObj)

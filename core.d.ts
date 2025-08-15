@@ -8,7 +8,8 @@ declare namespace Como {
 		walkFS: (
 			callback: (path: string, info: { isDir: boolean; name: string }) => Promise<boolean | void> | void | boolean
 		) => void | Promise<void>;
-		extract: (dest?: string) => void
+		extract: (dest?: string) => void,
+		readFile: (file: string) => ArrayBuffer
 	}
 
 	type SqlExecResult = {
