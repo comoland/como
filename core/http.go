@@ -44,7 +44,7 @@ func httpModule(ctx *js.Context, _ js.Value) {
 
 	// Create HTTP Server
 	exp.Set("createServer", func(args js.Arguments) interface{} {
-		requestListener := args.GetValue(0).Dup()
+		requestListener := args.GetValue(0).Dup().AutoFree()
 		if !requestListener.IsFunction() {
 			return ctx.Throw("TypeError: requestListener must be a function")
 		}
@@ -170,6 +170,9 @@ func httpModule(ctx *js.Context, _ js.Value) {
 
 					args := ctx.NewArguments(req, res)
 					requestListener.Call(args)
+					req.Free()
+					res.Free()
+					// defer args.Free()
 				}
 
 				wg.Wait()

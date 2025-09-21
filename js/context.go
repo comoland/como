@@ -199,8 +199,222 @@ func (em *Embedder) ReadJsFile(filename string) ([]byte, error) {
 	return c, err
 }
 
+func (ctx *Context) GetOwnPropertyNames(v C.JSValue) (map[string]interface{}, error) {
+	var len C.uint32_t
+	var tab *C.JSPropertyEnum
+	if C.JS_GetOwnPropertyNames(ctx.c, &tab, &len, v, C.JS_GPN_STRING_MASK|C.JS_GPN_ENUM_ONLY) < 0 {
+		return nil, fmt.Errorf("failed to get property names")
+	}
+	// Ensure tab and its atoms are freed when done
+	defer func() {
+		if tab != nil {
+			for i := 0; i < int(len); i++ {
+				C.JS_FreeAtom(ctx.c, (*[1 << 30]C.JSPropertyEnum)(unsafe.Pointer(tab))[i].atom)
+			}
+			C.js_free(ctx.c, unsafe.Pointer(tab))
+		}
+	}()
+
+	values := make(map[string]interface{}, len)
+	for i := 0; i < int(len); i++ {
+		prop := (*[1 << 30]C.JSPropertyEnum)(unsafe.Pointer(tab))[i]
+
+		// Convert atom to C string
+		keyPtr := C.JS_AtomToCString(ctx.c, prop.atom)
+		if keyPtr == nil {
+			return nil, fmt.Errorf("failed to convert atom to string at index %d", i)
+		}
+		key := C.GoString(keyPtr)
+		C.JS_FreeCString(ctx.c, keyPtr)
+
+		// Get the property value
+		val := C.JS_GetProperty(ctx.c, v, prop.atom)
+		// if C.JS_IsException(val) {
+		//     return nil, fmt.Errorf("exception occurred while getting property at index %d", i)
+		// }
+
+		ret := ctx.JsToGoValue(val)
+		values[key] = ret
+
+		// Free the JSValue if not managed by JsToGoValue
+		if _, ok := ret.(Value); !ok {
+			C.JS_FreeValue(ctx.c, val)
+		}
+	}
+
+	return values, nil
+}
+
+func (ctx *Context) JsToGoValue2(value interface{}) (interface{}, error) {
+	var v C.JSValue
+	switch valueType := value.(type) {
+	case Value:
+		v = valueType.c
+	case C.JSValue:
+		v = valueType
+	default:
+		return value, nil
+	}
+
+	// Check for exceptions early
+	if C.JS_IsException(v) == 1 {
+		C.JS_FreeValue(ctx.c, v)
+		return nil, fmt.Errorf("JSValue is an exception")
+	}
+
+	if C.JS_IsBool(v) == 1 {
+		return C.como_get_val_int(v) == 1, nil
+	}
+
+	valueTag := C.como_js_type(v)
+
+	if valueTag == C.JS_TAG_FLOAT64 {
+		var val C.double
+		if err := C.JS_ToFloat64(ctx.c, &val, v); err != 0 {
+			C.JS_FreeValue(ctx.c, v)
+			return nil, fmt.Errorf("failed to convert to float64")
+		}
+		return float64(val), nil
+	}
+
+	if valueTag == C.JS_TAG_INT {
+		var val C.int64_t
+		if err := C.JS_ToInt64(ctx.c, &val, v); err != 0 {
+			C.JS_FreeValue(ctx.c, v)
+			return nil, fmt.Errorf("failed to convert to int64")
+		}
+		return int64(val), nil
+	}
+
+	if valueTag == C.JS_TAG_STRING {
+		ptr := C.JS_ToCString(ctx.c, v)
+		if ptr == nil {
+			C.JS_FreeValue(ctx.c, v)
+			return nil, fmt.Errorf("failed to convert string")
+		}
+		s := C.GoString(ptr)
+		C.JS_FreeCString(ctx.c, ptr)
+		return s, nil
+	}
+
+	if valueTag == C.JS_TAG_NULL {
+		return nil, nil
+	}
+
+	if valueTag == C.JS_TAG_OBJECT {
+		len := C.size_t(0)
+		buf := C.JS_GetArrayBuffer(ctx.c, &len, v)
+		if buf != nil {
+			if len > 1<<30 {
+				C.JS_FreeValue(ctx.c, v)
+				return nil, fmt.Errorf("ArrayBuffer length exceeds maximum safe size")
+			}
+			b := (*[1 << 30]byte)(unsafe.Pointer(buf))[:len:len]
+			s := make([]byte, len)
+			copy(s, b)
+			return s, nil
+		}
+
+		if C.JS_IsFunction(ctx.c, v) == 1 {
+			return ctx.JsFunction(v), nil
+		}
+
+		if C.JS_IsArray(ctx.c, v) == 1 {
+			arr := Value{ctx: ctx, c: v}
+			len := arr.Length()
+			if len > 1<<30 {
+				C.JS_FreeValue(ctx.c, v)
+				return nil, fmt.Errorf("array length exceeds maximum safe size")
+			}
+			values := make([]interface{}, len)
+
+			for i := 0; i < int(len); i++ {
+				val := C.JS_GetPropertyUint32(ctx.c, arr.c, C.uint32_t(i))
+				if C.JS_IsException(val) == 1 {
+					C.JS_FreeValue(ctx.c, val)
+					C.JS_FreeValue(ctx.c, v)
+					return nil, fmt.Errorf("exception getting array element at index %d", i)
+				}
+				ret, err := ctx.JsToGoValue2(val)
+				C.JS_FreeValue(ctx.c, val) // Always free val, assuming JsToGoValue duplicates if needed
+				if err != nil {
+					C.JS_FreeValue(ctx.c, v)
+					return nil, fmt.Errorf("failed to convert array element at index %d: %w", i, err)
+				}
+				values[i] = ret
+			}
+			return values, nil
+		}
+
+		var propLen C.uint32_t
+		var tab *C.JSPropertyEnum
+		if C.JS_GetOwnPropertyNames(ctx.c, &tab, &propLen, v, C.JS_GPN_STRING_MASK|C.JS_GPN_ENUM_ONLY) < 0 {
+			C.JS_FreeValue(ctx.c, v)
+			return nil, fmt.Errorf("failed to get object property names")
+		}
+		defer func() {
+			if tab != nil {
+				for i := 0; i < int(propLen); i++ {
+					C.JS_FreeAtom(ctx.c, (*[1 << 30]C.JSPropertyEnum)(unsafe.Pointer(tab))[i].atom)
+				}
+				C.js_free(ctx.c, unsafe.Pointer(tab))
+			}
+		}()
+
+		if propLen > 1<<30 {
+			C.JS_FreeValue(ctx.c, v)
+			return nil, fmt.Errorf("property enum length exceeds maximum safe size")
+		}
+		values := make(map[string]interface{}, propLen)
+
+		for i := 0; i < int(propLen); i++ {
+			prop := (*[1 << 30]C.JSPropertyEnum)(unsafe.Pointer(tab))[i]
+			keyPtr := C.JS_AtomToCString(ctx.c, prop.atom)
+			if keyPtr == nil {
+				C.JS_FreeValue(ctx.c, v)
+				return nil, fmt.Errorf("failed to convert property name at index %d", i)
+			}
+			key := C.GoString(keyPtr)
+			C.JS_FreeCString(ctx.c, keyPtr)
+
+			val := C.JS_GetProperty(ctx.c, v, prop.atom)
+			if C.JS_IsException(val) == 1 {
+				C.JS_FreeValue(ctx.c, val)
+				C.JS_FreeValue(ctx.c, v)
+				return nil, fmt.Errorf("exception getting property %s", key)
+			}
+			ret, err := ctx.JsToGoValue2(val)
+			C.JS_FreeValue(ctx.c, val) // Always free val, assuming JsToGoValue duplicates if needed
+			if err != nil {
+				C.JS_FreeValue(ctx.c, v)
+				return nil, fmt.Errorf("failed to convert property %s: %w", key, err)
+			}
+			values[key] = ret
+		}
+
+		return values, nil
+	}
+
+	// Fallback: treat as Value if it's a JSValue
+	js, ok := value.(C.JSValue)
+	if ok {
+		return Value{ctx: ctx, c: js}, nil
+	}
+
+	return value, nil
+}
+
 // convert js values to their go equivalent
 func (ctx *Context) JsToGoValue(value interface{}) interface{} {
+	// v2, e2 := ctx.JsToGoValue2(value)
+
+	// if e2 != nil {
+	// 	panic(e2.Error())
+
+	// }
+
+	// return v2
+
 	var v C.JSValue
 	switch valueType := value.(type) {
 	case Value:
@@ -281,15 +495,24 @@ func (ctx *Context) JsToGoValue(value interface{}) interface{} {
 			len := C.uint32_t(0)
 			var tab *C.JSPropertyEnum
 			if C.JS_GetOwnPropertyNames(ctx.c, &tab, &len, v, C.JS_GPN_STRING_MASK|C.JS_GPN_ENUM_ONLY) >= 0 {
-				tab := (*[1 << 30]C.JSPropertyEnum)(unsafe.Pointer(tab))[:len:len]
 				var values = make(map[string]interface{}, len)
 
+				defer func() {
+					if tab != nil {
+						for i := 0; i < int(len); i++ {
+							C.JS_FreeAtom(ctx.c, (*[1 << 30]C.JSPropertyEnum)(unsafe.Pointer(tab))[i].atom)
+						}
+						C.js_free(ctx.c, unsafe.Pointer(tab))
+					}
+				}()
+
 				for i := 0; i < int(len); i++ {
-					keyPtr := C.JS_AtomToCString(ctx.c, tab[i].atom)
+					prop := (*[1 << 30]C.JSPropertyEnum)(unsafe.Pointer(tab))[i]
+					keyPtr := C.JS_AtomToCString(ctx.c, prop.atom)
 					defer C.JS_FreeCString(ctx.c, keyPtr)
 
 					key := C.GoString(keyPtr)
-					val := C.JS_GetProperty(ctx.c, v, tab[i].atom)
+					val := C.JS_GetProperty(ctx.c, v, prop.atom)
 
 					ret := ctx.JsToGoValue(val)
 					values[key] = ret
@@ -297,22 +520,11 @@ func (ctx *Context) JsToGoValue(value interface{}) interface{} {
 						defer ctx.FreeValue(val)
 					}
 				}
+
 				return values
 			}
 		}
 	}
-
-	// if valueTag == JS_TAG_BIG_INT {
-	// 	val := C.int64_t(0)
-	// 	C.JS_ToInt64(ctx, &val, value)
-	// 	return int64(val)
-	// }
-
-	// if valueTag == C.JS_CLASS_ARRAY_BUFFER {
-	// 	ptr := C.JS_ToCString(ctx, value)
-	// 	defer C.JS_FreeCString(ctx, ptr)
-	// 	return C.GoString(ptr)
-	// }
 
 	js, ok := value.(C.JSValue)
 	if ok {

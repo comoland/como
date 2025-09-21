@@ -48,7 +48,6 @@
             }
         }
 
-        console.log({ req, opt });
         return _fetch(req, opt);
     }
 
