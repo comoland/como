@@ -57,6 +57,14 @@
             write: stdout
         };
 
+        stdin = {
+            isTTY: true,
+            // Placeholder - actual reading is handled by readline implementation
+            readable: true,
+            on() {},
+            setRawMode() {}
+        };
+
         hrtime = hrtime;
         nextTick = queueMicrotask;
         suspense = suspense;
