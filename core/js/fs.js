@@ -1,4 +1,33 @@
-({ _exports, read, write, append, mkdir, readdir, stat, unlink, rmdir, rename, copyFile, chmod, chown, utimes, realpath, exists, access, readlink, symlink, lstat, truncate, ftruncate, open, close, readFile, writeFile, appendFile, mkdtemp }) => {
+({
+    _exports,
+    read,
+    write,
+    append,
+    mkdir,
+    readdir,
+    stat,
+    unlink,
+    rmdir,
+    rename,
+    copyFile,
+    chmod,
+    chown,
+    utimes,
+    realpath,
+    exists,
+    access,
+    readlink,
+    symlink,
+    lstat,
+    truncate,
+    ftruncate,
+    open,
+    close,
+    readFile,
+    writeFile,
+    appendFile,
+    mkdtemp
+}) => {
     // File system constants
     const constants = {
         F_OK: 0,
@@ -87,7 +116,7 @@
         // Merge options with defaults
         opts = { ...defaultOpts, ...opts };
 
-        const promise = readdir(path, opts).then((entries) => {
+        const promise = readdir(path, opts).then(entries => {
             // If withFileTypes is true, return the entries as is
             if (opts.withFileTypes) {
                 return entries;
@@ -126,10 +155,10 @@
             enc = options;
         }
 
-        const promise = readFile(path).then((data) => {
-            const buffer = Buffer.from(data)
+        const promise = readFile(path).then(data => {
+            const buffer = Buffer.from(data);
             if (enc) {
-                return buffer.toString(enc)
+                return buffer.toString(enc);
             }
 
             return buffer;
@@ -137,9 +166,9 @@
 
         if (callback) {
             try {
-                callback(null, await promise)
+                callback(null, await promise);
             } catch (err) {
-                callback(err.message, null)
+                callback(err.message, null);
             }
 
             return;
@@ -202,18 +231,18 @@
     // synchronous versions
     const makeSync = () => {
         Object.entries(_exports).forEach(([key, value]) => {
-            if (typeof value === "function") {
+            if (typeof value === 'function') {
                 key = `${key}Sync`;
                 _exports[key] = (...args) => {
                     let ret = null;
                     let error = null;
-                    process.suspense(async (unsuspense) => {
+                    process.suspense(async unsuspense => {
                         try {
                             ret = await value(...args);
                         } catch (e) {
                             error = e;
                         } finally {
-                            unsuspense()
+                            unsuspense();
                         }
                     });
 
@@ -222,10 +251,10 @@
                     }
 
                     return ret;
-                }
+                };
             }
-        })
-    }
+        });
+    };
 
     makeSync();
     return _exports;

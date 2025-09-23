@@ -115,6 +115,19 @@ func (v Value) CallArgs(args Arguments) interface{} {
 	return goRet
 }
 
+func (v Value) JsCall(args Value) Value {
+	if !v.IsFunction() {
+		panic("only works on function value")
+	}
+
+	ctx := v.ctx
+	fn := v.c
+	cArgs := (*C.JSValueConst)(unsafe.Pointer(&args.c))
+	ret := C.JS_Call(ctx.c, fn, args.c, C.int(1), cArgs)
+	defer ctx.FreeValue(ret)
+	return Value{ctx: ctx, c: ret}
+}
+
 func (v Value) Set(name string, value interface{}) Value {
 	ctx := v.ctx
 	obj := v.c

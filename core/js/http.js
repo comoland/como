@@ -4,7 +4,7 @@
     _exports.STATUS_CODES = STATUS_CODES;
 
     // Create HTTP Server
-    _exports.createServer = (requestListener) => {
+    _exports.createServer = requestListener => {
         const server = createServer(requestListener);
         return server;
     };

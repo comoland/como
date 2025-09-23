@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bufio"
 	_ "embed"
 	"os"
 	"runtime"
@@ -50,6 +51,33 @@ func process(ctx *js.Context, Como js.Value) {
 		os.Stdout.Write([]byte(arg))
 
 		return nil
+	})
+
+	obj.Set("stdin", func(args js.Arguments) interface{} {
+		writer := ctx.Writer(args.GetValue(0))
+		if writer == nil {
+			return ctx.Throw("must has a writer callback")
+		}
+
+		async := ctx.Async(func(async js.Promise) {
+			reader := bufio.NewReader(os.Stdin)
+			input, err := reader.ReadString('\n')
+
+			if err != nil {
+				async.Reject(err.Error())
+				return
+			}
+
+			writer.Call(input)
+			async.Resolve(nil)
+		})
+
+		async.Finally(func(args js.Arguments) interface{} {
+			writer.Close()
+			return nil
+		})
+
+		return async
 	})
 
 	obj.Set("exit", func(args js.Arguments) interface{} {

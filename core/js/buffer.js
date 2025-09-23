@@ -1953,10 +1953,7 @@ class Blob {
         const span = Math.max(relativeEnd - relativeStart, 0);
 
         const buffer = this.buffer;
-        const slicedBuffer = buffer.slice(
-            relativeStart,
-            relativeStart + span
-        );
+        const slicedBuffer = buffer.slice(relativeStart, relativeStart + span);
         const blob = new Blob([], { type: arguments[2] });
         blob.buffer = slicedBuffer;
         blob[CLOSED] = this[CLOSED];
@@ -1965,7 +1962,7 @@ class Blob {
     close() {
         this[CLOSED] = true;
     }
-};
+}
 
 Object.defineProperty(Blob.prototype, Symbol.toStringTag, {
     value: 'BlobPrototype',

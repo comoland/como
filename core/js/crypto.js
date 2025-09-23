@@ -1,9 +1,9 @@
 ({ _exports, generateKey, sign, verify, encrypt, decrypt, digest, getRandomValues: _getRandomValues }) => {
-    const getRandomValues = (array) => {
-        const m = new Uint8Array(_getRandomValues(array))
-        array.set(m)
+    const getRandomValues = array => {
+        const m = new Uint8Array(_getRandomValues(array));
+        array.set(m);
         return array;
-    }
+    };
 
     class CryptoKey {
         constructor(type, extractable, algorithm, usages, key) {
@@ -179,7 +179,15 @@
             }
         }
 
-        async unwrapKey(format, wrappedKey, unwrappingKey, unwrapAlgorithm, unwrappedKeyAlgorithm, extractable, keyUsages) {
+        async unwrapKey(
+            format,
+            wrappedKey,
+            unwrappingKey,
+            unwrapAlgorithm,
+            unwrappedKeyAlgorithm,
+            extractable,
+            keyUsages
+        ) {
             try {
                 return new CryptoKey('secret', extractable, unwrappedKeyAlgorithm.name, keyUsages, {});
             } catch (error) {
@@ -204,8 +212,8 @@
 
         // Convert to hex and format as UUID
         const hex = Array.from(bytes)
-          .map(b => b.toString(16).padStart(2, '0'))
-          .join('');
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
 
         return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
     };

@@ -1,13 +1,19 @@
 import readline from 'readline';
 
-console.log('Testing readline functionality...');
-
+// console.log('Testing readline functionality...', readline);
+// console.log(readline.createInterface === Como.path.basename)
 // Create readline interface
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
     prompt: 'Enter something: '
 });
+// console.log(process.stdin)
+// process.stdin.on("data", (d) => {
+//     console.log(d.toString("hex"))
+// });
+
+
 
 // Event listeners
 rl.on('line', (input) => {
@@ -33,3 +39,10 @@ rl.on('SIGINT', () => {
 // Show initial prompt
 console.log('Type something and press Enter. Type "exit" or "quit" to exit.');
 rl.prompt();
+
+// console.log(' ================= ', { prompt: rl.prompt } )
+
+
+// setInterval(() => {
+
+// }, 1000)

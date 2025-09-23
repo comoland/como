@@ -33,7 +33,8 @@ func set_module_exports(c *C.JSContext, m *C.JSModuleDef) C.int {
 
 	moduleName := C.JS_AtomToCString(c, moduleNameAtom)
 	defer C.JS_FreeCString(c, moduleName)
-
+	ctx.Lock()
+	defer ctx.Unlock()
 	module, found := ctx.modules[C.GoString(moduleName)]
 	if !found {
 		return 1
@@ -62,6 +63,9 @@ func (ctx *Context) NewModule(name string) *Module {
 	r := C.como_init_module(ctx.c, cnamestr)
 	m := (*C.JSModuleDef)(unsafe.Pointer(r))
 
+	ctx.Lock()
+	defer ctx.Unlock()
+
 	exportList := make(map[string]interface{})
 	module := Module{ctx, m, exportList}
 	ctx.modules[name] = &module
@@ -76,6 +80,9 @@ func (m *Module) Export(name string, v interface{}) {
 }
 
 func (m *Module) Exports(exports interface{}) {
+	m.ctx.Lock()
+	defer m.ctx.Unlock()
+
 	e := exports.(map[string]interface{})
 	for name, v := range e {
 		cnamestr := C.CString(name)
@@ -94,6 +101,9 @@ func (ctx *Context) DeleteModulesList() {
 }
 
 func (ctx *Context) RegisterWorkerModules(wCtx *Context) {
+	ctx.Lock()
+	defer ctx.Unlock()
+
 	for name, module := range ctx.modules {
 		wModule := wCtx.NewModule(name)
 		for name, value := range module.exportList {

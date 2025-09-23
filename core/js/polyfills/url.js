@@ -1,352 +1,362 @@
 export class URL2 {
     constructor(url, base) {
-      if (!url) {
-        throw new TypeError('Invalid argument: url');
-      }
+        if (!url) {
+            throw new TypeError('Invalid argument: url');
+        }
 
-      let parsedUrl;
+        let parsedUrl;
 
-      if (base) {
-        parsedUrl = new URL(base);
-        parsedUrl = new URL(url, parsedUrl);
-      } else {
-        parsedUrl = this.parseUrl(url);
-      }
+        if (base) {
+            parsedUrl = new URL(base);
+            parsedUrl = new URL(url, parsedUrl);
+        } else {
+            parsedUrl = this.parseUrl(url);
+        }
 
-      this.protocol = parsedUrl.protocol;
-      this.username = parsedUrl.username;
-      this.password = parsedUrl.password;
-      this.host = parsedUrl.host;
-      this.hostname = parsedUrl.hostname;
-      this.port = parsedUrl.port;
-      this.pathname = parsedUrl.pathname;
-      this.search = parsedUrl.search;
-      this.hash = parsedUrl.hash;
+        this.protocol = parsedUrl.protocol;
+        this.username = parsedUrl.username;
+        this.password = parsedUrl.password;
+        this.host = parsedUrl.host;
+        this.hostname = parsedUrl.hostname;
+        this.port = parsedUrl.port;
+        this.pathname = parsedUrl.pathname;
+        this.search = parsedUrl.search;
+        this.hash = parsedUrl.hash;
     }
 
     parseUrl(url) {
-      const regex = /^(.*?):\/\/(.*?)@?(.*?)(?::(\d+))?(\/.*?)?(?:\?(.*?))?(?:#(.*))?$/;
-      const match = url.match(regex);
+        const regex = /^(.*?):\/\/(.*?)@?(.*?)(?::(\d+))?(\/.*?)?(?:\?(.*?))?(?:#(.*))?$/;
+        const match = url.match(regex);
 
-      if (!match) {
-        throw new TypeError(`Invalid URL: ${url}`);
-      }
+        if (!match) {
+            throw new TypeError(`Invalid URL: ${url}`);
+        }
 
-      const [, protocol, auth, host, port, path, search, hash] = match;
-      const [, username, password] = auth ? auth.split(':') : [];
+        const [, protocol, auth, host, port, path, search, hash] = match;
+        const [, username, password] = auth ? auth.split(':') : [];
 
-      return {
-        protocol: protocol.toLowerCase(),
-        username: username || '',
-        password: password || '',
-        host: host.toLowerCase(),
-        hostname: host.toLowerCase().replace(/:\d+$/, ''),
-        port: port ? Number(port) : null,
-        pathname: path || '/',
-        search: search || '',
-        hash: hash || '',
-      };
+        return {
+            protocol: protocol.toLowerCase(),
+            username: username || '',
+            password: password || '',
+            host: host.toLowerCase(),
+            hostname: host.toLowerCase().replace(/:\d+$/, ''),
+            port: port ? Number(port) : null,
+            pathname: path || '/',
+            search: search || '',
+            hash: hash || ''
+        };
     }
 
     toString() {
-      let result = `${this.protocol}://`;
+        let result = `${this.protocol}://`;
 
-      if (this.username || this.password) {
-        result += `${this.username}:${this.password}@`;
-      }
+        if (this.username || this.password) {
+            result += `${this.username}:${this.password}@`;
+        }
 
-      result += this.host;
+        result += this.host;
 
-      if (this.port) {
-        result += `:${this.port}`;
-      }
+        if (this.port) {
+            result += `:${this.port}`;
+        }
 
-      if (this.pathname) {
-        result += this.pathname;
-      }
+        if (this.pathname) {
+            result += this.pathname;
+        }
 
-      if (this.search) {
-        result += this.search;
-      }
+        if (this.search) {
+            result += this.search;
+        }
 
-      if (this.hash) {
-        result += this.hash;
-      }
+        if (this.hash) {
+            result += this.hash;
+        }
 
-      return result;
+        return result;
     }
 
     toJSON() {
-      return this.toString();
+        return this.toString();
     }
 
-	get href() {
-		return this.toString()
-	}
+    get href() {
+        return this.toString();
+    }
 
-	set href(v) {}
+    set href(v) {}
 }
 
 function toErr(msg, code, err) {
-	err = new TypeError(msg);
-	err.code = code;
-	throw err;
+    err = new TypeError(msg);
+    err.code = code;
+    throw err;
 }
 
 function invalid(str) {
-	toErr('Invalid URL: ' + str, 'ERR_INVALID_URL');
+    toErr('Invalid URL: ' + str, 'ERR_INVALID_URL');
 }
 
 function args(both, len, x, y) {
-	x = 'The "name" ';
-	y = 'argument';
+    x = 'The "name" ';
+    y = 'argument';
 
-	if (both) {
-		x += 'and "value" ';
-		y += 's';
-	}
+    if (both) {
+        x += 'and "value" ';
+        y += 's';
+    }
 
-	if (len < ++both) {
-		toErr(x + y + ' must be specified', 'ERR_MISSING_ARGS');
-	}
+    if (len < ++both) {
+        toErr(x + y + ' must be specified', 'ERR_MISSING_ARGS');
+    }
 }
 
 function toIter(arr, supported) {
-	var val, j=0, iter = {
-		next: function () {
-			val = arr[j++];
-			return {
-				value: val,
-				done: j > arr.length
-			}
-		}
-	};
+    var val,
+        j = 0,
+        iter = {
+            next: function () {
+                val = arr[j++];
+                return {
+                    value: val,
+                    done: j > arr.length
+                };
+            }
+        };
 
-	if (supported) {
-		iter[Symbol.iterator] = function () {
-			return iter;
-		};
-	}
+    if (supported) {
+        iter[Symbol.iterator] = function () {
+            return iter;
+        };
+    }
 
-	return iter;
+    return iter;
 }
 
 export function URLSearchParams(init, ref) {
-	var k, i, x, supp, tmp, $=this, list=[];
+    var k,
+        i,
+        x,
+        supp,
+        tmp,
+        $ = this,
+        list = [];
 
-	try {
-		supp = !!Symbol.iterator;
-	} catch (e) {
-		supp = false;
-	}
+    try {
+        supp = !!Symbol.iterator;
+    } catch (e) {
+        supp = false;
+    }
 
-	if (init) {
-		if (!!init.keys && !!init.getAll) {
-			init.forEach(function (v, k) {
-				toAppend(k, v);
-			});
-		} else if (!!init.pop) {
-			for (i=0; i < init.length; i++) {
-				toAppend.apply(0, init[i]);
-			}
-		} else if (typeof init == 'object') {
-			for (k in init) toSet(k, init[k]);
-		} else if (typeof init == 'string') {
-			if (init[0] == '?') init = init.substring(1);
-			x = decodeURIComponent(init).split('&');
-			while (k = x.shift()) {
-				i = k.indexOf('=');
-				if (!~i) i = k.length;
-				toAppend(
-					k.substring(0, i),
-					k.substring(++i)
-				);
-			}
-		}
-	}
+    if (init) {
+        if (!!init.keys && !!init.getAll) {
+            init.forEach(function (v, k) {
+                toAppend(k, v);
+            });
+        } else if (init.pop) {
+            for (i = 0; i < init.length; i++) {
+                toAppend.apply(0, init[i]);
+            }
+        } else if (typeof init == 'object') {
+            for (k in init) toSet(k, init[k]);
+        } else if (typeof init == 'string') {
+            if (init[0] == '?') init = init.substring(1);
+            x = decodeURIComponent(init).split('&');
+            while ((k = x.shift())) {
+                i = k.indexOf('=');
+                if (!~i) i = k.length;
+                toAppend(k.substring(0, i), k.substring(++i));
+            }
+        }
+    }
 
-	function toSet(key, val) {
-		args(1, arguments.length);
-		val = String(val);
-		x = false; // found?
-		for (i=list.length; i--;) {
-			tmp = list[i];
-			if (tmp[0] == key) {
-				if (x) {
-					list.splice(i, 1);
-				} else {
-					tmp[1] = val;
-					x = true;
-				}
-			}
-		}
-		x || list.push([key, val]);
-		cascade();
-	}
+    function toSet(key, val) {
+        args(1, arguments.length);
+        val = String(val);
+        x = false; // found?
+        for (i = list.length; i--; ) {
+            tmp = list[i];
+            if (tmp[0] == key) {
+                if (x) {
+                    list.splice(i, 1);
+                } else {
+                    tmp[1] = val;
+                    x = true;
+                }
+            }
+        }
+        x || list.push([key, val]);
+        cascade();
+    }
 
-	function toAppend(key, val) {
-		args(1, arguments.length);
-		list.push([key, String(val)]);
-		cascade();
-	}
+    function toAppend(key, val) {
+        args(1, arguments.length);
+        list.push([key, String(val)]);
+        cascade();
+    }
 
-	function toStr() {
-		tmp = '';
-		for (i=0; i < list.length; i++) {
-			if (tmp) tmp += '&';
-			tmp += encodeURIComponent(list[i][0]) + '=' + encodeURIComponent(list[i][1]);
-		}
-		return tmp.replace(/%20/g, '+');
-	}
+    function toStr() {
+        tmp = '';
+        for (i = 0; i < list.length; i++) {
+            if (tmp) tmp += '&';
+            tmp += encodeURIComponent(list[i][0]) + '=' + encodeURIComponent(list[i][1]);
+        }
+        return tmp.replace(/%20/g, '+');
+    }
 
-	function cascade() {
-		if (ref) ref.search = list.length ? ('?' + toStr().replace(/=$/, '')) : '';
-	}
+    function cascade() {
+        if (ref) ref.search = list.length ? '?' + toStr().replace(/=$/, '') : '';
+    }
 
-	$.append = toAppend;
-	$.delete = function (key) {
-		args(0, arguments.length);
-		for (i=list.length; i--;) {
-			if (list[i][0] == key) list.splice(i, 1);
-		}
-		cascade();
-	};
-	$.entries = function () {
-		return toIter(list, supp);
-	};
-	$.forEach = function (fn) {
-		if (typeof fn != 'function') {
-			toErr('Callback must be a function', 'ERR_INVALID_CALLBACK');
-		}
-		for (i=0; i < list.length; i++) {
-			fn(list[i][1], list[i][0]); // (val,key)
-		}
-	};
-	$.get = function (key) {
-		args(0, arguments.length);
-		for (i=0; i < list.length; i++) {
-			if (list[i][0] == key) return list[i][1];
-		}
-		return null;
-	};
-	$.getAll = function (key) {
-		args(0, arguments.length);
-		tmp = [];
-		for (i=0; i < list.length; i++) {
-			if (list[i][0] == key) {
-				tmp.push(list[i][1]);
-			}
-		}
-		return tmp;
-	};
-	$.has = function (key) {
-		args(0, arguments.length);
-		for (i=0; i < list.length; i++) {
-			if (list[i][0] == key) return true;
-		}
-		return false;
-	};
-	$.keys = function () {
-		tmp = [];
-		for (i=0; i < list.length; i++) {
-			tmp.push(list[i][0]);
-		}
-		return toIter(tmp, supp);
-	},
-	$.set = toSet;
-	$.sort = function () {
-		x = []; tmp = [];
-		for (i=0; i < list.length; x.push(list[i++][0]));
-		for (x.sort(); k = x.shift();) {
-			for (i=0; i < list.length; i++) {
-				if (list[i][0] == k) {
-					tmp.push(list.splice(i, 1).shift());
-					break;
-				}
-			}
-		}
-		list = tmp;
-		cascade();
-	};
-	$.toString = toStr;
-	$.values = function () {
-		tmp = [];
-		for (i=0; i < list.length; i++) {
-			tmp.push(list[i][1]);
-		}
-		return toIter(tmp, supp);
-	};
+    $.append = toAppend;
+    $.delete = function (key) {
+        args(0, arguments.length);
+        for (i = list.length; i--; ) {
+            if (list[i][0] == key) list.splice(i, 1);
+        }
+        cascade();
+    };
+    $.entries = function () {
+        return toIter(list, supp);
+    };
+    $.forEach = function (fn) {
+        if (typeof fn != 'function') {
+            toErr('Callback must be a function', 'ERR_INVALID_CALLBACK');
+        }
+        for (i = 0; i < list.length; i++) {
+            fn(list[i][1], list[i][0]); // (val,key)
+        }
+    };
+    $.get = function (key) {
+        args(0, arguments.length);
+        for (i = 0; i < list.length; i++) {
+            if (list[i][0] == key) return list[i][1];
+        }
+        return null;
+    };
+    $.getAll = function (key) {
+        args(0, arguments.length);
+        tmp = [];
+        for (i = 0; i < list.length; i++) {
+            if (list[i][0] == key) {
+                tmp.push(list[i][1]);
+            }
+        }
+        return tmp;
+    };
+    $.has = function (key) {
+        args(0, arguments.length);
+        for (i = 0; i < list.length; i++) {
+            if (list[i][0] == key) return true;
+        }
+        return false;
+    };
+    ($.keys = function () {
+        tmp = [];
+        for (i = 0; i < list.length; i++) {
+            tmp.push(list[i][0]);
+        }
+        return toIter(tmp, supp);
+    }),
+        ($.set = toSet);
+    $.sort = function () {
+        x = [];
+        tmp = [];
+        for (i = 0; i < list.length; x.push(list[i++][0]));
+        for (x.sort(); (k = x.shift()); ) {
+            for (i = 0; i < list.length; i++) {
+                if (list[i][0] == k) {
+                    tmp.push(list.splice(i, 1).shift());
+                    break;
+                }
+            }
+        }
+        list = tmp;
+        cascade();
+    };
+    $.toString = toStr;
+    $.values = function () {
+        tmp = [];
+        for (i = 0; i < list.length; i++) {
+            tmp.push(list[i][1]);
+        }
+        return toIter(tmp, supp);
+    };
 
-	if (supp) {
-		$[Symbol.iterator] = $.entries;
-	}
+    if (supp) {
+        $[Symbol.iterator] = $.entries;
+    }
 
-	return $;
+    return $;
 }
 
 export function URL(url, base) {
+    var segs,
+        usp,
+        $ = this,
+        rgx = /(blob|ftp|wss?|https?):/;
 
-	var segs, usp, $=this, rgx=/(blob|ftp|wss?|https?):/;
+    base = String(base || '').trim();
+    url = String(url).trim();
 
+    var tmp = new URL2(url, base);
+    var link = new URL2(url, base);
 
-	base = String(base || '').trim();
-	url = String(url).trim();
+    function proxy(key) {
+        tmp.href = link.href;
+        tmp.protocol = 'http:';
+        if (key == 'protocol' || key == 'href' || rgx.test(link.protocol)) return link[key];
+        // @see https://url.spec.whatwg.org/#concept-url-origin
+        if (key == 'origin') return rgx.test(link.protocol) ? link[key] : 'null';
+        return tmp[key];
+    }
 
-	var tmp = new URL2(url, base);
-	var link = new URL2(url, base);
+    function block(key, readonly, getter, out) {
+        out = { enumerable: true };
+        if (!readonly) {
+            out.set = function (val) {
+                if (val != null) {
+                    link[key] = String(val);
+                    if (key == 'href' || key == 'search') {
+                        usp = new URLSearchParams(link.search, link);
+                    }
+                }
+            };
+        }
+        out.get =
+            getter ||
+            function () {
+                return proxy(key);
+            };
+        return out;
+    }
 
-	function proxy(key) {
-		tmp.href=link.href; tmp.protocol='http:';
-		if (key == 'protocol' || key == 'href' || rgx.test(link.protocol)) return link[key];
-		// @see https://url.spec.whatwg.org/#concept-url-origin
-		if (key == 'origin') return rgx.test(link.protocol) ? link[key] : 'null';
-		return tmp[key];
-	}
+    usp = new URLSearchParams(link.search, link);
 
-	function block(key, readonly, getter, out) {
-		out = { enumerable: true };
-		if (!readonly) {
-			out.set = function (val) {
-				if (val != null) {
-					link[key] = String(val);
-					if (key == 'href' || key == 'search') {
-						usp = new URLSearchParams(link.search, link);
-					}
-				}
-			}
-		}
-		out.get = getter || function () {
-			return proxy(key);
-		};
-		return out;
-	}
+    $.toJSON = () => {
+        return link;
+    };
 
-	usp = new URLSearchParams(link.search, link);
+    $.toString = () => {
+        return link.toString();
+    };
 
-	$.toJSON = () => {
-		return link;
-	}
-
-	$.toString = () => {
-		return link.toString();
-	}
-
-	return Object.defineProperties($, {
-		href: block('href'),
-		protocol: block('protocol'),
-		username: block('username'),
-		password: block('password'),
-		hostname: block('hostname'),
-		host: block('host'),
-		port: block('port'),
-		search: block('search'),
-		hash: block('hash'),
-		pathname: block('pathname'),
-		origin: block('origin', 1),
-		searchParams: block('searchParams', 1, function () {
-			return usp;
-		})
-	});
+    return Object.defineProperties($, {
+        href: block('href'),
+        protocol: block('protocol'),
+        username: block('username'),
+        password: block('password'),
+        hostname: block('hostname'),
+        host: block('host'),
+        port: block('port'),
+        search: block('search'),
+        hash: block('hash'),
+        pathname: block('pathname'),
+        origin: block('origin', 1),
+        searchParams: block('searchParams', 1, function () {
+            return usp;
+        })
+    });
 }
 
 globalThis.URL = URL;
