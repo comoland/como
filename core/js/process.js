@@ -241,6 +241,7 @@
         isTTY = true;
         _on;
         _once;
+        _destroied = false;
         constructor() {
             super();
             this._on = this.on.bind(this);
@@ -248,12 +249,21 @@
 
             this.on = (event, ...args) => {
                 this._on(event, ...args);
-                if (event === "data") {
-                    stdin(data => {
+                if (event === 'data') {
+                    if (this._destroied) {
+                        return;
+                    }
+
+                    const asy = stdin(data => {
                         this.emit('data', Buffer.from(data));
                         this.removeListener(event, ...args);
                         this.on(event, ...args);
                     });
+
+                    this.destroy = () => {
+                        asy.resolve();
+                        this._destroied = true;
+                    };
                 }
             };
 

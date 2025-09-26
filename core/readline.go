@@ -17,7 +17,7 @@ func readline(ctx *js.Context, global js.Value) {
 	defer readline.Free()
 
 	ret := readline.JsCall(exp)
-	ret.Dup()
+	ret.Dup().AutoFree()
 
 	m := ctx.NewModule("readline")
 	m.Export("default", ret)
