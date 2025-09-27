@@ -1,4 +1,3 @@
-
 declare namespace Como {
 	export class sys {
 		static loadLibrary: (arg: null | string) => number;

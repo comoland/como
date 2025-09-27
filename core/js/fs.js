@@ -1,5 +1,6 @@
 ({
     _exports,
+    watch,
     read,
     write,
     append,
@@ -92,6 +93,21 @@
     // _exports.close = async (fd) => await close(fd);
     // _exports.appendFile = async (path, data) => await appendFile(path, data);
     // _exports.mkdtemp = async (prefix) => await mkdtemp(prefix);
+
+    _exports.watch = (path, cb) => {
+        const ev = new EventEmitter()
+        if (typeof cb === "function") {
+            const origCB = cb.bind()
+            cb = (...args) => {
+                ev.emit('change', ...args);
+                origCB(...args)
+            }
+        }
+
+        const watcher = watch(path, cb)
+        ev.close = watcher.close;
+        return ev
+    };
 
     _exports.readdir = async (path, options, cb) => {
         let callback = cb;

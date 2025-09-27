@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/comoland/como/js"
+	"github.com/fsnotify/fsnotify"
 )
 
 //go:embed js/fs.js
@@ -659,8 +660,79 @@ func filesystem(ctx *js.Context, global js.Value) {
 		})
 	})
 
-	ret := filesystem.Call(exp)
+	exp.Set("watch", func(args js.Arguments) interface{} {
+		// arg0: path string
+		// arg1: callback function (event, filename)
+		pathArg, ok := args.Get(0).(string)
+		if !ok {
+			return ctx.Throw("fs.watch: first arg must be path string")
+		}
 
+		cb := ctx.Writer(args.GetValue(1)) // adapt to your js.Value extraction helper if different
+		if cb == nil {
+			return ctx.Throw("fs.watch: second arg must be a function")
+		}
+
+		watcher, err := fsnotify.NewWatcher()
+		if err != nil {
+			cb.Close()
+			return ctx.Throw(err.Error())
+		}
+
+		if err := watcher.Add(pathArg); err != nil {
+			watcher.Close()
+			cb.Close()
+			return ctx.Throw(err.Error())
+		}
+
+		// returned watcher object with close method
+		wobj := ctx.Object()
+		wobj.Set("close", func(_ js.Arguments) interface{} {
+			cb.Close()
+			_ = watcher.Close()
+			ctx.UnRef()
+			return nil
+		})
+
+		ctx.Ref()
+		// forward events to JS callback
+		go func() {
+			debounceTimer := time.NewTimer(time.Millisecond * 100) // Adjust debounce duration
+			debounceTimer.Stop()
+			lastEventTime := make(map[string]time.Time)
+			defer watcher.Close()
+			for {
+				select {
+				case ev, ok := <-watcher.Events:
+					if !ok {
+						return
+					}
+
+					if ev.Op&fsnotify.Chmod != 0 {
+						continue
+					}
+
+					if lastTime, exists := lastEventTime[ev.Name]; exists && time.Since(lastTime) < (time.Millisecond*50) {
+						continue // Skip if within debounce window
+					}
+
+					lastEventTime[ev.Name] = time.Now()
+					cbArgs := ctx.NewArguments(ev.Op.String(), ev.Name)
+					_ = cb.Call(cbArgs)
+				case err, ok := <-watcher.Errors:
+					if !ok {
+						return
+					}
+
+					_ = cb.Call(err.Error())
+				}
+			}
+		}()
+
+		return wobj
+	})
+
+	ret := filesystem.Call(exp)
 	m := ctx.NewModule("fs")
 	m.Export("default", ret)
 	m.Exports(ret)

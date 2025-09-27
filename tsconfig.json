@@ -25,5 +25,9 @@
       // "@/design": ["./app/web/design/index"],
       "@/design/*": ["./app/web/design/*"]
     }
-  }
+  },
+  "exclude": [
+    "./core/js/**/*.js",
+    "./node_modules",
+  ]
 }

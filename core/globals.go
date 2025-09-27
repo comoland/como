@@ -23,6 +23,7 @@ func initCoreModels(ctx *js.Context) {
 	httpModule(ctx, global)
 	cryptoModule(ctx, global)
 	readline(ctx, global)
+	system(ctx, comoObj)
 
 	// Como methods
 	path(ctx, comoObj)
