@@ -26,7 +26,7 @@
 // again();
 
 
-async function test() {
+async function testxx() {
     const worker = Como.createWorker(async (action: string) => {
 
         console.log("action ===> ", action);

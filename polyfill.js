@@ -6,16 +6,20 @@ const ret = await Como.build.bundle('', {
         contents: `
             import { URL } from './core/js/polyfills/url.js';
             import 'fastestsmallesttextencoderdecoder-encodeinto';
-
+            import { test } from 'uvu';
+            import * as assert from 'uvu/assert';
             import { Buffer } from 'buffer/';
 
             globalThis.Buffer = Buffer;
             globalThis.URL = URL;
+
+            globalThis.Como.test = test;
+            globalThis.Como.assert = assert;
         `
     },
     target: Como.build.target.ESNext,
     bundle: true,
-    minify: true,
+    minify: false,
     plugins: []
 });
 

@@ -73,7 +73,14 @@
     // _exports.write = async (file, data) => await write(file, data);
     // _exports.append = async (file, data) => await append(file, data);
     // _exports.mkdir = async (path, mode) => await mkdir(path, mode);
-    // _exports.stat = async (path) => await stat(path);
+    _exports.stat = async (path) => {
+        const st = await stat(path)
+        return {
+            ...st,
+            isFile: () => st.isDir === false,
+            isDirectory: () => st.isDir
+        }
+    };
     // _exports.unlink = async (path) => await unlink(path);
     // _exports.rmdir = async (path) => await rmdir(path);
     // _exports.rename = async (oldPath, newPath) => await rename(oldPath, newPath);
@@ -82,11 +89,11 @@
     // _exports.chown = async (path, uid, gid) => await chown(path, uid, gid);
     // _exports.utimes = async (path, atime, mtime) => await utimes(path, atime, mtime);
     // _exports.realpath = async (path) => await realpath(path);
-    // _exports.exists = async (path) => await exists(path);
+    _exports.exists = async (path) => await exists(path);
     // _exports.access = async (path, mode) => await access(path, mode);
     // _exports.readlink = async (path) => await readlink(path);
     // _exports.symlink = async (target, path) => await symlink(target, path);
-    // _exports.lstat = async (path) => await lstat(path);
+    _exports.lstat = async (path) => await lstat(path);
     // _exports.truncate = async (path, size) => await truncate(path, size);
     // _exports.ftruncate = async (fd, size) => await ftruncate(fd, size);
     // _exports.open = async (path, flags, mode) => await open(path, flags, mode);
@@ -104,7 +111,7 @@
             }
         }
 
-        const watcher = watch(path, cb)
+        const watcher = watch(path, cb);
         ev.close = watcher.close;
         return ev
     };

@@ -11,7 +11,9 @@ package js
 import "C"
 
 import (
+	"embed"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -75,6 +77,11 @@ func moduleNormalizeName(c *C.JSContext, base_name *C.char, name *C.char, opque 
 
 	resolvedFile := filename
 
+	_, ok := ctx.CoreModules[filename]
+	if ok {
+		goto ret
+	}
+
 	// start by resolving internal registered module aliases
 	// Como has a process.registerAlias method
 	// this can register namespaces ex:
@@ -135,8 +142,22 @@ func moduleNormalizeName(c *C.JSContext, base_name *C.char, name *C.char, opque 
 	// fileExtension := filepath.Ext(resolvedFile)
 	if s.HasPrefix(filename, ".") || s.HasPrefix(filename, "/") {
 		resolvedFile, _ = filepath.Abs(resolvedFile)
-	}
+	} else {
+		// cwd, _ := os.Getwd()
+		// resolver := NewResolver(cwd)
+		// fmt.Println("basename ==> ", basename)
+		// fmt.Println("filename ==> ", filename)
 
+		// pp, err := resolver.Resolve(filename, dirname)
+		// if err != nil {
+		// 	fmt.Println("Errrorroror ===> ", err.Error())
+		// } else {
+		// 	resolvedFile = pp.Path
+		// }
+
+		// PrintResolveResult(pp)
+	}
+ret:
 	cstr := C.CString(resolvedFile)
 	return cstr
 }
@@ -145,6 +166,77 @@ func (ctx *Context) RegisterModuleAlias(name string, alias string) {
 	lock.Lock()
 	defer lock.Unlock()
 	internalModules[name] = alias
+}
+
+func stripPath(p string) (stripped, ext string) {
+	// Normalize path
+	p = filepath.ToSlash(filepath.Clean(p))
+
+	// Drop first segment
+	parts := s.SplitN(p, "/", 2)
+	if len(parts) < 2 {
+		return "", filepath.Ext(p) // nothing to strip, just return ext
+	}
+	rest := parts[1]
+
+	// Get extension
+	ext = filepath.Ext(rest)
+
+	// Remove extension
+	stripped = s.TrimSuffix(rest, ext)
+	return stripped, ext
+}
+
+func (ctx *Context) RegisterCoreModules(embededFs embed.FS, files map[string]string) {
+	lock.Lock()
+	defer lock.Unlock()
+
+	fs.WalkDir(embededFs, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if d.IsDir() {
+			return nil
+		}
+
+		name, e := stripPath(path)
+		_, ok := ctx.CoreModules[name]
+		if ok {
+			panic(fmt.Sprintf("core module %s already registered at %s", name, path))
+		}
+
+		// append core module to externals
+		ctx.externals = append(ctx.externals, name)
+		ctx.CoreModules[name] = struct {
+			Path string
+			FS   *embed.FS
+		}{
+			Path: path,
+			FS:   &embededFs,
+		}
+
+		fmt.Println(name, e)
+
+		return nil
+	})
+
+	// coreModules := ctx.CoreModules
+
+	// for name, path := range files {
+	// 	_, ok := coreModules[name]
+	// 	if ok {
+	// 		panic(fmt.Sprintf("core module %s already registered at %s", name, path))
+	// 	}
+
+	// 	ctx.externals = append(ctx.externals, name)
+	// 	sub, err := fs.Sub(embededFs, "js")
+	// 	if err != nil {
+	// 		panic(err.Error())
+	// 	}
+
+	// 	ctx.CoreModules[name] = sub
+	// }
 }
 
 func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
@@ -161,14 +253,24 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 
 	resolvedFromEmded := false
 
-	// if embedder enabled try to read files from embedding files system
-	code, err = ctx.FSEmbedder.ReadJsFile(filename)
-	if err == nil {
+	coreFs, ok := ctx.CoreModules[filename]
+	if ok {
+		code, err = fs.ReadFile(coreFs.FS, coreFs.Path)
+		if err != nil {
+			panic(err.Error())
+		}
 		resolvedFromEmded = true
-	}
+		codeStr = string(code)
+	} else {
+		// if embedder enabled try to read files from embedding files system
+		code, err = ctx.FSEmbedder.ReadJsFile(filename)
+		if err == nil {
+			resolvedFromEmded = true
+		}
 
-	if err != nil {
-		code, err = ioutil.ReadFile(filename)
+		if err != nil {
+			code, err = ioutil.ReadFile(filename)
+		}
 	}
 
 	if s.Contains(filename, "mod.ts") && !resolvedFromEmded {
@@ -307,7 +409,7 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 			})
 
 			codeStr = string(result.Code)
-		} else if ext != ".js" {
+		} else if ext == ".ts" || ext == ".tsx" {
 			codeStr = string(code)
 			result := api.Transform(codeStr, api.TransformOptions{
 				Loader:     api.LoaderTSX,

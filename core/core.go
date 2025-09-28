@@ -4,6 +4,7 @@ import (
 	"runtime"
 
 	"github.com/comoland/como/js"
+	"github.com/comoland/como/node"
 )
 
 func ComoContext() *js.Context {
@@ -11,7 +12,7 @@ func ComoContext() *js.Context {
 	var rt = js.NewRuntime()
 	ctx := rt.NewContext()
 	initCoreModels(ctx)
-
+	node.InitNode(ctx)
 	return ctx
 }
 

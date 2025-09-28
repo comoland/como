@@ -1,6 +1,9 @@
 package core
 
 import (
+	"os"
+	"time"
+
 	"github.com/comoland/como/js"
 )
 
@@ -32,4 +35,59 @@ func initCoreModels(ctx *js.Context) {
 	sql(ctx, comoObj)
 	worker(ctx, comoObj)
 	worker2(ctx, comoObj)
+
+	comoObj.Set("resolve", func(args js.Arguments) interface{} {
+		request, ok := args.Get(0).(string)
+		if !ok {
+			return ctx.Throw("path must be a string")
+		}
+
+		path, ok := args.Get(0).(string)
+		if !ok {
+			return ctx.Throw("path must be a string")
+		}
+
+		rr := js.NewResolver(path)
+		result, err := rr.Resolve(request, path)
+
+		if err != nil {
+			return ctx.Throw(err.Error())
+		}
+
+		return result
+
+		// return filepath.Dir(path)
+	})
+
+	comoObj.Set("statSync", func(args js.Arguments) interface{} {
+		path, isString := args.Get(0).(string)
+		if !isString {
+			return ctx.Throw("TypeError: First argument to stat must be a string")
+		}
+
+		info, err := os.Stat(path)
+		if err != nil {
+			return ctx.Throw(err.Error())
+		}
+
+		return map[string]interface{}{
+			"size":    info.Size(),
+			"mode":    info.Mode(),
+			"modTime": info.ModTime().UnixNano() / int64(time.Millisecond),
+			"isDir":   info.IsDir(),
+		}
+	})
+
+	comoObj.Set("readFileSync", func(args js.Arguments) interface{} {
+		path, isString := args.Get(0).(string)
+		if !isString {
+			return ctx.Throw("TypeError: First argument to readFile must be a string")
+		}
+		body, err := os.ReadFile(path)
+		if err != nil {
+			return ctx.Throw(err.Error())
+		}
+
+		return string(body)
+	})
 }

@@ -24,6 +24,7 @@ type buildOptions struct {
 	Minify      bool
 	Bundle      bool
 	Target      api.Target
+	Format      api.Format
 	Loader      map[string]api.Loader
 	SourceMap   api.SourceMap
 }
@@ -236,7 +237,7 @@ func build(ctx *js.Context, Como js.Value) {
 					MinifyIdentifiers: options.Minify,
 					Splitting:         options.Splitting,
 					External:          options.External,
-					Format:            api.FormatESModule,
+					Format:            options.Format,
 					Target:            options.Target,
 					Loader:            options.Loader,
 					Sourcemap:         options.SourceMap,

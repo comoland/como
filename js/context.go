@@ -22,6 +22,11 @@ import (
 	"github.com/mattn/go-pointer"
 )
 
+type MapValue struct {
+	Path string
+	FS   fs.FS
+}
+
 // Context is the interface that describes javascript context.
 type Context struct {
 	// js main context
@@ -58,6 +63,10 @@ type Context struct {
 	FSEmbedder *Embedder
 
 	NodeModulesLib fs.FS
+	CoreModules    map[string]struct {
+		Path string
+		FS   *embed.FS
+	}
 
 	// InitWorkerContext called when a new worker created
 	// this will enable you initiate go modules on workers separately

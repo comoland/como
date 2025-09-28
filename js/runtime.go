@@ -5,6 +5,7 @@ package js
 import "C"
 
 import (
+	"embed"
 	"sync"
 
 	"github.com/mattn/go-pointer"
@@ -139,6 +140,10 @@ func (runtime *JSRunTime) NewContext() *Context {
 	}
 
 	context.externals = append(context.externals, "fs")
+	context.CoreModules = make(map[string]struct {
+		Path string
+		FS   *embed.FS
+	})
 
 	SetContextOpaque(ctx, context)
 	initError(context)
