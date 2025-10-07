@@ -478,9 +478,9 @@ func (ctx *Context) JsToGoValue(value interface{}) interface{} {
 		if buf != nil {
 			// b := unsafe.Slice(buf, len)
 			b := (*[1 << 30]byte)(unsafe.Pointer(buf))[:len:len]
-			var s = make([]byte, len)
-			copy(s, b)
-			return s
+			// var s = make([]byte, len)
+			// copy(s, b)
+			return b
 		}
 		if C.JS_IsFunction(ctx.c, v) == 1 {
 			return ctx.JsFunction(v)
@@ -930,6 +930,10 @@ func (ctx *Context) LoopOnce() uint64 {
 	}
 
 	return refs
+}
+
+func (ctx *Context) STDLoop() {
+	C.js_std_loop(ctx.c)
 }
 
 func (ctx *Context) Free() {

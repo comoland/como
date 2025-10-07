@@ -1,6 +1,7 @@
-package core
+package node
 
 import (
+	"embed"
 	_ "embed"
 	"os"
 	"path/filepath"
@@ -11,19 +12,11 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-//go:embed js/fs.js
-var fsJs string
-
-func filesystem(ctx *js.Context, global js.Value) {
-	filesystem := ctx.EvalFunction("filesystem", fsJs)
-	defer filesystem.Free()
-	exp := ctx.Object()
-	exp.Dup().AutoFree()
-
-	exp.Set("_exports", ctx.Object())
+func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
+	m := ctx.NewModule("fs.go")
 
 	// Basic file operations
-	exp.Set("read", func(args js.Arguments) interface{} {
+	m.Export("read", func(args js.Arguments) interface{} {
 		file, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to read must be a string")
@@ -38,7 +31,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 		})
 	})
 
-	exp.Set("write", func(args js.Arguments) interface{} {
+	m.Export("write", func(args js.Arguments) interface{} {
 		file, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to write must be a string")
@@ -57,7 +50,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 		})
 	})
 
-	exp.Set("append", func(args js.Arguments) interface{} {
+	m.Export("append", func(args js.Arguments) interface{} {
 		file, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to append must be a string")
@@ -83,7 +76,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 	})
 
 	// Directory operations
-	exp.Set("mkdir", func(args js.Arguments) interface{} {
+	m.Export("mkdir", func(args js.Arguments) interface{} {
 		path, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to mkdir must be a string")
@@ -104,7 +97,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 		})
 	})
 
-	exp.Set("readdir", func(args js.Arguments) interface{} {
+	m.Export("readdir", func(args js.Arguments) interface{} {
 		path, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to readdir must be a string")
@@ -194,7 +187,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 	})
 
 	// File info operations
-	exp.Set("stat", func(args js.Arguments) interface{} {
+	m.Export("stat", func(args js.Arguments) interface{} {
 		path, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to stat must be a string")
@@ -214,7 +207,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 		})
 	})
 
-	exp.Set("lstat", func(args js.Arguments) interface{} {
+	m.Export("lstat", func(args js.Arguments) interface{} {
 		path, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to lstat must be a string")
@@ -235,7 +228,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 	})
 
 	// File manipulation
-	exp.Set("unlink", func(args js.Arguments) interface{} {
+	m.Export("unlink", func(args js.Arguments) interface{} {
 		path, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to unlink must be a string")
@@ -250,7 +243,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 		})
 	})
 
-	exp.Set("rmdir", func(args js.Arguments) interface{} {
+	m.Export("rmdir", func(args js.Arguments) interface{} {
 		path, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to rmdir must be a string")
@@ -265,7 +258,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 		})
 	})
 
-	exp.Set("rename", func(args js.Arguments) interface{} {
+	m.Export("rename", func(args js.Arguments) interface{} {
 		oldPath, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to rename must be a string")
@@ -284,7 +277,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 		})
 	})
 
-	exp.Set("copyFile", func(args js.Arguments) interface{} {
+	m.Export("copyFile", func(args js.Arguments) interface{} {
 		src, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to copyFile must be a string")
@@ -309,7 +302,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 	})
 
 	// File permissions
-	exp.Set("chmod", func(args js.Arguments) interface{} {
+	m.Export("chmod", func(args js.Arguments) interface{} {
 		path, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to chmod must be a string")
@@ -328,7 +321,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 		})
 	})
 
-	exp.Set("chown", func(args js.Arguments) interface{} {
+	m.Export("chown", func(args js.Arguments) interface{} {
 		path, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to chown must be a string")
@@ -352,7 +345,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 	})
 
 	// File times
-	exp.Set("utimes", func(args js.Arguments) interface{} {
+	m.Export("utimes", func(args js.Arguments) interface{} {
 		path, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to utimes must be a string")
@@ -376,7 +369,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 	})
 
 	// Path operations
-	exp.Set("realpath", func(args js.Arguments) interface{} {
+	m.Export("realpath", func(args js.Arguments) interface{} {
 		path, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to realpath must be a string")
@@ -392,7 +385,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 	})
 
 	// File existence
-	exp.Set("exists", func(args js.Arguments) interface{} {
+	m.Export("exists", func(args js.Arguments) interface{} {
 		path, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to exists must be a string")
@@ -404,7 +397,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 	})
 
 	// File access
-	exp.Set("access", func(args js.Arguments) interface{} {
+	m.Export("access", func(args js.Arguments) interface{} {
 		path, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to access must be a string")
@@ -420,7 +413,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 	})
 
 	// Symbolic links
-	exp.Set("readlink", func(args js.Arguments) interface{} {
+	m.Export("readlink", func(args js.Arguments) interface{} {
 		path, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to readlink must be a string")
@@ -435,7 +428,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 		})
 	})
 
-	exp.Set("symlink", func(args js.Arguments) interface{} {
+	m.Export("symlink", func(args js.Arguments) interface{} {
 		target, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to symlink must be a string")
@@ -455,7 +448,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 	})
 
 	// File truncation
-	exp.Set("truncate", func(args js.Arguments) interface{} {
+	m.Export("truncate", func(args js.Arguments) interface{} {
 		path, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to truncate must be a string")
@@ -475,7 +468,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 	})
 
 	// File descriptor operations
-	exp.Set("open", func(args js.Arguments) interface{} {
+	m.Export("open", func(args js.Arguments) interface{} {
 		path, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to open must be a string")
@@ -498,7 +491,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 		})
 	})
 
-	exp.Set("close", func(args js.Arguments) interface{} {
+	m.Export("close", func(args js.Arguments) interface{} {
 		fd, isInt := args.Get(0).(int64)
 		if !isInt {
 			return ctx.Throw("TypeError: First argument to close must be a number")
@@ -514,7 +507,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 	})
 
 	// High-level file operations
-	exp.Set("readFile", func(args js.Arguments) interface{} {
+	m.Export("readFile", func(args js.Arguments) interface{} {
 		path, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to readFile must be a string")
@@ -529,7 +522,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 		})
 	})
 
-	exp.Set("writeFile", func(args js.Arguments) interface{} {
+	m.Export("writeFile", func(args js.Arguments) interface{} {
 		path, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to writeFile must be a string")
@@ -619,7 +612,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 		})
 	})
 
-	exp.Set("appendFile", func(args js.Arguments) interface{} {
+	m.Export("appendFile", func(args js.Arguments) interface{} {
 		path, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to appendFile must be a string")
@@ -645,7 +638,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 	})
 
 	// Temporary directory
-	exp.Set("mkdtemp", func(args js.Arguments) interface{} {
+	m.Export("mkdtemp", func(args js.Arguments) interface{} {
 		prefix, isString := args.Get(0).(string)
 		if !isString {
 			return ctx.Throw("TypeError: First argument to mkdtemp must be a string")
@@ -660,7 +653,7 @@ func filesystem(ctx *js.Context, global js.Value) {
 		})
 	})
 
-	exp.Set("watch", func(args js.Arguments) interface{} {
+	m.Export("watch", func(args js.Arguments) interface{} {
 		// arg0: path string
 		// arg1: callback function (event, filename)
 		pathArg, ok := args.Get(0).(string)
@@ -732,8 +725,4 @@ func filesystem(ctx *js.Context, global js.Value) {
 		return wobj
 	})
 
-	ret := filesystem.Call(exp)
-	m := ctx.NewModule("fs")
-	m.Export("default", ret)
-	m.Exports(ret)
 }

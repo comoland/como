@@ -23,18 +23,22 @@ func promiseRejectionTracker(c *C.JSContext, promise C.JSValueConst, reason C.JS
 		defer stack.Free()
 
 		formatted := err.GetValue("__error_formatted")
+		handeled := err.GetValue("__handeled")
+		v := err.Set("__handeled", true)
+		defer v.Free()
+		defer handeled.Free()
 		defer formatted.Free()
 
-		// err.Set("_handled", true)
-		fmt.Print("Possibly unhandled promise rejection: ")
-		fmt.Println(err.String())
+		if handeled.ToString() == "true" {
+			return
+		}
+
 		if !stack.IsUndefined() {
 			stackError := stack.String()
 			if formatted.IsUndefined() {
 				stackError = ctx.StackFormatter(stackError)
+				err.Set("stack", stackError)
 			}
-
-			fmt.Println(stackError, "\n")
 		}
 	}
 }
@@ -80,6 +84,7 @@ func (ctx *Context) ThrowStackError() {
 	}
 
 	ctx.Terminate()
+	// os.Exit(0)
 }
 
 func initError(ctx *Context) {

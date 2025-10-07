@@ -21,7 +21,6 @@ func initCoreModels(ctx *js.Context) {
 	console(ctx, global)
 	buffer(ctx, global)
 	fetch(ctx, global)
-	filesystem(ctx, global)
 	wasi(ctx, global)
 	httpModule(ctx, global)
 	cryptoModule(ctx, global)

@@ -1,6 +1,7 @@
 // import fs from 'fs';
-import path from './path'
-const fs = Como
+import path from 'path'
+import fs from 'fs';
+// const fs = Como
 
 class ModuleLoader {
     constructor() {

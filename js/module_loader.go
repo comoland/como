@@ -200,7 +200,7 @@ func (ctx *Context) RegisterCoreModules(embededFs embed.FS, files map[string]str
 			return nil
 		}
 
-		name, e := stripPath(path)
+		name, _ := stripPath(path)
 		_, ok := ctx.CoreModules[name]
 		if ok {
 			panic(fmt.Sprintf("core module %s already registered at %s", name, path))
@@ -215,8 +215,6 @@ func (ctx *Context) RegisterCoreModules(embededFs embed.FS, files map[string]str
 			Path: path,
 			FS:   &embededFs,
 		}
-
-		fmt.Println(name, e)
 
 		return nil
 	})
@@ -254,13 +252,35 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 	resolvedFromEmded := false
 
 	coreFs, ok := ctx.CoreModules[filename]
-	if ok {
+	if ok && isMain == 0 {
 		code, err = fs.ReadFile(coreFs.FS, coreFs.Path)
 		if err != nil {
 			panic(err.Error())
 		}
+
 		resolvedFromEmded = true
+		ext = filepath.Ext(coreFs.Path)
+
 		codeStr = string(code)
+		if s.Contains(codeStr, "globalThis.NamedExports") {
+			err := ctx.Eval(codeStr)
+			if err != nil {
+				panic(err.Error())
+			}
+
+			global := ctx.GlobalObject()
+			defer global.Free()
+			exp := global.Get("NamedExports").(map[string]interface{})
+
+			nStr := "\n"
+			for name, _ := range exp {
+				nStr = nStr + "export var " + name + " = _exports['" + name + "'] \n"
+			}
+
+			codeStr = codeStr + nStr
+			code = []byte(codeStr)
+			global.Set("NamedExports", nil)
+		}
 	} else {
 		// if embedder enabled try to read files from embedding files system
 		code, err = ctx.FSEmbedder.ReadJsFile(filename)
@@ -329,11 +349,11 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 				contents := fmt.Sprintf(`
 					%s
 
-					globalThis["modules_exports"] = globalThis["modules_exports"] ?? {};
-					globalThis["modules_exports"]['%s'] = _COMO_EXPORT;
-					globalThis.require = function(f) {
-						return globalThis["modules_exports"][f]
-					};
+					// globalThis["modules_exports"] = globalThis["modules_exports"] ?? {};
+					// globalThis["modules_exports"]['%s'] = _COMO_EXPORT;
+					// globalThis.require = function(f) {
+					// 	return globalThis["modules_exports"][f]
+					// };
 			`, codeStr, filename)
 
 				trans := api.Transform(contents, api.TransformOptions{
@@ -415,17 +435,33 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 				Loader:     api.LoaderTSX,
 				Sourcemap:  api.SourceMapExternal,
 				Target:     api.ESNext,
-				Format:     api.FormatESModule,
+				Format:     api.FormatDefault,
 				Sourcefile: filename,
 				JSX:        api.JSXAutomatic,
 			})
 
 			codeStr = string(result.Code)
+
+			// codeStr = `
+			// 	const { createModule } = await import("module");
+			// 	const module = createModule(import.meta.filename, globalThis.module);
+			// 	globalThis.module = module;
+			// 	const exports = module.exports;
+			// 	const require = module.require;
+			// ` + codeStr
+
+			if filename != "module" && filename != "path" && filename != "util" && filename != "fs" && filename != "buffer" {
+				codeStr = `const { createModule } = await import("module");const module = createModule(import.meta.filename, globalThis.module); globalThis.module = module; const exports = module.exports; const require = module.require;` + codeStr
+			}
+
 			lock.Lock()
 			sourceMaps[filename] = result.Map
 			lock.Unlock()
 		} else {
 			codeStr = string(code)
+			if filename != "module" && filename != "path" && filename != "util" && filename != "fs" && filename != "buffer" {
+				codeStr = `const { createModule } = await import("module");const module = createModule(import.meta.filename, globalThis.module); globalThis.module = module; const exports = module.exports;const require = module.require;` + codeStr
+			}
 		}
 	}
 
@@ -477,6 +513,8 @@ func (ctx *Context) LoadModuleStr(filename string, codeStr string, isMain int) *
 
 	dirname := filepath.Dir(filename)
 	meta_obj.Set("dir", dirname)
+	meta_obj.Set("dirname", dirname)
+	meta_obj.Set("filename", filename)
 
 	if isMain == 1 {
 		v := C.JS_EvalFunction(ctx.c, val)

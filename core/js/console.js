@@ -118,6 +118,9 @@
         // For some reason typeof null is "object", so special case here.
         if (isNull(value)) return ctx.stylize('null', 'null');
 
+        if (isSymbol(value))
+            return ctx.stylize('Symbol(' + value.description + ')', 'magenta');
+
         if (typeof value !== 'object' && typeof value !== 'function')
             return ctx.stylize('[Pointer: ' + value + ']', 'string');
     }
@@ -396,16 +399,22 @@
     }
 
     function stylizeWithColor(str, styleType) {
+        let colors;
         var style = inspect.styles[styleType];
+        if (!style)  {
+            colors = inspect.colors[styleType]
+        } else {
+            colors = inspect.colors[style]
+        }
 
-        if (style) {
-            return '\u001b[' + inspect.colors[style][0] + 'm' + str + '\u001b[' + inspect.colors[style][1] + 'm';
+        if (colors) {
+            return '\u001b[' + colors[0] + 'm' + str + '\u001b[' + colors[1] + 'm';
         } else {
             return str;
         }
     }
 
-    function inspect(obj, opts) {
+    globalThis.inspect = function inspect(obj, opts) {
         // default options
         var ctx = {
             seen: [],

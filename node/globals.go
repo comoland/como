@@ -13,12 +13,12 @@ func InitNode(ctx *js.Context) {
 	global := ctx.GlobalObject()
 	defer global.Free()
 
-	m := ctx.NewModule("xxx.go")
-	m.Export("default", map[string]string{
-		"xxx": "path.js",
-	})
-
 	ctx.RegisterCoreModules(jsFiles, map[string]string{
 		"primordials": "primordials.js",
 	})
+
+	goBuffer(ctx, global)
+	goBindings(ctx, global)
+	goOS(ctx, global)
+	goFileSystem(ctx, global, jsFiles)
 }

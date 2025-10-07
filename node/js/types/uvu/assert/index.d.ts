@@ -14,34 +14,34 @@ export function not(actual: any, msg?: Message): void;
 export function unreachable(msg?: Message): void;
 
 export namespace is {
-	function not(actual: any, expects: any, msg?: Message): void;
+    function not(actual: any, expects: any, msg?: Message): void;
 }
 
 export namespace not {
-	function ok(actual: any, msg?: Message): void;
-	function equal(actual: any, expects: any, msg?: Message): void;
-	function type(actual: any, expects: Types, msg?: Message): void;
-	function instance(actual: any, expects: any, msg?: Message): void;
-	function snapshot(actual: string, expects: string, msg?: Message): void;
-	function fixture(actual: string, expects: string, msg?: Message): void;
-	function match(actual: string, expects: string | RegExp, msg?: Message): void;
-	function throws(fn: Function, expects?: Message | RegExp | Function, msg?: Message): void;
+    function ok(actual: any, msg?: Message): void;
+    function equal(actual: any, expects: any, msg?: Message): void;
+    function type(actual: any, expects: Types, msg?: Message): void;
+    function instance(actual: any, expects: any, msg?: Message): void;
+    function snapshot(actual: string, expects: string, msg?: Message): void;
+    function fixture(actual: string, expects: string, msg?: Message): void;
+    function match(actual: string, expects: string | RegExp, msg?: Message): void;
+    function throws(fn: Function, expects?: Message | RegExp | Function, msg?: Message): void;
 }
 
 export class Assertion extends Error {
-	name: 'Assertion';
-	code: 'ERR_ASSERTION';
-	details: false | string;
-	generated: boolean;
-	operator: string;
-	expects: any;
-	actual: any;
-	constructor(options?: {
-		message: string;
-		details?: string;
-		generated?: boolean;
-		operator: string;
-		expects: any;
-		actual: any;
-	});
+    name: 'Assertion';
+    code: 'ERR_ASSERTION';
+    details: false | string;
+    generated: boolean;
+    operator: string;
+    expects: any;
+    actual: any;
+    constructor(options?: {
+        message: string;
+        details?: string;
+        generated?: boolean;
+        operator: string;
+        expects: any;
+        actual: any;
+    });
 }

@@ -1,8 +1,9 @@
 import fs from 'fs';
+import path from 'path';
 
-const wasm = fs.readFileSync(Como.path.resolve(import.meta.dir, './greet-go.wasm'))
+const wasm = fs.readFileSync(path.resolve(import.meta.dir, './greet-go.wasm'))
 
-const m =  WebAssembly.instantiate(wasm, {
+const m =  await WebAssembly.instantiate(wasm, {
     "env": {
         "log": (offset, byteCount) => {
             // m.instance.exports.memory.write(offset + 10, Buffer.from("sssss"))
