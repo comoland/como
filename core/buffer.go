@@ -2,7 +2,6 @@ package core
 
 import (
 	_ "embed"
-	"fmt"
 
 	"github.com/comoland/como/js"
 )
@@ -12,7 +11,9 @@ var bufferJs string
 
 func buffer(ctx *js.Context, _ js.Value) {
 	buf, _ := ctx.EvalFile("bufferxxx", bufferJs)
-	ctx.STDLoop()
-	fmt.Println("xxxxxxxxx ", buf)
+
+	// vv := ctx.Await(buf)
+	// defer vv.Free()
+	// fmt.Println("xxxxxxxxx ", vv)
 	defer buf.Free()
 }

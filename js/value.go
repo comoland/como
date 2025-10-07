@@ -267,10 +267,17 @@ func (v Value) Error() error {
 	return &Error{Cause: cause, Stack: stack.String()}
 }
 
+func (v Value) IsPromise() bool {
+	state := C.JS_PromiseState(v.ctx.c, v.c)
+	pending := C.GetPromisePending()
+	fulfilled := C.GetPromiseFulfilled()
+	rejected := C.GetPromiseRejected()
+
+	return C.int(state) == pending || C.int(state) == fulfilled || C.int(state) == rejected
+}
+
 func (v Value) IsNumber() bool        { return C.JS_IsNumber(v.c) == 1 }
 func (v Value) IsBigInt() bool        { return C.JS_IsBigInt(v.ctx.c, v.c) == 1 }
-func (v Value) IsBigFloat() bool      { return C.JS_IsBigFloat(v.c) == 1 }
-func (v Value) IsBigDecimal() bool    { return C.JS_IsBigDecimal(v.c) == 1 }
 func (v Value) IsBool() bool          { return C.JS_IsBool(v.c) == 1 }
 func (v Value) IsNull() bool          { return C.JS_IsNull(v.c) == 1 }
 func (v Value) IsUndefined() bool     { return C.JS_IsUndefined(v.c) == 1 }

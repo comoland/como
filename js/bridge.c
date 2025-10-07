@@ -15,6 +15,11 @@ JSModuleDef *moduleLoader();
 char *moduleNormalizeName();
 void promiseRejectionTracker();
 
+// Promise states (For value.go)
+static int GetPromisePending() { return JS_PROMISE_PENDING; }
+static int GetPromiseFulfilled() { return JS_PROMISE_FULFILLED; }
+static int GetPromiseRejected() { return JS_PROMISE_REJECTED; }
+
 static struct _promise
 {
     JSContext *ctx;

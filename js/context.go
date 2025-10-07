@@ -936,6 +936,15 @@ func (ctx *Context) STDLoop() {
 	C.js_std_loop(ctx.c)
 }
 
+func (ctx *Context) Await(v Value) Value {
+	if !v.IsPromise() {
+		// Not a promise, return as-is
+		return v
+	}
+
+	return Value{ctx: ctx, c: C.js_std_await(ctx.c, v.c)}
+}
+
 func (ctx *Context) Free() {
 	for _, cb := range ctx.onExit {
 		cb()
