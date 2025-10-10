@@ -1,0 +1,169 @@
+# Como JavaScript Runtime - Cursor Rules
+
+## Critical: Thread Safety ⚠️
+- QuickJS is NOT thread-safe
+- NEVER call ctx methods from goroutines
+- ctx.Async() already creates a goroutine - don't wrap it again
+- To call ctx methods in async: use function wrapper
+
+```go
+// ❌ WRONG - Will crash
+ctx.Async(func(async js.Promise) {
+    async.Resolve(ctx.ParseJSON(data)) // ctx call in goroutine!
+})
+
+// ✅ CORRECT
+ctx.Async(func(async js.Promise) {
+    async.Resolve(func() interface{} {
+        return ctx.ParseJSON(data) // Runs on main thread
+    })
+})
+```
+
+## Module Pattern (Two-Layer)
+
+### Go Layer (native ops)
+- Create in `core/*.go` or `node/*.go`
+- Export with `mod.Export("op_name", handler)`
+- Register in `core/core.go` or `node/globals.go`
+
+### JS Layer (dev API)
+- Create in `core/js/*.js` or `node/js/*.js`
+- Import with `import * as ops from 'module.go'`
+- Validate args, then call native ops
+
+## Key Directories
+- `./js/` - QuickJS bridge (context, promises, modules)
+- `./core/` - Built-in modules (timers, fetch, crypto)
+- `./node/` - Node-like APIs (fs, buffer, blob)
+- `./tests/` - Test files (*.test.ts)
+- `./docs/implementation/` - Feature docs
+
+## Argument Handling
+```go
+args.Get(0)           // interface{}
+args.GetValue(0)      // js.Value
+args.GetTypedArray(0) // []byte from Uint8Array
+args.Len()            // count
+```
+
+## Type Assertions (Always Check!)
+```go
+value, ok := args.Get(0).(string)
+if !ok {
+    return ctx.Throw("Expected string")
+}
+```
+
+## Memory Management
+- Always `defer value.Free()` for JS values
+- `ctx.Ref()` keeps event loop alive
+- `ctx.UnRef()` signals completion
+- ctx.Async handles ref counting automatically
+
+## Testing
+- Files: `tests/test-name.test.ts`
+- Run: `go run . ./tests/test-name.test.ts`
+- Use describe/test/expect/assert from runner
+
+## Study These Examples
+1. `node/blob.go` + `node/js/blob.js` - Full two-layer pattern
+2. `core/timers.go` + `core/js/timers.js` - Goroutine timing
+3. `core/fetch.go` + `core/js/fetch.js` - Async patterns
+
+## Common Patterns
+
+### Sync Operation
+```go
+mod.Export("op_sync", func(args js.Arguments) interface{} {
+    value, ok := args.Get(0).(string)
+    if !ok {
+        return ctx.Throw("Expected string")
+    }
+    return processSync(value)
+})
+```
+
+### Async (Simple Return)
+```go
+mod.Export("op_async", func(args js.Arguments) interface{} {
+    return ctx.Async(func(async js.Promise) {
+        result, err := doWork()
+        if err != nil {
+            async.Reject(err.Error())
+            return
+        }
+        async.Resolve(result) // string, number, bool, []byte OK
+    })
+})
+```
+
+### Async (Complex Return - needs ctx)
+```go
+mod.Export("op_complex", func(args js.Arguments) interface{} {
+    return ctx.Async(func(async js.Promise) {
+        data := doWork()
+
+        // Need to call ctx methods - wrap in function
+        async.Resolve(func() interface{} {
+            return ctx.ParseJSON(data) // Runs on main thread
+        })
+    })
+})
+```
+
+### Store Pattern (Thread-safe)
+```go
+type Store struct {
+    items sync.Map // Thread-safe
+}
+
+var globalStore = &Store{}
+
+mod.Export("op_store", func(args js.Arguments) interface{} {
+    id := generateID()
+    globalStore.items.Store(id, data)
+    return id
+})
+```
+
+## Entry Points
+- `node/js/main.js` - Loaded first, registers globals
+- `core/core.go` - Initializes core modules
+- `node/globals.go` - Initializes node modules
+
+## Value Conversion
+- `ctx.GoToJSValue(goValue)` - Go → JS
+- `ctx.JsToGoValue(jsValue)` - JS → Go
+
+## Error Handling
+```go
+// Go
+if err != nil {
+    return ctx.Throw(err.Error())
+}
+
+// JavaScript
+if (typeof input !== 'string') {
+    throw new TypeError('Input must be a string')
+}
+```
+
+## GC Integration (JavaScript)
+```javascript
+const registry = new FinalizationRegistry((id) => {
+    ops.op_cleanup(id)
+})
+
+class MyClass {
+    constructor() {
+        this._id = ops.op_create()
+        registry.register(this, this._id)
+    }
+}
+```
+
+---
+
+See AGENTS.md for complete implementation guide with detailed examples and workflows.
+

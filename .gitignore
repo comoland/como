@@ -4,3 +4,4 @@ dev
 files
 cache
 temp
+.references/
