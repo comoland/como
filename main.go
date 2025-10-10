@@ -17,8 +17,10 @@ func main() {
 	filename := flag.Arg(0)
 
 	Loop, ctx := core.ComoStr("runner", fmt.Sprintf(`
+
 		globalThis.global = globalThis;
-		const b = await import("buffer")
+		import "web-streams-polyfill/polyfill";
+		const b = await import("buffer");
 		globalThis.Buffer = b.Buffer
 		globalThis.handleError = async (e) => {
 			const colors = await import("como/colors").then((e) => e.default)
