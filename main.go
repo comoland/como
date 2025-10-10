@@ -17,9 +17,12 @@ func main() {
 	filename := flag.Arg(0)
 
 	Loop, ctx := core.ComoStr("runner", fmt.Sprintf(`
-
 		globalThis.global = globalThis;
 		import "web-streams-polyfill/polyfill";
+		const { Blob, File } = await import("blob");
+		globalThis.Blob = Blob;
+		globalThis.File = File;
+
 		const b = await import("buffer");
 		globalThis.Buffer = b.Buffer
 		globalThis.handleError = async (e) => {

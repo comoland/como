@@ -130,7 +130,7 @@ class BlobReference {
             throw new Error('Blob operations not available');
         }
 
-        const result = ops.op_blob_read_part(this._id);
+        const result = await ops.op_blob_read_part(this._id);
         // Convert ArrayBuffer to Uint8Array
         if (result instanceof ArrayBuffer) {
             return new Uint8Array(result);

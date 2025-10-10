@@ -289,12 +289,16 @@ func goBlob(ctx *js.Context, _ js.Value) {
 			return ctx.Throw(err.Error())
 		}
 
-		data, err := part.Read()
-		if err != nil {
-			return ctx.Throw(err.Error())
-		}
+		return ctx.Async(func(async js.Promise) {
+			data, err := part.Read()
+			if err != nil {
+				async.Reject(err.Error())
+				return
+			}
 
-		return data
+			async.Resolve(data)
+		})
+
 	})
 
 	// op_blob_remove_part: Remove a blob part (GC cleanup)

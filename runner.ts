@@ -30,7 +30,7 @@ const write = (str: string) => {
 };
 
 let timer: any = null;
-let GLOBAL_PARALL_TESTS = Number(process.env.TEST_PARALLEL ?? 5);
+let GLOBAL_PARALL_TESTS = Number(process.env.TEST_PARALLEL ?? 1);
 
 export function run(parallel = GLOBAL_PARALL_TESTS) {
     const onlySuites = suites

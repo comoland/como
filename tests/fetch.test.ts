@@ -1,9 +1,7 @@
-import { suite, assert } from './mod';
+import { test, assert } from '../runner';
 import { createServer } from 'http';
 
-const test = suite('fetch');
-
-test.only('fetch requests', async () => {
+test('fetch requests', async () => {
     // Create a test server
     const server = createServer((req, res) => {
         switch (req.url) {
@@ -39,7 +37,7 @@ test.only('fetch requests', async () => {
     const port = 8080;
     const baseUrl = `http://localhost:${port}`;
 
-    try {
+    // try {
         // Test GET request
         const getResponse = await fetch(`${baseUrl}/test`, { method: 'GET' });
         const getData = await getResponse.json();
@@ -69,11 +67,11 @@ test.only('fetch requests', async () => {
         const timeoutResponse = await fetch(`${baseUrl}/timeout`, { method: 'GET' });
         const timeoutText = await timeoutResponse.text();
         assert.equal(timeoutText, 'timeout response');
-    } catch(e) {
-        console.log(e)
-    } finally {
-        // server.close();
-    }
+    // } catch(e) {
+    //     console.log(e)
+    // } finally {
+    //     server.close();
+    // }
 });
 
 test('headers', async () => {
@@ -92,9 +90,7 @@ test('headers', async () => {
 });
 
 test('form data', async () => {
-    const formData = new FormData();
+    const formData =  new FormData();
     formData.append('text', 'value');
     formData.append('file', new Blob([new Uint8Array([1, 2, 3])], { type: 'text/plain' }));
 });
-
-test.run()
