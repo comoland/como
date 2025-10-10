@@ -21,4 +21,5 @@ func InitNode(ctx *js.Context) {
 	goBindings(ctx, global)
 	goOS(ctx, global)
 	goFileSystem(ctx, global, jsFiles)
+	goBlob(ctx, global)
 }

@@ -111,6 +111,74 @@ func (args Arguments) GetBuffer(argIndex int) ([]byte, error) {
 	return nil, &Error{Cause: "not a buffer"}
 }
 
+// GetTypedArray gets a TypedArray (Uint8Array, etc.) respecting its view bounds
+// Unlike GetBuffer, this returns only the bytes the TypedArray view represents,
+// not the entire underlying ArrayBuffer
+func (args Arguments) GetTypedArray(argIndex int) ([]byte, error) {
+	val := args.GetValue(argIndex)
+	if !val.IsObject() {
+		return nil, &Error{Cause: "not a typed array"}
+	}
+
+	// Get the underlying buffer
+	buf, ok := val.Get("buffer").([]byte)
+	if !ok {
+		// Try getting directly as []byte
+		buf, isBuf := args.Get(argIndex).([]byte)
+		if !isBuf {
+			return nil, &Error{Cause: "not a typed array"}
+		}
+		return buf, nil
+	}
+
+	// Get the view's length (number of elements)
+	lengthVal := val.Get("length")
+	if lengthVal == nil {
+		// No length property, return full buffer
+		return buf, nil
+	}
+
+	var length int64
+	switch v := lengthVal.(type) {
+	case int64:
+		length = v
+	case float64:
+		length = int64(v)
+	case int:
+		length = int64(v)
+	default:
+		// Can't determine length, return full buffer
+		return buf, nil
+	}
+
+	// Get the byte offset (where the view starts in the buffer)
+	offsetVal := val.Get("byteOffset")
+	var offset int64
+	if offsetVal != nil {
+		switch v := offsetVal.(type) {
+		case int64:
+			offset = v
+		case float64:
+			offset = int64(v)
+		case int:
+			offset = int64(v)
+		}
+	}
+
+	// Return the slice of the buffer that the view represents
+	end := offset + length
+	if int64(len(buf)) >= end {
+		return buf[offset:end], nil
+	}
+
+	// Safety check: if calculated end is beyond buffer, return what we can
+	if offset < int64(len(buf)) {
+		return buf[offset:], nil
+	}
+
+	return nil, &Error{Cause: "typed array bounds exceed buffer"}
+}
+
 func (args Arguments) GetNumber(argIndex int) (float64, bool) {
 	num, ok := args.Get(argIndex).(int64)
 	if !ok {

@@ -11,7 +11,13 @@
  * License: MIT
  *   See https://github.com/eligrey/Blob.js/blob/master/LICENSE.md
  */
+// import * as all2 from 'react'
+// // const all2 = require("readable-stream")
+// console.log(all2)
 
+
+const readable = new ReadableStream();
+console.log(readable)
 function array2base64 (input) {
 	var byteToCharMap = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
 
@@ -716,7 +722,7 @@ function array2base64 (input) {
 );
 
 const Blob = module.exports.Blob
-console.log(Filex)
+console.log(TextDecoderStream)
 
 const textBlob = new Blob(['Hello, world!'], { type: 'text/plain' });
 console.log(textBlob.size); // Output: 13
