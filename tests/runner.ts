@@ -1,4 +1,4 @@
-import { colors, expect, assert, sleep, timeThis, promiso } from './test/mod';
+import { colors, expect, assert, sleep, timeThis, promiso } from '../test/mod';
 export { sleep, assert, expect, timeThis, promiso }
 /* eslint-disable no-console */
 

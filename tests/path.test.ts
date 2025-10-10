@@ -1,4 +1,4 @@
-import { describe, assert } from '../runner';
+import { describe, assert } from './runner';
 import path from 'path';
 
 describe('path module', async ({ test }) => {

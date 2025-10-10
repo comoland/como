@@ -1,4 +1,4 @@
-import { describe, assert } from '../runner';
+import { describe, assert } from './runner';
 
 describe("ReadableStream basics", async ({ test }) => {
     test('ReadableStream should be available', () => {

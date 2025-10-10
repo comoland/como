@@ -1,4 +1,4 @@
-import { test, sleep, describe, assert, timeThis, promiso } from '../runner';
+import { test, sleep, describe, assert, timeThis, promiso } from './runner';
 
 describe('timers', async ({ test }) => {
     test('setTimeout should execute callback after delay', async () => {

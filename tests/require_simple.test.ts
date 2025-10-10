@@ -1,4 +1,4 @@
-import { describe, assert } from '../runner';
+import { describe, assert } from './runner';
 
 describe('require simple tests', async ({ test }) => {
     test('should require basic module', () => {

@@ -1,4 +1,4 @@
-import { test, assert } from '../runner';
+import { test, assert } from './runner';
 import { createServer } from 'http';
 
 test('fetch requests', async () => {

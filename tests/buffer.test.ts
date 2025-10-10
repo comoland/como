@@ -1,4 +1,4 @@
-import { describe, assert } from '../runner';
+import { describe, assert } from './runner';
 
 describe('buffer basics', async ({ test }) => {
     test('Buffer should be available', () => {

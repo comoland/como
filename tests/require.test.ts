@@ -1,4 +1,4 @@
-import { describe, assert } from '../runner';
+import { describe, assert } from './runner';
 
 describe('require cache', async ({ test }) => {
     test('it should require once', () => {

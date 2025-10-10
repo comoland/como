@@ -1,4 +1,4 @@
-import { describe, assert } from '../runner';
+import { describe, assert } from './runner';
 import { Child1 } from './fixtures/nested/child1.js';
 
 // a dummy type
@@ -213,7 +213,7 @@ describe("captureStack", async ({ test }) => {
         const err = new CustomError('custom error');
         assert.ok(err.stack, 'custom error should have stack');
         assert.equal(err.message, 'custom error', 'should preserve message');
-        assert.ok(err.stack.includes('CustomError'), 'stack should include constructor name');
+        assert.ok(err.stack?.includes('CustomError'), 'stack should include constructor name');
     });
 
     test('Error.captureStackTrace with constructorOpt should hide frames', () => {
