@@ -14,6 +14,6 @@ func buffer(ctx *js.Context, _ js.Value) {
 
 	// vv := ctx.Await(buf)
 	// defer vv.Free()
-	// fmt.Println("xxxxxxxxx ", vv)
+	// fmt.Println("xxxxxxxxx ", buf)
 	defer buf.Free()
 }

@@ -1,4 +1,4 @@
-import { writeFile } from 'fs'
+import { writeFileSync } from 'fs'
 
 const ret = await Como.build.bundle('', {
     stdin: {
@@ -29,4 +29,4 @@ globalThis.global = globalThis;
 ${ret[0].content}
 `;
 
-await writeFile(polyfillFile, code);
+writeFileSync(polyfillFile, code);

@@ -471,9 +471,9 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 		lock.Lock()
 		defer lock.Unlock()
 		for idx, line := range lines {
-			regex := regexp.MustCompile(`(.*?)\((.*):(\d+)\)`)
+			regex := regexp.MustCompile(`(.*?)\((.*):(\d+):(\d+)\)`)
 			matches := regex.FindStringSubmatch(line)
-			if len(matches) == 4 {
+			if len(matches) == 5 {
 				if sourceMapStr, ok := sourceMaps[matches[2]]; ok {
 					smap, err := sourcemap.Parse(matches[2], sourceMapStr)
 					if err != nil {
@@ -482,10 +482,15 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 					}
 
 					lineNo, err := strconv.Atoi(matches[3])
+					colNum, err2 := strconv.Atoi(matches[4])
+					if err2 == nil {
+						colNum = 0
+					}
+
 					if err == nil {
-						file, _, line, _, ok := smap.Source(lineNo, 0)
+						file, _, line, col, ok := smap.Source(lineNo, colNum)
 						if ok {
-							lines[idx] = matches[1] + "(" + file + ":" + strconv.Itoa(line) + ")"
+							lines[idx] = matches[1] + "(" + file + ":" + strconv.Itoa(line) + ":" + strconv.Itoa(col+1) + ")"
 						}
 					}
 				}

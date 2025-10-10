@@ -94,26 +94,63 @@ func initError(ctx *Context) {
 	errObject := global.GetValue("Error")
 	defer errObject.Free()
 
-	errObject.Set("captureStackTrace", func(args Arguments) interface{} {
-		this := args.This
-		stack := this.GetValue("stack")
-		defer stack.Free()
-		return stack.String()
-		// return ctx.StackFormatter(stack.String())
-	})
-
 	errObject.Set("formatError", func(args Arguments) interface{} {
 		stack := args.GetString(0)
 		return ctx.StackFormatter(stack)
 	})
 
 	v, _ := ctx.EvalFile("<errors>", `
-		Error.prototype.captureStackTrace = Error.captureStackTrace;
 		const ERR = globalThis.Error;
 
+		// Implement Error.captureStackTrace in JavaScript
+		ERR.captureStackTrace = function(targetObject, constructorOpt) {
+			if (!targetObject) {
+				return;
+			}
+
+			// Create a temporary error to capture the current stack
+			const tempError = new ERR('');
+
+			// Get the stack and format it
+			let stack = tempError.stack || '';
+
+			// Split into lines and filter
+			let stackLines = stack.split('\n');
+
+			// Remove the first line (error message) and any internal frames
+			stackLines = stackLines.filter((line, index) => {
+				// Skip the error message line
+				if (index === 0 && line.includes('Error:')) return false;
+				// Skip captureStackTrace itself
+				if (line.includes('captureStackTrace')) return false;
+				// Skip internal error construction
+				if (line.includes('<errors>')) return false;
+				return true;
+			});
+
+			// If constructorOpt is provided, remove frames up to and including that function
+			if (constructorOpt && typeof constructorOpt === 'function') {
+				const constructorName = constructorOpt.name;
+				if (constructorName) {
+					const constructorIndex = stackLines.findIndex(line => line.includes(constructorName));
+					if (constructorIndex !== -1) {
+						stackLines = stackLines.slice(constructorIndex + 1);
+					}
+				}
+			}
+
+			// Set the formatted stack on the target object
+			targetObject.stack = stackLines.join('\n');
+		};
+
 		globalThis.Error = class Error extends ERR {
-			constructor(msg) {
+			constructor(msg, options) {
 				super(msg)
+
+				// Handle Error cause property (modern JavaScript feature)
+				if (options && options.cause !== undefined) {
+					this.cause = options.cause
+				}
 
 				let newStack = this.stack.split('\n')
 				newStack = newStack.filter((str) => !/<errors>/.test(str))
@@ -130,9 +167,37 @@ func initError(ctx *Context) {
 			}
 		}
 
-		globalThis.TypeError = class TypeError extends Error {}
-		globalThis.ReferenceError = class ReferenceError extends Error {}
-		globalThis.SyntaxError = class SyntaxError extends Error {}
+		// Make sure captureStackTrace is available on the new Error constructor
+		globalThis.Error.captureStackTrace = ERR.captureStackTrace;
+		globalThis.Error.formatError = ERR.formatError;
+
+		globalThis.TypeError = class TypeError extends Error {
+			constructor(msg, options) {
+				super(msg, options)
+				this.name = 'TypeError'
+			}
+		}
+
+		globalThis.ReferenceError = class ReferenceError extends Error {
+			constructor(msg, options) {
+				super(msg, options)
+				this.name = 'ReferenceError'
+			}
+		}
+
+		globalThis.SyntaxError = class SyntaxError extends Error {
+			constructor(msg, options) {
+				super(msg, options)
+				this.name = 'SyntaxError'
+			}
+		}
+
+		globalThis.RangeError = class RangeError extends Error {
+			constructor(msg, options) {
+				super(msg, options)
+				this.name = 'RangeError'
+			}
+		}
 	`)
 
 	v.Free()

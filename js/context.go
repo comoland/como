@@ -441,6 +441,12 @@ func (ctx *Context) JsToGoValue(value interface{}) interface{} {
 		return false
 	}
 
+	if C.JS_IsString(v) == 1 {
+		ptr := C.JS_ToCString(ctx.c, v)
+		defer C.JS_FreeCString(ctx.c, ptr)
+		return C.GoString(ptr)
+	}
+
 	valueTag := C.como_js_type(v)
 
 	if valueTag == C.JS_TAG_FLOAT64 {
@@ -459,12 +465,6 @@ func (ctx *Context) JsToGoValue(value interface{}) interface{} {
 	// 	val := C.uint64_t(0)
 	// 	C.Js(ctx.c, &val, v)
 	// }
-
-	if valueTag == C.JS_TAG_STRING {
-		ptr := C.JS_ToCString(ctx.c, v)
-		defer C.JS_FreeCString(ctx.c, ptr)
-		return C.GoString(ptr)
-	}
 
 	if valueTag == C.JS_TAG_NULL {
 		return nil
