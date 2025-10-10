@@ -65,8 +65,6 @@
         return b instanceof Buffer;
     }
 
-    /// sssssss
-
     function objectToString(o) {
         return Object.prototype.toString.call(o);
     }
@@ -581,11 +579,10 @@
         // exposed.
         var err = new Error();
         err.name = 'Trace';
-        // err.message = format.apply(this, arguments);
+        err.message = format.apply(this, arguments);
         // Error.captureStackTrace(err, arguments.callee);
-        this.log('Trace: ');
-        this.log.apply(this, arguments);
-        this.warn(err.stack);
+        // this.log.apply(this, arguments);
+        this.warn(err);
     };
 
     var std = {
