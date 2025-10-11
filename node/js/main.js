@@ -10,6 +10,10 @@ const { Blob, File } = await import("blob");
 globalThis.Blob = Blob;
 globalThis.File = File;
 
+const { URL, URLSearchParams } = await import("url");
+globalThis.URL = URL;
+globalThis.URLSearchParams = URLSearchParams;
+
 globalThis.handleError = async (e) => {
     const colors = await import("como/colors").then((e) => e.default)
     console.log(colors.red().bold((e.name ?? "Error")) +  (e.code ? " [" + e.code + "]" : "" ) +  ": " + (e.message ?? e))
