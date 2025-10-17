@@ -197,7 +197,16 @@
                     }
                 }
             } else {
-                str = ctx.stylize('[Circular]', 'special');
+                // Handle circular reference with numbering
+                if (!ctx.circular) {
+                    ctx.circular = new Map();
+                }
+                var index = ctx.circular.get(desc.value);
+                if (!index) {
+                    index = ctx.circular.size + 1;
+                    ctx.circular.set(desc.value, index);
+                }
+                str = ctx.stylize('[Circular *' + index + ']', 'special');
             }
         }
         if (isUndefined(name)) {
@@ -233,6 +242,175 @@
         return braces[0] + base + ' ' + output.join(', ') + ' ' + braces[1];
     }
 
+    function getConstructorName(obj) {
+        if (!obj || typeof obj !== 'object') {
+            return null;
+        }
+
+        // Walk the prototype chain to find the constructor
+        var current = obj;
+        while (current) {
+            var descriptor;
+            try {
+                descriptor = Object.getOwnPropertyDescriptor(current, 'constructor');
+            } catch (e) {
+                // Handle edge cases
+            }
+
+            if (descriptor && typeof descriptor.value === 'function' && descriptor.value.name) {
+                var name = descriptor.value.name;
+                // Check if this is the correct constructor
+                try {
+                    if (descriptor.value.prototype && obj instanceof descriptor.value) {
+                        return name;
+                    }
+                } catch (e) {
+                    // instanceof might fail in some cases
+                }
+            }
+
+            // Try to get the prototype
+            try {
+                current = Object.getPrototypeOf(current);
+            } catch (e) {
+                break;
+            }
+
+            // Stop at Object.prototype
+            if (current === Object.prototype || current === null) {
+                break;
+            }
+        }
+
+        // Final fallback - try to get constructor.name directly
+        try {
+            if (obj.constructor && obj.constructor.name && obj.constructor.name !== 'Object') {
+                return obj.constructor.name;
+            }
+        } catch (e) {
+            // Ignore
+        }
+
+        return null;
+    }
+
+    function getPrefix(constructor, tag, fallback) {
+        if (constructor === null) {
+            if (tag && fallback !== tag) {
+                return '[' + fallback + ': null prototype] [' + tag + '] ';
+            }
+            return '[' + fallback + ': null prototype] ';
+        }
+
+        if (tag && constructor !== tag) {
+            return constructor + ' [' + tag + '] ';
+        }
+        return constructor + ' ';
+    }
+
+    function isTypedArray(value) {
+        return value instanceof Uint8Array || value instanceof Uint16Array ||
+               value instanceof Uint32Array || value instanceof Int8Array ||
+               value instanceof Int16Array || value instanceof Int32Array ||
+               value instanceof Float32Array || value instanceof Float64Array ||
+               (typeof BigInt64Array !== 'undefined' && value instanceof BigInt64Array) ||
+               (typeof BigUint64Array !== 'undefined' && value instanceof BigUint64Array);
+    }
+
+    function isMap(value) {
+        try {
+            return value instanceof Map;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function isSet(value) {
+        try {
+            return value instanceof Set;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function formatTypedArray(ctx, value, recurseTimes, visibleKeys, keys) {
+        var maxLength = Math.min(Math.max(0, ctx.maxArrayLength || 100), value.length);
+        var remaining = value.length - maxLength;
+        var output = [];
+
+        for (var i = 0; i < maxLength; ++i) {
+            output.push(ctx.stylize(String(value[i]), 'number'));
+        }
+
+        if (remaining > 0) {
+            output.push('... ' + remaining + ' more item' + (remaining > 1 ? 's' : ''));
+        }
+
+        // Add any additional properties
+        keys.forEach(function (key) {
+            if (!key.match(/^\d+$/) && key !== 'length') {
+                output.push(formatProperty(ctx, value, recurseTimes, visibleKeys, key, true));
+            }
+        });
+
+        return output;
+    }
+
+    function formatMap(ctx, value, recurseTimes) {
+        var output = [];
+        var entries = [];
+
+        try {
+            value.forEach(function(v, k) {
+                entries.push([k, v]);
+            });
+        } catch (e) {
+            return [];
+        }
+
+        var maxLength = Math.min(Math.max(0, ctx.maxArrayLength || 100), entries.length);
+
+        for (var i = 0; i < maxLength; i++) {
+            var entry = entries[i];
+            var key = formatValue(ctx, entry[0], recurseTimes - 1);
+            var val = formatValue(ctx, entry[1], recurseTimes - 1);
+            output.push(key + ' => ' + val);
+        }
+
+        if (entries.length > maxLength) {
+            var remaining = entries.length - maxLength;
+            output.push('... ' + remaining + ' more item' + (remaining > 1 ? 's' : ''));
+        }
+
+        return output;
+    }
+
+    function formatSet(ctx, value, recurseTimes) {
+        var output = [];
+        var values = [];
+
+        try {
+            value.forEach(function(v) {
+                values.push(v);
+            });
+        } catch (e) {
+            return [];
+        }
+
+        var maxLength = Math.min(Math.max(0, ctx.maxArrayLength || 100), values.length);
+
+        for (var i = 0; i < maxLength; i++) {
+            output.push(formatValue(ctx, values[i], recurseTimes - 1));
+        }
+
+        if (values.length > maxLength) {
+            var remaining = values.length - maxLength;
+            output.push('... ' + remaining + ' more item' + (remaining > 1 ? 's' : ''));
+        }
+
+        return output;
+    }
+
     function formatValue(ctx, value, recurseTimes) {
         // Provide a hook for user-specified inspect functions.
         // Check that value is an object with an inspect function on it
@@ -240,15 +418,19 @@
             ctx.customInspect &&
             value &&
             isFunction(value.inspect) &&
-            // Filter out the util module, it's inspect function is special
-            (value.inspect !== typeof exports) === 'object' &&
-            exports.inspect &&
             // Also filter out any prototype objects using the circular check.
             !(value.constructor && value.constructor.prototype === value)
         ) {
             var ret = value.inspect(recurseTimes, ctx);
             if (!isString(ret)) {
-                ret = formatValue(ctx, ret, recurseTimes);
+                // Get the constructor name of the original object to preserve it
+                var constructorName = getConstructorName(value);
+                var formatted = formatValue(ctx, ret, recurseTimes);
+                // Add constructor name prefix if available
+                if (constructorName && constructorName !== 'Object') {
+                    return constructorName + ' ' + formatted;
+                }
+                return formatted;
             }
             return ret;
         }
@@ -258,6 +440,22 @@
         if (primitive) {
             return primitive;
         }
+
+        // Check for circular references
+        if (ctx.seen.indexOf(value) >= 0) {
+            // Find or assign a circular reference number
+            if (!ctx.circular) {
+                ctx.circular = new Map();
+            }
+            var index = ctx.circular.get(value);
+            if (!index) {
+                index = ctx.circular.size + 1;
+                ctx.circular.set(value, index);
+            }
+            return ctx.stylize('[Circular *' + index + ']', 'special');
+        }
+
+        ctx.seen.push(value);
 
         // Look up the keys of the object.
         var keys = Object.keys(value);
@@ -323,10 +521,67 @@
             array = false,
             braces = ['{', '}'];
 
+        // Get constructor name for non-primitive objects
+        var constructor = null;
+        var tag = '';
+
+        try {
+            // Get Symbol.toStringTag if available
+            if (typeof Symbol !== 'undefined' && Symbol.toStringTag && value[Symbol.toStringTag]) {
+                tag = value[Symbol.toStringTag];
+            }
+        } catch (e) {
+            // Ignore errors
+        }
+
+        // Handle TypedArrays
+        if (isTypedArray(value)) {
+            var typedArrayName = value.constructor.name;
+            keys = keys.filter(function(key) {
+                return !key.match(/^\d+$/) && key !== 'length';
+            });
+
+            var output = formatTypedArray(ctx, value, recurseTimes, visibleKeys, keys);
+            ctx.seen.pop();
+            return typedArrayName + '(' + value.length + ') [ ' + output.join(', ') + ' ]';
+        }
+
+        // Handle Maps
+        if (isMap(value)) {
+            var mapKeys = keys.filter(function(key) {
+                return key !== 'size';
+            });
+            var mapOutput = formatMap(ctx, value, recurseTimes);
+            ctx.seen.pop();
+
+            if (mapOutput.length === 0 && mapKeys.length === 0) {
+                return 'Map(' + value.size + ') {}';
+            }
+            return 'Map(' + value.size + ') { ' + mapOutput.join(', ') + ' }';
+        }
+
+        // Handle Sets
+        if (isSet(value)) {
+            var setKeys = keys.filter(function(key) {
+                return key !== 'size';
+            });
+            var setOutput = formatSet(ctx, value, recurseTimes);
+            ctx.seen.pop();
+
+            if (setOutput.length === 0 && setKeys.length === 0) {
+                return 'Set(' + value.size + ') {}';
+            }
+            return 'Set(' + value.size + ') { ' + setOutput.join(', ') + ' }';
+        }
+
         // Make Array say that they are Array
         if (isArray(value)) {
             array = true;
             braces = ['[', ']'];
+            constructor = 'Array';
+        } else {
+            // Get constructor name for objects
+            constructor = getConstructorName(value);
         }
 
         // Make functions say that they are functions
@@ -369,6 +624,10 @@
         }
 
         if (keys.length === 0 && (!array || value.length === 0)) {
+            // Add constructor name prefix for non-Array objects
+            if (!array && constructor && constructor !== 'Object') {
+                return constructor + ' ' + braces[0] + base + braces[1];
+            }
             return braces[0] + base + braces[1];
         }
 
@@ -393,7 +652,14 @@
 
         ctx.seen.pop();
 
-        return reduceToSingleString(output, base, braces);
+        var result = reduceToSingleString(output, base, braces);
+
+        // Add constructor name prefix for non-Array objects
+        if (!array && constructor && constructor !== 'Object') {
+            result = constructor + ' ' + result;
+        }
+
+        return result;
     }
 
     function stylizeWithColor(str, styleType) {
@@ -583,6 +849,240 @@
         // Error.captureStackTrace(err, arguments.callee);
         // this.log.apply(this, arguments);
         this.warn(err);
+    };
+
+    Console.prototype.assert = function (condition) {
+        if (!condition) {
+            var args = Array.prototype.slice.call(arguments, 1);
+            if (args.length === 0) {
+                args = ['Assertion failed'];
+            } else {
+                args[0] = 'Assertion failed: ' + args[0];
+            }
+            this.error.apply(this, args);
+        }
+    };
+
+    Console.prototype.clear = function () {
+        // Send ANSI clear screen code
+        this._stdout.write('\x1Bc');
+    };
+
+    Console.prototype.count = function (label) {
+        label = label || 'default';
+        if (!this._counts) {
+            this._counts = {};
+        }
+        if (this._counts[label] === undefined) {
+            this._counts[label] = 0;
+        }
+        this._counts[label]++;
+        this.log(label + ': ' + this._counts[label]);
+    };
+
+    Console.prototype.countReset = function (label) {
+        label = label || 'default';
+        if (this._counts) {
+            delete this._counts[label];
+        }
+    };
+
+    Console.prototype.group = function () {
+        if (!this._groupIndent) {
+            this._groupIndent = 0;
+        }
+        if (arguments.length > 0) {
+            this.log.apply(this, arguments);
+        }
+        this._groupIndent += 2;
+    };
+
+    Console.prototype.groupCollapsed = Console.prototype.group;
+
+    Console.prototype.groupEnd = function () {
+        if (!this._groupIndent) {
+            this._groupIndent = 0;
+        }
+        this._groupIndent -= 2;
+        if (this._groupIndent < 0) {
+            this._groupIndent = 0;
+        }
+    };
+
+    Console.prototype.timeLog = function (label) {
+        var time = this._times[label];
+        if (!time) {
+            this.warn('Warning: No such label \'' + label + '\' for console.timeLog()');
+            return;
+        }
+        var duration = Date.now() - time;
+        var args = Array.prototype.slice.call(arguments, 1);
+        args.unshift(label + ': ' + duration + 'ms');
+        this.log.apply(this, args);
+    };
+
+    Console.prototype.table = function (data, columns) {
+        // Simple table implementation
+        if (data == null || typeof data !== 'object') {
+            this.log(data);
+            return;
+        }
+
+        var isArrayData = isArray(data);
+        var rows = [];
+        var headers = ['(index)'];
+        var columnSet = {};
+
+        // Determine columns
+        if (isArrayData) {
+            // Array of objects
+            data.forEach(function (item, index) {
+                if (item != null && typeof item === 'object') {
+                    Object.keys(item).forEach(function (key) {
+                        columnSet[key] = true;
+                    });
+                }
+            });
+        } else {
+            // Object
+            Object.keys(data).forEach(function (key) {
+                var value = data[key];
+                if (value != null && typeof value === 'object') {
+                    Object.keys(value).forEach(function (prop) {
+                        columnSet[prop] = true;
+                    });
+                }
+            });
+        }
+
+        // Filter columns if specified
+        var columnKeys = columns ? columns.filter(function(col) {
+            return columnSet[col];
+        }) : Object.keys(columnSet);
+
+        headers = headers.concat(columnKeys);
+
+        // Build rows
+        if (isArrayData) {
+            data.forEach(function (item, index) {
+                var row = [String(index)];
+                columnKeys.forEach(function (key) {
+                    if (item != null && typeof item === 'object') {
+                        var value = item[key];
+                        row.push(formatTableValue(value));
+                    } else {
+                        row.push('');
+                    }
+                });
+                rows.push(row);
+            });
+        } else {
+            Object.keys(data).forEach(function (key) {
+                var item = data[key];
+                var row = [String(key)];
+                columnKeys.forEach(function (col) {
+                    if (item != null && typeof item === 'object') {
+                        var value = item[col];
+                        row.push(formatTableValue(value));
+                    } else {
+                        row.push('');
+                    }
+                });
+                rows.push(row);
+            });
+        }
+
+        // Calculate column widths
+        var widths = headers.map(function (header, i) {
+            var max = header.length;
+            rows.forEach(function (row) {
+                if (row[i] && row[i].length > max) {
+                    max = row[i].length;
+                }
+            });
+            return max;
+        });
+
+        // Format table
+        var line = '┌' + widths.map(function (w) {
+            return '─'.repeat(w + 2);
+        }).join('┬') + '┐';
+
+        this._stdout.write(line + NEWLINE);
+
+        // Header row
+        var headerRow = '│';
+        headers.forEach(function (header, i) {
+            headerRow += ' ' + padString(header, widths[i]) + ' │';
+        });
+        this._stdout.write(headerRow + NEWLINE);
+
+        // Separator
+        line = '├' + widths.map(function (w) {
+            return '─'.repeat(w + 2);
+        }).join('┼') + '┤';
+        this._stdout.write(line + NEWLINE);
+
+        // Data rows
+        rows.forEach(function (row) {
+            var rowStr = '│';
+            row.forEach(function (cell, i) {
+                rowStr += ' ' + padString(cell || '', widths[i]) + ' │';
+            });
+            this._stdout.write(rowStr + NEWLINE);
+        }, this);
+
+        // Bottom line
+        line = '└' + widths.map(function (w) {
+            return '─'.repeat(w + 2);
+        }).join('┴') + '┘';
+        this._stdout.write(line + NEWLINE);
+    };
+
+    function formatTableValue(value) {
+        if (value === undefined) return 'undefined';
+        if (value === null) return 'null';
+        if (typeof value === 'string') return value;
+        if (typeof value === 'number') return String(value);
+        if (typeof value === 'boolean') return String(value);
+        if (typeof value === 'function') return '[Function]';
+        if (typeof value === 'object') {
+            if (isArray(value)) return '[Array]';
+            if (isDate(value)) return value.toISOString();
+            return '[Object]';
+        }
+        return String(value);
+    }
+
+    function padString(str, width) {
+        if (str.length >= width) return str;
+        return str + ' '.repeat(width - str.length);
+    }
+
+    // Override log/warn to handle group indentation
+    var originalLog = Console.prototype.log;
+    var originalWarn = Console.prototype.warn;
+    var originalError = Console.prototype.error;
+
+    Console.prototype.log = function () {
+        if (this._groupIndent > 0) {
+            this._stdout.write(' '.repeat(this._groupIndent));
+        }
+        originalLog.apply(this, arguments);
+    };
+
+    Console.prototype.warn = function () {
+        if (this._groupIndent > 0) {
+            this._stderr.write(' '.repeat(this._groupIndent));
+        }
+        originalWarn.apply(this, arguments);
+    };
+
+    Console.prototype.error = function () {
+        if (this._groupIndent > 0) {
+            this._stderr.write(' '.repeat(this._groupIndent));
+        }
+        originalError.apply(this, arguments);
     };
 
     var std = {

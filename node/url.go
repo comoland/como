@@ -335,8 +335,6 @@ func goURL(ctx *js.Context, _ js.Value) {
 		}
 	})
 
-	// op_url_get_serialization is no longer needed - serialization is returned directly
-
 	// op_url_reparse: Reparse URL after setting a component
 	mod.Export("op_url_reparse", func(args js.Arguments) interface{} {
 		if args.Len() < 4 {

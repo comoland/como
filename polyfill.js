@@ -4,12 +4,9 @@ const ret = await Como.build.bundle('', {
     stdin: {
         resolveDir: '.',
         contents: `
-            // import { URL } from './core/js/polyfills/url.js';
             import 'fastestsmallesttextencoderdecoder-encodeinto';
             import { test, suite } from 'uvu';
             import * as assert from 'uvu/assert';
-
-            // globalThis.URL = URL;
 
             globalThis.Como.suite = suite;
             globalThis.Como.test = test;

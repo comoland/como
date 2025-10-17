@@ -359,5 +359,5 @@ export function URL(url, base) {
     });
 }
 
-globalThis.URL = URL;
-globalThis.URLSearchParams = URLSearchParams;
+// globalThis.URL = URL;
+// globalThis.URLSearchParams = URLSearchParams;

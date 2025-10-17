@@ -715,14 +715,14 @@ func (ctx *Context) String(v string) Value {
 	return Value{ctx: ctx, c: C.JS_NewString(ctx.c, ptr)}
 }
 
-func (ctx *Context) EvalFile(filename string, code string) (Value, error) {
+func (ctx *Context) eval(filename string, code string, evalType int) (Value, error) {
 	codePtr := C.CString(code)
 	defer C.free(unsafe.Pointer(codePtr))
 
 	filenamePtr := C.CString(filename)
 	defer C.free(unsafe.Pointer(filenamePtr))
 
-	val := C.JS_Eval(ctx.c, codePtr, C.size_t(len(code)), filenamePtr, C.int(C.JS_EVAL_TYPE_MODULE))
+	val := C.JS_Eval(ctx.c, codePtr, C.size_t(len(code)), filenamePtr, C.int(evalType))
 	// defer ctx.FreeValue(val)
 
 	if isException(val) {
@@ -732,6 +732,14 @@ func (ctx *Context) EvalFile(filename string, code string) (Value, error) {
 	}
 
 	return Value{c: val, ctx: ctx}, nil
+}
+
+func (ctx *Context) EvalFile(filename string, code string) (Value, error) {
+	return ctx.eval(filename, code, int(C.JS_EVAL_TYPE_GLOBAL))
+}
+
+func (ctx *Context) EvalModule(filename string, code string) (Value, error) {
+	return ctx.eval(filename, code, C.JS_EVAL_TYPE_MODULE)
 }
 
 func (ctx *Context) EvalBinary(code []byte) {
@@ -1143,6 +1151,10 @@ func (w *Writer) Write(buf []byte) (int, error) {
 }
 
 func (w *Writer) Close() {
+	if w == nil {
+		return
+	}
+
 	if !w.closed {
 		w.closed = true
 		w.cb.Free()

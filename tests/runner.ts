@@ -12,6 +12,12 @@ export const test = (name: string, fn: TestFunction, options?: { timeout?: numbe
 test.only = test;
 test.skip = test;
 
+
+const clearLastLine = (num = 1) => {
+    process.stdout.write(`\x1b[${num}A`); // Move cursor up one line
+    process.stdout.write('\x1b[2K'); // Clear the entire line
+};
+
 type ITest = {
     name: string;
     id: number;
@@ -19,6 +25,8 @@ type ITest = {
     duration: number;
     error?: Error;
     only?: boolean;
+    suiteName?: string;
+    reported?: boolean;
     fn: (...args: any[]) => Promise<any>;
     startTime: number;
 };
@@ -29,10 +37,105 @@ const write = (str: string) => {
     process.stdout.write(str);
 };
 
-let timer: any = null;
 let GLOBAL_PARALL_TESTS = Number(process.env.TEST_PARALLEL ?? 1);
+let allTestsFinished = false;
+const startTime = Date.now()
+let tim: any = null;
+let currentRunningTests : ITest[] = [];
+
+const statuses = {
+    done: {
+        symbol: () => colors.green('✓'),
+    },
+    error: {
+        symbol: () => colors.red('✗'),
+    },
+    pending: {
+        symbol: () => colors.red('|'),
+    },
+    running: {
+        symbol: () => colors.cyan( ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'][Math.floor(Date.now() / 100) % 10]),
+    },
+    skipped: {
+        symbol: () => colors.gray('⊘'),
+    }
+}
+
+function printTestResult(test: ITest) {
+    let formatTestName = colors.white(test.name)
+    let suiteName =  test.suiteName ? colors.gray(` ${test.suiteName} > `) : ' ';
+
+    if (test.status === "skipped") {
+        formatTestName = colors.gray().strikethrough(test.name)
+    } else if (test.status === "running") {
+        formatTestName = colors.gray(test.name)
+    }
+
+    let duration = test.status === "skipped" || test.status === "running" ? '' : colors.gray(` (${test.duration}ms)`);
+
+    write(` ${statuses[test.status].symbol()}` + suiteName + formatTestName + duration + '\n');
+
+    if (test.error) {
+        write('\n');
+        const errorMessage = test.error.message || String(test.error);
+        write(colors.red('    ' + errorMessage) + '\n');
+
+        const {details, message, ...rest} = (test.error ?? {}) as any;
+        if (details) {
+            write(colors.gray('    Details: ' + JSON.stringify(details, null, 2)) + '\n');
+        }
+
+        const restKeys = Object.keys(rest);
+        if (restKeys.length > 0 && restKeys.some(k => k !== 'stack')) {
+            write(colors.gray('    ' + JSON.stringify(rest, null, 2)) + '\n');
+        }
+
+        if ((test.error as any).stack) {
+            const stackLines = (test.error as any).stack.split('\n').slice(1, 4);
+            stackLines.forEach((line: string) => {
+                write(colors.gray('      ' + line.trim()) + '\n');
+            });
+        }
+        write('\n');
+    }
+}
+
+function printFinalSummary() {
+    const totalTests = suites.map((suite) => suite.tests).flat();
+    const passedTests = totalTests.filter((t) => t.status === "done");
+    const failedTests = totalTests.filter((t) => t.status === "error");
+    const skippedTests = totalTests.filter((t) => t.status === "skipped");
+    const totalDuration = Date.now() - startTime;
+
+    write('\n' + '─'.repeat(70) + '\n');
+    write(colors.bold('\nTest Summary:\n'));
+    write(`  Total:    ${totalTests.length}\n`);
+    write(`  ${colors.green('✓ Passed:')}  ${passedTests.length}\n`);
+
+    if (failedTests.length > 0) {
+        write(`  ${colors.red('✗ Failed:')}  ${failedTests.length}\n`);
+    }
+
+    if (skippedTests.length > 0) {
+        write(`  ${colors.gray('⊘ Skipped:')} ${skippedTests.length}\n`);
+    }
+
+    write(`  Duration: ${totalDuration}ms\n\n`);
+
+    if (failedTests.length > 0) {
+        write(colors.red('Tests failed!\n\n'));
+        process.exit(1);
+    } else {
+        write(colors.green('All tests passed!\n\n'));
+        process.exit(0);
+    }
+}
 
 export function run(parallel = GLOBAL_PARALL_TESTS) {
+    if (allTestsFinished) {
+        return;
+    }
+
     const onlySuites = suites
         .filter(s => s.tests.find(t => t.only))
         .map(s => {
@@ -44,11 +147,32 @@ export function run(parallel = GLOBAL_PARALL_TESTS) {
     }
 
     let totalTests = suites.map((suite) => suite.tests).flat();
-    let runningTests = totalTests.filter((t) => t.status === "running")
-    let totalTestsToRun = totalTests.filter((t) => t.status === "pending")
-    let failedTests = totalTests.filter((t) => t.status === "error")
-
+    let runningTests = totalTests.filter((t) => t.status === "running");
     let runningTestsCounter = runningTests.length;
+
+    const clearRunning = () => {
+        if (tim) clearInterval(tim)
+        currentRunningTests.forEach(() => {
+            clearLastLine()
+        })
+    }
+
+    const printRunning = () => {
+        currentRunningTests.forEach((test) => {
+            printTestResult(test);
+        })
+
+        if (tim) clearInterval(tim);
+        tim = setInterval(() => {
+            currentRunningTests.forEach(() => {
+                clearLastLine()
+            })
+
+            currentRunningTests.forEach((test) => {
+                printTestResult(test);
+            })
+        }, 250);
+    }
 
     const handleTestRun = (test: ITest, error?: Error) => {
         if (error) {
@@ -59,14 +183,32 @@ export function run(parallel = GLOBAL_PARALL_TESTS) {
         }
 
         test.duration = Date.now() - test.startTime;
-        if (totalTestsToRun.length > 0) {
+
+        // Recalculate after this test finishes
+        const allTests = suites.map((suite) => suite.tests).flat();
+        const stillRunning = allTests.filter((t) => t.status === "running");
+        const stillPending = allTests.filter((t) => t.status === "pending");
+
+        clearRunning();
+
+        // Print result immediately
+        printTestResult(test);
+
+        printRunning();
+
+        if (stillPending.length > 0) {
             process.nextTick(run);
+        } else if (stillRunning.length === 0) {
+            // All tests done
+            allTestsFinished = true;
+            printFinalSummary();
         }
     };
 
+    clearRunning();
     for (let suite of suites) {
         for (let test of suite.tests) {
-            if (test.status !== 'pending') {
+            if (test.status !== 'pending' && test.status !== "skipped") {
                 continue;
             }
 
@@ -74,97 +216,39 @@ export function run(parallel = GLOBAL_PARALL_TESTS) {
                 break;
             }
 
+            if (test.status === "skipped") {
+                if (test.reported) {
+                    continue;
+                }
+
+                test.reported = true;
+                printTestResult(test);
+                continue;
+            }
+
             test.status = 'running';
             ++runningTestsCounter;
             test.startTime = Date.now();
             test.duration = 0;
+
+            currentRunningTests.push(test);
+            let error: any = null
             test.fn({ expect, assert })
-                .then(() => {
-                    handleTestRun(test);
-                })
-                .catch((w: any) => {
-                    handleTestRun(test, w);
+                .catch((err: any) => {
+                    error = err;
+                }).finally(() => {
+                    const previousRunning = currentRunningTests.length;
+                    currentRunningTests = currentRunningTests.filter((t) => t !== test);
+                    if (previousRunning - currentRunningTests.length === 1) {
+                        clearLastLine();
+                    }
+
+                    handleTestRun(test, error);
                 });
         }
     }
 
-    if (timer) {
-        clearInterval(timer);
-    }
-
-    timer = setInterval(() => {
-        write('\x1Bc');
-
-        for (let suite of suites) {
-            const tests = suite.tests.filter((t) => t)
-            if (!tests.length) {
-                continue
-            }
-
-            if (suite.name !== "X") {
-                write('='.repeat(50) + '\n');
-                write(colors.bgBlue(' Suite: ' + suite.name + '\n'));
-                write('='.repeat(50) + '\n');
-            } else {
-                write('*'.repeat(50) + '\n');
-            }
-
-
-            for (let test of tests) {
-                write('\n');
-                if (test.status === 'skipped') {
-                    write('[ 0 ]');
-                    write(colors.gray(colors.strikethrough('Skipped'.padStart(10, ' ').padEnd(15, ' '))));
-                } else if (test.status === 'pending') {
-                    write('[ ⏳ ]');
-                    write(colors.gray('Pending'.padStart(10, ' ').padEnd(15, ' ')));
-                } else if (test.status === 'running') {
-                    const spinner = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'][Math.floor(Date.now() / 100) % 10];
-                    write('[ ' + spinner + ' ]');
-                    write('Running'.padStart(10, ' ').padEnd(15, ' '));
-                } else if (test.status === 'done') {
-                    write('[ 🟢 ]');
-                    write(colors.green('Done'.padStart(10, ' ').padEnd(15, ' ')));
-                } else if (test.status === 'error') {
-                    write('[ 🔴 ]');
-                    write(colors.red('Error'.padStart(10, ' ').padEnd(15, ' ')));
-                }
-
-                if (test.status === 'running') {
-                    const runningTime = Date.now() - test.startTime;
-                    write(` ` + colors.bgYellow(`[ ${String(runningTime).padStart(6, ' ').padEnd(6, ' ') + 'ms'} ]`));
-                } else if (test.status === 'done' || test.status === 'error') {
-                    write(` [ ${test.duration}ms ]`);
-                } else {
-                    write(`[ ${String('0').padStart(6, ' ').padEnd(6, ' ')}ms ]`);
-                }
-
-                write('.'.repeat(10) + ' ' + test.name);
-
-                if (test.error) {
-                    write('\n\t');
-                    console.log(test.error);
-
-                    const {details, message, ...rest} = (test.error ?? {}) as any
-                    if (details) {
-                        console.log(details)
-                    }
-
-                    console.log(JSON.parse(JSON.stringify(rest)))
-                }
-            }
-
-            write('\n');
-        }
-
-        write('\n');
-
-        console.log({ totalTests: totalTests.length, runningTests: runningTests.length, totalTestsToRun: totalTestsToRun.length, failedTests: failedTests.length });
-        if (totalTestsToRun.length === 0 && runningTests.length === 0) {
-            clearInterval(timer);
-            process.exit(0);
-        }
-    }, 150);
+    printRunning()
 }
 
 export async function describe(
@@ -175,35 +259,26 @@ export async function describe(
         expect: typeof expect;
     }) => Promise<void>
 ) {
+
+    let suiteName = name;
     let _id = 0;
     const tests: any[] = [];
     const test = function (this: any, name: string, testFn: TestFunction, options?: { timeout?: number }) {
-        options = options ?? { timeout: 5000 };
         const binds = this || {};
         const fnCopy = testFn;
         const fn = async (ctx: any) => {
-            return new Promise(async (resolve, reject) => {
-                setTimeout(() => {
-                    reject(new Error('timedout'));
-                }, options.timeout);
-
-                if ((fnCopy as any).then) {
-                    return fnCopy(ctx)
-                        .then(resolve)
-                        .catch((e: any) => reject(e));
-                } else {
-                    try {
-                        const ret = fnCopy(ctx);
-                        resolve(ret)
-                    } catch (e) {
-                        reject(e)
-                    }
+            if ((fnCopy as any).then) {
+                return fnCopy(ctx);
+            } else {
+                try {
+                    return fnCopy(ctx);
+                } catch (e) {
+                    throw e;
                 }
-
-            });
+            }
         };
 
-        tests.push({ name, fn, id: _id++, status: 'pending', ...binds });
+        tests.push({ name, fn, id: _id++, status: 'pending', duration: 0, startTime: 0, suiteName, ...binds });
     };
 
     test.only = test.bind({ only: true });

@@ -485,7 +485,7 @@ class ModuleLoader {
         process.suspense(unsuspense => {
             import(filepath)
                 .then(ret => {
-                    module.exports = ret.default ?? ret;
+                    module.exports = ret;
                 })
                 .catch(e => {
                     error = e;

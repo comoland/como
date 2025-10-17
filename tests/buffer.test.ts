@@ -28,6 +28,7 @@ describe('buffer basics', async ({ test }) => {
     });
 
     test('Buffer.allocUnsafe should create buffer with specified size', () => {
+
         const buf = Buffer.allocUnsafe(10);
         assert.ok(buf, 'Buffer.allocUnsafe should create a buffer');
         assert.equal(buf.length, 10, 'Buffer should have correct length');

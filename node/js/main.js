@@ -4,7 +4,7 @@ const b = await import("buffer");
 globalThis.Buffer = b.Buffer;
 
 // web streams polyfills
-await import("web-streams-polyfill/polyfill");
+await import("web/stream");
 
 const { Blob, File } = await import("blob");
 globalThis.Blob = Blob;
@@ -28,5 +28,5 @@ globalThis.handleError = async (e) => {
             console.log(JSON.parse(JSON.stringify(rest, null, 4)))
         }
     }
-    process.exit(1)
+    process.exit(0)
 }

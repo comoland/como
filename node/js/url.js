@@ -279,6 +279,21 @@ class URLSearchParams {
     get size() {
         return this[_list].length
     }
+
+    // Custom inspect for better console.log output
+    inspect() {
+        const obj = {}
+        for (const [key, value] of this[_list]) {
+            if (obj[key] === undefined) {
+                obj[key] = value
+            } else if (Array.isArray(obj[key])) {
+                obj[key].push(value)
+            } else {
+                obj[key] = [obj[key], value]
+            }
+        }
+        return obj
+    }
 }
 
 // URL class
@@ -633,6 +648,23 @@ class URL {
 
     toJSON() {
         return this.#serialization
+    }
+
+    // Custom inspect for better console.log output
+    inspect() {
+        return {
+            href: this.href,
+            origin: this.origin,
+            protocol: this.protocol,
+            username: this.username,
+            password: this.password,
+            host: this.host,
+            hostname: this.hostname,
+            port: this.port,
+            pathname: this.pathname,
+            search: this.search,
+            hash: this.hash
+        }
     }
 }
 

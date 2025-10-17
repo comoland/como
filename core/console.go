@@ -10,6 +10,7 @@ import (
 var consoleJs string
 
 func console(ctx *js.Context, global js.Value) {
+	// Load and execute the console JavaScript implementation
 	process := ctx.EvalFunction("console", consoleJs)
 	defer process.Free()
 	process.Call()

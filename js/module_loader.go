@@ -450,7 +450,7 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 			// 	const require = module.require;
 			// ` + codeStr
 
-			if filename != "module" && filename != "path" && filename != "util" && filename != "fs" && filename != "buffer" {
+			if filename != "module" && filename != "path" && filename != "util" && filename != "fs" && filename != "buffer" && filename != "events" {
 				codeStr = `const { createModule } = await import("module");const module = createModule(import.meta.filename, globalThis.module); globalThis.module = module; const exports = module.exports; const require = module.require;` + codeStr
 			}
 
@@ -459,7 +459,7 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 			lock.Unlock()
 		} else {
 			codeStr = string(code)
-			if filename != "module" && filename != "path" && filename != "util" && filename != "fs" && filename != "buffer" {
+			if filename != "module" && filename != "path" && filename != "util" && filename != "fs" && filename != "buffer" && filename != "events" {
 				codeStr = `const { createModule } = await import("module");const module = createModule(import.meta.filename, globalThis.module); globalThis.module = module; const exports = module.exports;const require = module.require;` + codeStr
 			}
 		}

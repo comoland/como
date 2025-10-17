@@ -100,6 +100,42 @@ func path(ctx *js.Context, Como js.Value) {
 	})
 
 	// path.walk
+	path.Set("glob", func(args js.Arguments) interface{} {
+		path, ok := args.Get(0).(string)
+		if !ok {
+			return ctx.Throw("glob path must be a string")
+		}
+
+		writer := ctx.Writer(args.GetValue(1))
+
+		async := ctx.Async(func(async js.Promise) {
+			matches, err := filepath.Glob(path)
+			if err != nil {
+				async.Reject(err.Error())
+				return
+			}
+
+			if writer != nil {
+				for _, match := range matches {
+					writer.Call(match)
+				}
+
+				async.Resolve(nil)
+				return
+			}
+
+			async.Resolve(matches)
+		})
+
+		async.Finally(func(args js.Arguments) interface{} {
+			writer.Close()
+			return nil
+		})
+
+		return async
+	})
+
+	// path.walk
 	path.Set("walk", func(args js.Arguments) interface{} {
 		dir, ok := args.Get(0).(string)
 		if !ok {

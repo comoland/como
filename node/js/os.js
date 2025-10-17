@@ -1,7 +1,4 @@
-import primordials from 'primordials';
 import { endianness, platform, type as osType, arch, homedir, tmpdir, hostname, uptime, getUptime, totalmem, freemem, loadavg, cpus, networkInterfaces, userInfo, setPriority, getPriority, getAvailableParallelism, getOSInformation, EOL } from 'os.go';
-
-const { String } = primordials;
 
 const exports = {
     endianness: () => endianness(),
