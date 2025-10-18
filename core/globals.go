@@ -42,7 +42,7 @@ func initCoreModels(ctx *js.Context) {
 			return ctx.Throw("path must be a string")
 		}
 
-		fmt.Println(request)
+		fmt.Print(request)
 
 		return nil
 	})
