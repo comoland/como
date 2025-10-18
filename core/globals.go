@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -16,24 +17,35 @@ func initCoreModels(ctx *js.Context) {
 	global.Set("Como", comoObj)
 
 	// global methods
-	timers(ctx, global)
-	process(ctx, global)
-	console(ctx, global)
-	buffer(ctx, global)
-	fetch(ctx, global)
-	wasi(ctx, global)
-	httpModule(ctx, global)
-	cryptoModule(ctx, global)
-	readline(ctx, global)
-	system(ctx, comoObj)
+	// timers(ctx, global)
+	// process(ctx, global)
+	// console(ctx, global)
+	// buffer(ctx, global)
+	// fetch(ctx, global)
+	// wasi(ctx, global)
+	// httpModule(ctx, global)
+	// cryptoModule(ctx, global)
+	// readline(ctx, global)
+	// system(ctx, comoObj)
 
-	// Como methods
+	// // Como methods
 	path(ctx, comoObj)
-	embedFs(ctx, comoObj)
-	build(ctx, comoObj)
-	sql(ctx, comoObj)
-	worker(ctx, comoObj)
-	worker2(ctx, comoObj)
+	// embedFs(ctx, comoObj)
+	// build(ctx, comoObj)
+	// sql(ctx, comoObj)
+	// worker(ctx, comoObj)
+	// worker2(ctx, comoObj)
+
+	comoObj.Set("print", func(args js.Arguments) interface{} {
+		request, ok := args.Get(0).(string)
+		if !ok {
+			return ctx.Throw("path must be a string")
+		}
+
+		fmt.Println(request)
+
+		return nil
+	})
 
 	comoObj.Set("resolve", func(args js.Arguments) interface{} {
 		request, ok := args.Get(0).(string)
