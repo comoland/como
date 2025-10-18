@@ -20,7 +20,6 @@ const b = await import("buffer");
 globalThis.Buffer = b.Buffer;
 
 
-import 'web/text-encode'
 // web streams polyfills
 await import("web/stream");
 
@@ -33,6 +32,11 @@ globalThis.File = File;
 const { URL, URLSearchParams } = await import("url");
 globalThis.URL = URL;
 globalThis.URLSearchParams = URLSearchParams;
+
+// TextEncoder & TextDecoder
+const { TextEncoder, TextDecoder } = await import("textencoder");
+globalThis.TextEncoder = TextEncoder;
+globalThis.TextDecoder = TextDecoder;
 
 export const handleError = async (e) => {
     const colors = await import("como/colors").then((e) => e.default)

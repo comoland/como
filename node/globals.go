@@ -26,4 +26,5 @@ func InitNode(ctx *js.Context) {
 	goFileSystem(ctx, global, jsFiles)
 	goBlob(ctx, global)
 	goURL(ctx, global)
+	goTextEncoder(ctx, global)
 }
