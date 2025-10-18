@@ -1,4 +1,4 @@
-package core
+package node
 
 import (
 	"context"
@@ -8,14 +8,9 @@ import (
 	"github.com/comoland/como/js"
 )
 
-//go:embed js/timers.js
-var timersJs string
-
 func timers(ctx *js.Context, global js.Value) {
-	timers := ctx.EvalFunction("timers", timersJs)
-	defer timers.Free()
-
-	timeout := ctx.Function(func(args js.Arguments) interface{} {
+	mod := ctx.NewModule("timers.go")
+	mod.Export("timeout", func(args js.Arguments) interface{} {
 		this := args.GetValue(0)
 		callback := this.GetValue("trigger")
 		timeout, okIsNumber := this.Get("timeout").(int64)
@@ -76,6 +71,4 @@ func timers(ctx *js.Context, global js.Value) {
 			return nil
 		})
 	})
-
-	timers.Call(timeout)
 }

@@ -31,7 +31,7 @@ func evalFile(ctx *C.JSContext, filename string, code string, evalType int) C.JS
 	if isException(val) {
 		defer C.JS_FreeValue(ctx, val)
 		C.js_std_dump_error(ctx)
-		os.Exit(1)
+		os.Exit(5)
 	}
 
 	return val

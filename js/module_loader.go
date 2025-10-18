@@ -263,7 +263,8 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 
 		codeStr = string(code)
 		if s.Contains(codeStr, "globalThis.NamedExports") {
-			err := ctx.Eval(codeStr)
+			v, err := ctx.EvalModule(filename, codeStr)
+			defer v.Free()
 			if err != nil {
 				panic(err.Error())
 			}
@@ -309,7 +310,7 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 				"message": result.Errors[0].Text,
 			})
 
-			os.Exit(1)
+			os.Exit(6)
 		}
 
 		ctx.FSEmbedder.tryToWriteBundleToModulesLib(filename, result.OutputFiles[0].Contents)
@@ -450,7 +451,8 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 			// 	const require = module.require;
 			// ` + codeStr
 
-			if filename != "module" && filename != "path" && filename != "util" && filename != "fs" && filename != "buffer" && filename != "events" {
+			_, ok := ctx.CoreModules[filename]
+			if !ok {
 				codeStr = `const { createModule } = await import("module");const module = createModule(import.meta.filename, globalThis.module); globalThis.module = module; const exports = module.exports; const require = module.require;` + codeStr
 			}
 
@@ -459,7 +461,8 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 			lock.Unlock()
 		} else {
 			codeStr = string(code)
-			if filename != "module" && filename != "path" && filename != "util" && filename != "fs" && filename != "buffer" && filename != "events" {
+			_, ok := ctx.CoreModules[filename]
+			if !ok {
 				codeStr = `const { createModule } = await import("module");const module = createModule(import.meta.filename, globalThis.module); globalThis.module = module; const exports = module.exports;const require = module.require;` + codeStr
 			}
 		}

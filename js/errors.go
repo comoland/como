@@ -33,12 +33,17 @@ func promiseRejectionTracker(c *C.JSContext, promise C.JSValueConst, reason C.JS
 			return
 		}
 
+		fmt.Print("Possibly unhandled promise rejection: ")
+		fmt.Println(err.String())
+
 		if !stack.IsUndefined() {
 			stackError := stack.String()
 			if formatted.IsUndefined() {
 				stackError = ctx.StackFormatter(stackError)
 				err.Set("stack", stackError)
 			}
+
+			fmt.Println(stackError, "\n")
 		}
 	}
 }

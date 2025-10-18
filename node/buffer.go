@@ -852,5 +852,4 @@ func goBuffer(ctx *js.Context, _ js.Value) {
 		n := copy(target[targetStart:targetStart+toCopy], source[sourceStart:sourceStart+toCopy])
 		return int64(n)
 	})
-
 }

@@ -16,7 +16,7 @@ func main() {
 	flag.Parse()
 	filename := flag.Arg(0)
 	Loop, ctx := core.ComoStr("runner", fmt.Sprintf(`
-		await import("main");
+		const { handleError } = await import("main");
 		try {
 			await import("%s");
 		} catch (e) {

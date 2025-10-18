@@ -139,7 +139,6 @@ func (runtime *JSRunTime) NewContext() *Context {
 		modulesLib: "",
 	}
 
-	context.externals = append(context.externals, "fs")
 	context.CoreModules = make(map[string]struct {
 		Path string
 		FS   *embed.FS

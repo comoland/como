@@ -17,7 +17,10 @@ func InitNode(ctx *js.Context) {
 		"primordials": "primordials.js",
 	})
 
+	process(ctx, global)
+	timers(ctx, global)
 	goBuffer(ctx, global)
+
 	goBindings(ctx, global)
 	goOS(ctx, global)
 	goFileSystem(ctx, global, jsFiles)
