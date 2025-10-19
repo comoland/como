@@ -27,4 +27,5 @@ func InitNode(ctx *js.Context) {
 	goBlob(ctx, global)
 	goURL(ctx, global)
 	goTextEncoder(ctx, global)
+	build(ctx, global)
 }
