@@ -264,6 +264,7 @@ func (v Value) Error() error {
 	if stack.IsUndefined() {
 		return &Error{Cause: cause}
 	}
+
 	return &Error{Cause: cause, Stack: stack.String()}
 }
 

@@ -1,18 +1,28 @@
-import esbuild from 'como/build';
-
+import * as esbuild from 'como/build';
+let i = 0
 const stressTestBundeler = async () => {
-    const ret = await esbuild.build({
+    const ret =  await esbuild.build({
+        entryPoints: ["react", "react-dom", "react-dom/server"],
         stdin: {
             contents: `
-            console.log("")
+            import { env as ENV } from 'env';
+            import { env as ENV2 } from 'env2';
+            (function() {
+                return {
+                    bundle1: ENV.ret,
+                    bundle2: ENV2.ret
+                };
+            })();
             `
         },
-        bundle: true,
+        splitting: false,
+        bundle: false,
         minify: true,
         plugins: [
             {
                 name: 'env',
                 setup: build => {
+                    console.log(build)
                     build.onResolve({ filter: `^env$` }, o => {
                         return {
                             path: o.path,
@@ -37,7 +47,7 @@ const stressTestBundeler = async () => {
 
                     build.onLoad({ filter: `^env2$`, namespace: 'env2' }, o => {
                         return {
-                            contents: `export const env = {  ret: 'Hi from bundle 2' }`
+                            contents: `export const env = {  ret: 'Hi from bundle ${i++}' }`
                         };
                     });
                 }
@@ -45,25 +55,11 @@ const stressTestBundeler = async () => {
         ]
     });
 
-    // const code = eval(`${ret[0].content}`);
-    console.log(ret)
-    // assert.equal(ret[0].path, '/stdin.js');
-    // assert.equal(code.bundle1, 'Hi from bundle 1');
-    // assert.equal(code.bundle2, 'Hi from bundle 2');
+    console.log(ret.length)
 }
 
-
-
-for (let i = 0; i < 100; i++) {
-     stressTestBundeler()
+for (let i = 0; i < 2000; i++) {
+    await stressTestBundeler()
 }
 
 console.log("Ended!!!")
-
-
-
-
-
-// setTimeout(() => {
-
-// }, 30000000)

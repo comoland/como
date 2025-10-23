@@ -822,11 +822,12 @@ func (ctx *Context) Ref() {
 // panic if refs <= 0
 func (ctx *Context) UnRef() {
 	ctx.mutex.Lock()
+	defer ctx.mutex.Unlock()
 	if ctx.refs <= 0 {
 		panic("refs <= 0")
 	}
 	ctx.refs = ctx.refs - 1
-	ctx.mutex.Unlock()
+
 }
 
 // Terminate terminates js loop unconditionally
@@ -951,6 +952,10 @@ func (ctx *Context) Await(v Value) Value {
 	}
 
 	return Value{ctx: ctx, c: C.js_std_await(ctx.c, v.c)}
+}
+
+func (ctx *Context) GC() {
+	C.JS_RunGC(ctx.rt)
 }
 
 func (ctx *Context) Free() {

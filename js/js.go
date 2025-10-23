@@ -13,15 +13,3 @@ package js
 #include "bridge.c"
 */
 import "C"
-
-type Error struct {
-	Cause string
-	Stack string
-}
-
-func (err Error) Error() string      { return err.Cause }
-func (err Error) StackTrace() string { return err.Stack }
-
-type JSValue C.JSValue
-
-func (v JSValue) IsException() bool { return C.JS_IsException(C.JSValue(v)) == 1 }

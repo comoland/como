@@ -3,7 +3,7 @@ module github.com/comoland/como
 go 1.19
 
 require (
-	github.com/evanw/esbuild v0.17.5
+	github.com/evanw/esbuild v0.25.11
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible
 	github.com/jmoiron/sqlx v1.3.4
@@ -13,4 +13,4 @@ require (
 	github.com/tetratelabs/wazero v1.0.0-rc.2
 )
 
-require golang.org/x/sys v0.13.0 // indirect
+require golang.org/x/sys v0.13.0

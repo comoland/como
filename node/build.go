@@ -1,6 +1,8 @@
 package node
 
 import (
+	"runtime"
+
 	"github.com/comoland/como/js"
 	"github.com/evanw/esbuild/pkg/api"
 )
@@ -56,6 +58,13 @@ func build(ctx *js.Context, Como js.Value) {
 		"none":     int(api.SourceMapNone),
 	})
 
+	mod.Export("format", map[string]interface{}{
+		"commonjs": int(api.FormatCommonJS),
+		"default":  int(api.FormatDefault),
+		"esm":      int(api.FormatESModule),
+		"iife":     int(api.FormatIIFE),
+	})
+
 	mod.Export("target", map[string]interface{}{
 		"ESNext": int(api.ESNext),
 		"es2015": int(api.ES2015),
@@ -66,6 +75,9 @@ func build(ctx *js.Context, Como js.Value) {
 	// build.bundle
 	mod.Export("build", func(args1 js.Arguments) interface{} {
 		plugins := []api.Plugin{}
+		freeList := []js.Function{}
+		var jsError *js.Value
+
 		options := buildOptions{
 			SourceMap: api.SourceMapNone,
 			Target:    api.ESNext,
@@ -79,27 +91,27 @@ func build(ctx *js.Context, Como js.Value) {
 		}
 
 		for _, plugin := range options.Plugins {
-			v := ctx.GoToJSValue(plugin.Setup)
-			defer v.Free()
-			writer := ctx.Writer(v)
-
-			// plugin.Setup.Dup()
-			buildObject := ctx.Object()
+			plugin.Setup.Dup()
 
 			plugins = append(plugins, api.Plugin{
 				Name: plugin.Name,
 				Setup: func(build api.PluginBuild) {
-					buildObject.Set("onResolve", func(args js.Arguments) interface{} {
-						var OnResolveOptions api.OnResolveOptions
+
+					obj := map[string]interface{}{}
+					obj["onResolve"] = func(args js.Arguments) any {
+						OnResolveOptions := api.OnResolveOptions{}
 						er := args.GetMap(0, &OnResolveOptions)
 						if er != nil {
 							ctx.Throw(er.Error())
 						}
 
-						fnWriter := ctx.Writer(args.GetValue(1))
-						if fnWriter == nil {
+						fn, ok := args.Get(1).(js.Function)
+						if !ok {
 							ctx.Throw("second argument must be a function")
 						}
+
+						fn.Dup()
+						freeList = append(freeList, fn)
 
 						build.OnResolve(
 							OnResolveOptions,
@@ -109,32 +121,43 @@ func build(ctx *js.Context, Como js.Value) {
 									api.OnResolveResult `mapstructure:",squash"`
 								}
 
-								fnWriter.Call(map[string]interface{}{
-									// to do
-									// "resolve": func(args js.Arguments) interface{} {
-									// 	result := build.Resolve("./env2", api.ResolveOptions{
-									// 		Kind:       api.ResolveJSImportStatement,
-									// 		ResolveDir: ".",
-									// 	})
+								ctx.WaitCall(func() {
+									ret := fn.SafeCall(map[string]interface{}{
+										// to do
+										"resolve": func(args js.Arguments) interface{} {
+											result := build.Resolve("./env2", api.ResolveOptions{
+												Kind:       api.ResolveJSImportStatement,
+												ResolveDir: ".",
+											})
 
-									// 	if len(result.Errors) > 0 {
-									// 		return args.Ctx.Error(result.Errors[0].Text)
-									// 	}
+											if len(result.Errors) > 0 {
+												return args.Ctx.Error(result.Errors[0].Text)
+											}
 
-									// 	return result.Path
-									// },
-									"path":       resolveArgs.Path,
-									"importer":   resolveArgs.Importer,
-									"mamespace":  resolveArgs.Namespace,
-									"resolveDir": resolveArgs.ResolveDir,
-									"pluginData": resolveArgs.PluginData,
-								})
+											return result.Path
+										},
+										"path":       resolveArgs.Path,
+										"importer":   resolveArgs.Importer,
+										"mamespace":  resolveArgs.Namespace,
+										"resolveDir": resolveArgs.ResolveDir,
+										"pluginData": resolveArgs.PluginData,
+									})
 
-								ctx.GetMap(fnWriter.Data(), &onResolve)
-								// fnWriter.Close()
-								if err != nil {
-									_error = err
-								}
+									if ctx.IsException(ret) {
+										stackErr := ctx.GetException()
+										jsError = &stackErr
+										err := stackErr.Error()
+										_error = err
+									} else {
+										err := ctx.GetMap(ret, &onResolve)
+										_error = err
+									}
+
+									ctx.GetMap(ret, &onResolve)
+									if err != nil {
+										_error = err
+									}
+								}).Wait()
 
 								return api.OnResolveResult{
 									Path:       onResolve.Path,
@@ -145,20 +168,24 @@ func build(ctx *js.Context, Como js.Value) {
 								}, _error
 							},
 						)
-						return nil
-					})
 
-					buildObject.Set("onLoad", func(args js.Arguments) interface{} {
-						var OnLoadOptions api.OnLoadOptions
+						return nil
+					}
+
+					obj["onLoad"] = func(args js.Arguments) any {
+						OnLoadOptions := api.OnLoadOptions{}
 						er := args.GetMap(0, &OnLoadOptions)
 						if er != nil {
 							ctx.Throw(er.Error())
 						}
 
-						fnWriter := ctx.Writer(args.GetValue(1))
-						if fnWriter == nil {
-							ctx.Throw("second argument must be a function")
+						fn, ok := args.Get(1).(js.Function)
+						if !ok {
+							return ctx.Throw("second argument must be a function")
 						}
+
+						fn.Dup()
+						freeList = append(freeList, fn)
 
 						build.OnLoad(OnLoadOptions,
 							func(loadArgs api.OnLoadArgs) (api.OnLoadResult, error) {
@@ -168,17 +195,24 @@ func build(ctx *js.Context, Como js.Value) {
 									Contents         string
 								}
 
-								fnWriter.Call(map[string]interface{}{
-									"path":       loadArgs.Path,
-									"namespace":  loadArgs.Namespace,
-									"pluginData": loadArgs.PluginData,
-									"suffix":     loadArgs.Suffix,
-								})
+								ctx.WaitCall(func() {
+									ret := fn.SafeCall(map[string]interface{}{
+										"path":       loadArgs.Path,
+										"namespace":  loadArgs.Namespace,
+										"pluginData": loadArgs.PluginData,
+										"suffix":     loadArgs.Suffix,
+									})
 
-								err := ctx.GetMap(fnWriter.Data(), &onLoad)
-								if err != nil {
-									_error = err
-								}
+									if ctx.IsException(ret) {
+										stackErr := ctx.GetException()
+										jsError = &stackErr
+										err := stackErr.Error()
+										_error = err
+									} else {
+										err := ctx.GetMap(ret, &onLoad)
+										_error = err
+									}
+								}).Wait()
 
 								return api.OnLoadResult{
 									Contents:   &onLoad.Contents,
@@ -189,11 +223,13 @@ func build(ctx *js.Context, Como js.Value) {
 								}, _error
 							},
 						)
-						// fnWriter.Close()
 						return nil
-					})
+					}
 
-					writer.Call(buildObject)
+					ctx.WaitCall(func() {
+						plugin.Setup.Call(obj)
+						plugin.Setup.Free()
+					}).Wait()
 				},
 			})
 		}
@@ -242,14 +278,15 @@ func build(ctx *js.Context, Como js.Value) {
 
 			// Wait for the build result
 			buildResult := <-resultChan
+			runtime.GC()
 
-			if buildResult.err != nil {
-				async.Reject(buildResult.err.Error())
+			if jsError != nil {
+				async.Reject(jsError)
 				return
 			}
 
 			if len(buildResult.result.Errors) > 0 {
-				async.Reject(buildResult.result.Errors[0].Text)
+				async.Reject(ctx.Error(buildResult.result.Errors[0].Text))
 				return
 			}
 
@@ -266,8 +303,10 @@ func build(ctx *js.Context, Como js.Value) {
 		})
 
 		promise.Finally(func(args js.Arguments) interface{} {
-			// free all writers
-			// fnWriter.Free()
+			for _, fn := range freeList {
+				fn.Free()
+			}
+
 			return nil
 		})
 

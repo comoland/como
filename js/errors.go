@@ -9,6 +9,14 @@ import (
 	"unsafe"
 )
 
+type Error struct {
+	Cause string
+	Stack string
+}
+
+func (err Error) Error() string      { return err.Cause }
+func (err Error) StackTrace() string { return err.Stack }
+
 //export promiseRejectionTracker
 func promiseRejectionTracker(c *C.JSContext, promise C.JSValueConst, reason C.JSValueConst, is_handled int, opque unsafe.Pointer) {
 	ctx := GetContextOpaque(c)
@@ -68,6 +76,24 @@ func (ctx *Context) GetStackError() *Error {
 	}
 
 	return err
+}
+
+func (ctx *Context) GetException() Value {
+	val := Value{ctx: ctx, c: C.JS_GetException(ctx.c)}
+
+	if val.IsError() {
+		stack := val.GetValue("stack")
+		isFormatted, _ := val.Get("__error_formatted").(bool)
+		defer stack.Free()
+
+		stackError := stack.String()
+		if isFormatted != true {
+			stackError = ctx.StackFormatter(stackError)
+			val.Set("stack", stackError)
+		}
+	}
+
+	return val
 }
 
 func (ctx *Context) ThrowStackError() {
