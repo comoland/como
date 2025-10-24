@@ -17,7 +17,7 @@ type Promise struct {
 func (ctx *Context) NewPromise() Promise {
 	p := C.JS_Call(ctx.c, ctx.promise, C.JS_NewUndefined(), 0, nil)
 
-	promise := Value{ctx: ctx, c: C.JS_DupValue(ctx.c, p)}
+	promise := ctx.Value(C.JS_DupValue(ctx.c, p))
 	resolve := promise.GetValue("resolve")
 	reject := promise.GetValue("reject")
 	finally := promise.GetValue("fin")

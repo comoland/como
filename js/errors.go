@@ -20,7 +20,7 @@ func (err Error) StackTrace() string { return err.Stack }
 //export promiseRejectionTracker
 func promiseRejectionTracker(c *C.JSContext, promise C.JSValueConst, reason C.JSValueConst, is_handled int, opque unsafe.Pointer) {
 	ctx := GetContextOpaque(c)
-	err := Value{ctx: ctx, c: reason}
+	err := ctx.Value(reason)
 
 	if is_handled == 1 {
 		return
@@ -57,7 +57,7 @@ func promiseRejectionTracker(c *C.JSContext, promise C.JSValueConst, reason C.JS
 }
 
 func (ctx *Context) GetStackError() *Error {
-	val := Value{ctx: ctx, c: C.JS_GetException(ctx.c)}
+	val := ctx.Value(C.JS_GetException(ctx.c))
 	defer val.Free()
 
 	var err *Error = nil
@@ -79,7 +79,7 @@ func (ctx *Context) GetStackError() *Error {
 }
 
 func (ctx *Context) GetException() Value {
-	val := Value{ctx: ctx, c: C.JS_GetException(ctx.c)}
+	val := ctx.Value(C.JS_GetException(ctx.c))
 
 	if val.IsError() {
 		stack := val.GetValue("stack")
@@ -97,7 +97,7 @@ func (ctx *Context) GetException() Value {
 }
 
 func (ctx *Context) ThrowStackError() {
-	val := Value{ctx: ctx, c: C.JS_GetException(ctx.c)}
+	val := ctx.Value(C.JS_GetException(ctx.c))
 	defer val.Free()
 
 	if val.IsError() {

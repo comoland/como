@@ -125,7 +125,7 @@ func (v Value) JsCall(args Value) Value {
 	cArgs := (*C.JSValueConst)(unsafe.Pointer(&args.c))
 	ret := C.JS_Call(ctx.c, fn, args.c, C.int(1), cArgs)
 	defer ctx.FreeValue(ret)
-	return Value{ctx: ctx, c: ret}
+	return ctx.Value(ret)
 }
 
 func (v Value) Set(name string, value interface{}) Value {
@@ -137,7 +137,7 @@ func (v Value) Set(name string, value interface{}) Value {
 
 	jsVal := ctx.goToJSValue(value)
 	C.JS_SetPropertyStr(ctx.c, obj, namePtr, jsVal)
-	return Value{ctx: ctx, c: jsVal}
+	return ctx.Value(jsVal)
 }
 
 func (v Value) SetInt(i uint, value interface{}) Value {
@@ -146,7 +146,7 @@ func (v Value) SetInt(i uint, value interface{}) Value {
 
 	jsVal := ctx.goToJSValue(value)
 	C.JS_SetPropertyUint32(ctx.c, arr, C.uint32_t(i), jsVal)
-	return Value{ctx: ctx, c: jsVal}
+	return ctx.Value(jsVal)
 }
 
 func (v Value) Push(value interface{}) Value {
@@ -156,7 +156,7 @@ func (v Value) Push(value interface{}) Value {
 	len := v.Get("length").(int64)
 	jsVal := ctx.goToJSValue(value)
 	C.JS_SetPropertyUint32(ctx.c, arr, C.uint32_t(uint(len)), jsVal)
-	return Value{ctx: ctx, c: jsVal}
+	return ctx.Value(jsVal)
 }
 
 func (v Value) Get(name string) interface{} {

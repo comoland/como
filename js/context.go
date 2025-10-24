@@ -329,7 +329,7 @@ func (ctx *Context) JsToGoValue2(value interface{}) (interface{}, error) {
 		}
 
 		if C.JS_IsArray(ctx.c, v) == 1 {
-			arr := Value{ctx: ctx, c: v}
+			arr := ctx.Value(v)
 			len := arr.Length()
 			if len > 1<<30 {
 				C.JS_FreeValue(ctx.c, v)
@@ -407,7 +407,7 @@ func (ctx *Context) JsToGoValue2(value interface{}) (interface{}, error) {
 	// Fallback: treat as Value if it's a JSValue
 	js, ok := value.(C.JSValue)
 	if ok {
-		return Value{ctx: ctx, c: js}, nil
+		return ctx.Value(js), nil
 	}
 
 	return value, nil
@@ -485,7 +485,7 @@ func (ctx *Context) JsToGoValue(value interface{}) interface{} {
 		if C.JS_IsFunction(ctx.c, v) == 1 {
 			return ctx.JsFunction(v)
 		} else if C.JS_IsArray(ctx.c, v) == 1 {
-			arr := Value{ctx: ctx, c: v}
+			arr := ctx.Value(v)
 			len := arr.Length()
 			var values = make([]interface{}, len)
 
@@ -537,7 +537,7 @@ func (ctx *Context) JsToGoValue(value interface{}) interface{} {
 
 	js, ok := value.(C.JSValue)
 	if ok {
-		return Value{ctx: ctx, c: js}
+		return ctx.Value(js)
 	}
 
 	return value
@@ -694,15 +694,15 @@ func (ctx *Context) GoToJSValue(value interface{}) Value {
 }
 
 func (ctx *Context) Null() Value {
-	return Value{ctx: ctx, c: C.JS_NewNull()}
+	return ctx.Value(C.JS_NewNull())
 }
 
 func (ctx *Context) Undefined() Value {
-	return Value{ctx: ctx, c: C.JS_NewUndefined()}
+	return ctx.Value(C.JS_NewUndefined())
 }
 
 func (ctx *Context) Exception() error {
-	val := Value{ctx: ctx, c: C.JS_GetException(ctx.c)}
+	val := ctx.Value(C.JS_GetException(ctx.c))
 	defer val.Free()
 	return val.Error()
 }
@@ -712,7 +712,7 @@ func (ctx *Context) Exception() error {
 func (ctx *Context) String(v string) Value {
 	ptr := C.CString(v)
 	defer C.free(unsafe.Pointer(ptr))
-	return Value{ctx: ctx, c: C.JS_NewString(ctx.c, ptr)}
+	return ctx.Value(C.JS_NewString(ctx.c, ptr))
 }
 
 func (ctx *Context) eval(filename string, code string, evalType int) (Value, error) {
@@ -728,10 +728,10 @@ func (ctx *Context) eval(filename string, code string, evalType int) (Value, err
 	if isException(val) {
 		defer ctx.FreeValue(val)
 		C.js_std_dump_error(ctx.c)
-		return Value{c: val, ctx: ctx}, ctx.Exception()
+		return ctx.Value(val), ctx.Exception()
 	}
 
-	return Value{c: val, ctx: ctx}, nil
+	return ctx.Value(val), nil
 }
 
 func (ctx *Context) EvalFile(filename string, code string) (Value, error) {
@@ -764,7 +764,7 @@ func (ctx *Context) EvalFunction(filename string, code string) Value {
 		ctx.ThrowStackError()
 	}
 
-	return Value{c: C.JS_EvalFunction(ctx.c, val), ctx: ctx}
+	return ctx.Value(C.JS_EvalFunction(ctx.c, val))
 }
 
 func (ctx *Context) Eval(code string) error {
@@ -777,7 +777,7 @@ func (ctx *Context) Eval(code string) error {
 // returns js Value
 func (ctx *Context) GlobalObject() Value {
 	val := C.JS_GetGlobalObject(ctx.c)
-	return Value{c: val, ctx: ctx}
+	return ctx.Value(val)
 }
 
 // Object creates a new javascript object
@@ -791,7 +791,7 @@ func (ctx *Context) Object() Value {
 // returns js Value
 func (ctx *Context) Array() Value {
 	val := C.JS_NewArray(ctx.c)
-	return Value{c: val, ctx: ctx}
+	return ctx.Value(val)
 }
 
 // Dup dups js main context
@@ -804,6 +804,11 @@ func (ctx *Context) Dup() *Context {
 func (ctx *Context) DupValue(v C.JSValue) C.JSValue {
 	return C.JS_DupValue(ctx.c, v)
 }
+
+// func (ctx *Context) Value(v C.JSValue) Value {
+// 	val := ctx.Value(v)
+// 	return val
+// }
 
 // FreeValue frees c js value
 func (ctx *Context) FreeValue(v C.JSValue) {
@@ -950,8 +955,8 @@ func (ctx *Context) Await(v Value) Value {
 		// Not a promise, return as-is
 		return v
 	}
-
-	return Value{ctx: ctx, c: C.js_std_await(ctx.c, v.c)}
+	wait := C.js_std_await(ctx.c, v.c)
+	return ctx.Value(wait)
 }
 
 func (ctx *Context) GC() {
@@ -985,17 +990,17 @@ func (ctx *Context) Free() {
 }
 
 func (ctx *Context) Error(v interface{}) Value {
-	err := Value{ctx: ctx, c: C.JS_NewError(ctx.c)}
+	err := ctx.Value(C.JS_NewError(ctx.c))
 	err.Set("message", v)
 	return err
 }
 
 func (ctx *Context) Throw(v interface{}) Value {
-	err := Value{ctx: ctx, c: C.JS_NewError(ctx.c)}
+	err := ctx.Value(C.JS_NewError(ctx.c))
 	stack := err.GetValue("stack")
 	err.Set("message", v)
 	defer stack.Free()
-	return Value{ctx: ctx, c: C.JS_Throw(ctx.c, err.c)}
+	return ctx.Value(C.JS_Throw(ctx.c, err.c))
 }
 
 func (ctx *Context) Throwf(format string, a ...any) Value {
@@ -1045,8 +1050,8 @@ func (ctx *Context) ParseJSON(v string) Value {
 
 	filenamePtr := C.CString("")
 	defer C.free(unsafe.Pointer(filenamePtr))
-
-	return Value{ctx: ctx, c: C.JS_ParseJSON(ctx.c, ptr, C.size_t(len(v)), filenamePtr)}
+	json := C.JS_ParseJSON(ctx.c, ptr, C.size_t(len(v)), filenamePtr)
+	return ctx.Value(json)
 }
 
 func (ctx *Context) CheckError(err error) {

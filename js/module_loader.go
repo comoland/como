@@ -516,7 +516,7 @@ func (ctx *Context) LoadModuleStr(filename string, codeStr string, isMain int) *
 		C.js_module_set_import_meta(ctx.c, val, 1, C.int(isMain))
 	}
 
-	meta_obj := Value{ctx: ctx, c: C.JS_GetImportMeta(ctx.c, m)}
+	meta_obj := ctx.Value(C.JS_GetImportMeta(ctx.c, m))
 	defer meta_obj.Free()
 
 	dirname := filepath.Dir(filename)

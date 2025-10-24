@@ -322,12 +322,13 @@ func (ctx *Context) ToSafeValue(v interface{}) interface{} {
 // get js.Value at index return undefined js value
 // if index out of bound
 func (args Arguments) GetValue(argIndex int) Value {
+	ctx := args.Ctx
 	if args.argc == 0 || argIndex > args.argc-1 {
-		return args.Ctx.Undefined()
+		return ctx.Undefined()
 	}
 
 	argv := args.argv[argIndex]
-	return Value{ctx: args.Ctx, c: argv}
+	return ctx.Value(argv)
 }
 
 func (args Arguments) Slice(low int, high int) Arguments {

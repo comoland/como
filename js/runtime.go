@@ -20,7 +20,7 @@ type JSRunTime struct {
 
 func NewRuntime() *JSRunTime {
 	rt := C.JS_NewRuntime()
-	C.JS_SetCanBlock(rt, 0)
+	C.JS_SetCanBlock(rt, 1)
 
 	runtime := &JSRunTime{
 		rt:              rt,

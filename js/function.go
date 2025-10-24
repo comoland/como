@@ -127,7 +127,7 @@ func _js_proxy_call(ctx *C.JSContext, fn C.JSValue, thisValue C.JSValueConst, ar
 	var jsVal Value
 	if ref != nil {
 		ref.Dup()
-		args := Arguments{Ctx: ref.ctx, This: Value{ctx: ref.ctx, c: thisValue}, argc: argc, argv: argv}
+		args := Arguments{Ctx: ref.ctx, This: ref.ctx.Value(thisValue), argc: argc, argv: argv}
 		value := ref.goFunc(args)
 		jsVal = ref.ctx.GoToJSValue(value)
 		defer ref.Free()

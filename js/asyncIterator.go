@@ -16,7 +16,7 @@ type asyncIterator struct {
 
 func (ctx *Context) AsyncIterator(close func()) asyncIterator {
 	a := C.JS_Call(ctx.c, ctx.asyncIterator, C.JS_NewUndefined(), 0, nil)
-	iterator := Value{ctx: ctx, c: a}
+	iterator := ctx.Value(a)
 	resolve := iterator.GetValue("pushValue")
 	var clean *Function
 	clean = ctx.Function(func(_ Arguments) interface{} {

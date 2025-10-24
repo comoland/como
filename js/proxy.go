@@ -38,7 +38,8 @@ func (ctx *Context) Proxy(arg interface{}) proxy {
 		return ctx.goToJSValue(v)
 	})
 
-	jsProxy := Value{ctx: ctx, c: C.JS_Call(ctx.c, ctx.proxy, ctx.Undefined().c, 1, &jsVal.c)}
+	jsRes := C.JS_Call(ctx.c, ctx.proxy, ctx.Undefined().c, 1, &jsVal.c)
+	jsProxy := ctx.Value(jsRes)
 	defer func() {
 		jsProxy.Free()
 		jsVal.Free()
