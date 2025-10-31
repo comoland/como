@@ -773,6 +773,39 @@ func (ctx *Context) Eval(code string) error {
 	return err
 }
 
+func (ctx *Context) Eval2(name string, script string) Value {
+	// ctx.Lock()
+	// defer ctx.Unlock()
+
+	cstr := C.CString(script)
+	length := len(script)
+	defer C.free(unsafe.Pointer(cstr))
+
+	scriptFileCstr := C.CString(name)
+	defer C.free(unsafe.Pointer(scriptFileCstr))
+
+	isModule := C.JS_DetectModule(cstr, C.size_t(length)) != 0
+	var jsVal C.JSValue
+	if isModule {
+		jsVal = C.JS_Eval(ctx.c, cstr, C.size_t(length), scriptFileCstr, C.JS_EVAL_TYPE_MODULE|C.JS_EVAL_FLAG_COMPILE_ONLY)
+		if C.JS_IsException(jsVal) == 0 {
+			C.js_module_set_import_meta(ctx.c, jsVal, 1, 1)
+			jsVal = C.JS_EvalFunction(ctx.c, jsVal)
+		}
+
+		jsVal = C.js_std_await(ctx.c, jsVal)
+	} else {
+		jsVal = C.JS_Eval(ctx.c, cstr, C.size_t(length), scriptFileCstr, C.JS_EVAL_TYPE_GLOBAL)
+	}
+
+	if C.JS_IsException(jsVal) != 0 {
+		ctx.ThrowStackError()
+	}
+
+	val := ctx.Value(jsVal)
+	return val
+}
+
 // GlobalObject returns javascript globalThis object
 // returns js Value
 func (ctx *Context) GlobalObject() Value {
@@ -859,6 +892,9 @@ func (ctx *Context) Go(callback func() func()) {
 // runPendingJobs run async pending jobs
 func (ctx *Context) runPendingJobs() uint64 {
 	C.como_js_loop(ctx.c)
+	// fmt.Println("x ----", x)
+	// C.js_std_loop(ctx.c)
+
 	return ctx.refs
 }
 
@@ -959,6 +995,34 @@ func (ctx *Context) Await(v Value) Value {
 	return ctx.Value(wait)
 }
 
+func (ctx *Context) Fulfill(v Value) Value {
+	if !v.IsPromise() {
+		panic("not a promise")
+		// Not a promise, return as-is
+		return v
+	}
+
+	// return ctx.Await(v)
+
+	var ret C.JSValue
+	for {
+		state := C.JS_PromiseState(ctx.c, v.c)
+		if state == C.JS_PROMISE_FULFILLED {
+			ret = C.JS_PromiseResult(ctx.c, v.c)
+			C.JS_FreeValue(ctx.c, v.c)
+			break
+		} else if state == C.JS_PROMISE_PENDING {
+			n := ctx.runPendingJobs()
+			if n < 1 {
+				panic("error")
+			}
+			fmt.Println("pending ", n)
+		}
+	}
+
+	return ctx.Value(ret)
+}
+
 func (ctx *Context) GC() {
 	C.JS_RunGC(ctx.rt)
 }
@@ -981,7 +1045,9 @@ func (ctx *Context) Free() {
 	ctx.FreeValue(ctx.promise)
 	ctx.FreeValue(ctx.proxy)
 	C.JS_FreeContext(ctx.c)
-	C.JS_FreeRuntime(ctx.rt)
+	if !ctx.isTerminated {
+		C.JS_FreeRuntime(ctx.rt)
+	}
 
 	pointer.Unref(runtimeOp)
 	pointer.Unref(ctxOp)

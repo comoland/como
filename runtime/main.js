@@ -19,7 +19,6 @@ import "timers"
 const b = await import("buffer");
 globalThis.Buffer = b.Buffer;
 
-
 // web streams polyfills
 await import("web/stream");
 

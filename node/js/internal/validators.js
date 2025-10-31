@@ -360,18 +360,18 @@ function validateAbortSignalArray(value, name) {
  * @param {string} [name='signal']
  * @returns {asserts signal is keyof signals}
  */
-// const validateSignalName = hideStackFrames((signal, name = 'signal') => {
-//   validateString(signal, name);
+const validateSignalName = hideStackFrames((signal, name = 'signal') => {
+  validateString(signal, name);
 
-//   if (signals[signal] === undefined) {
-//     if (signals[StringPrototypeToUpperCase(signal)] !== undefined) {
-//       throw new ERR_UNKNOWN_SIGNAL(signal +
-//                                    ' (signals must use all capital letters)');
-//     }
+  if (signals[signal] === undefined) {
+    if (signals[StringPrototypeToUpperCase(signal)] !== undefined) {
+      throw new ERR_UNKNOWN_SIGNAL(signal +
+                                   ' (signals must use all capital letters)');
+    }
 
-//     throw new ERR_UNKNOWN_SIGNAL(signal);
-//   }
-// });
+    throw new ERR_UNKNOWN_SIGNAL(signal);
+  }
+});
 
 /**
  * @callback validateBuffer

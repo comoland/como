@@ -1,9 +1,9 @@
 import * as assert from 'uvu/assert';
 export { assert };
 export { test, suite } from 'uvu';
+export { expect } from 'tiny-jest';
 // export * as colors from "kleur/colors"
 export { default as colors } from 'kleur';
-export * from 'tiny-jest';
 
 export function sleep(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));

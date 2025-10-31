@@ -10,6 +10,7 @@ import (
 func ComoContext() *js.Context {
 	runtime.LockOSThread()
 	var rt = js.NewRuntime()
+	rt.SetCanBlock(true)
 	ctx := rt.NewContext()
 	initCoreModels(ctx)
 	node.InitNode(ctx)

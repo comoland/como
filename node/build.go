@@ -27,6 +27,7 @@ type buildOptions struct {
 	Bundle      bool
 	Target      api.Target
 	Format      api.Format
+	Platform    api.Platform
 	Loader      map[string]api.Loader
 	SourceMap   api.SourceMap
 }
@@ -82,6 +83,7 @@ func build(ctx *js.Context, Como js.Value) {
 			SourceMap: api.SourceMapNone,
 			Target:    api.ESNext,
 			Format:    api.FormatESModule,
+			Platform:  api.PlatformDefault,
 		}
 
 		err := args1.GetMap(0, &options)
@@ -252,7 +254,7 @@ func build(ctx *js.Context, Como js.Value) {
 					MinifyIdentifiers: options.Minify,
 					Splitting:         options.Splitting,
 					External:          options.External,
-					Platform:          api.PlatformBrowser,
+					Platform:          options.Platform,
 					Format:            options.Format,
 					Target:            options.Target,
 					Loader:            options.Loader,

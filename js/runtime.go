@@ -20,7 +20,6 @@ type JSRunTime struct {
 
 func NewRuntime() *JSRunTime {
 	rt := C.JS_NewRuntime()
-	C.JS_SetCanBlock(rt, 1)
 
 	runtime := &JSRunTime{
 		rt:              rt,
@@ -147,4 +146,40 @@ func (runtime *JSRunTime) NewContext() *Context {
 	SetContextOpaque(ctx, context)
 	initError(context)
 	return context
+}
+
+// SetMemoryLimit sets the maximum memory usage limit
+func (runtime *JSRunTime) SetMemoryLimit(limit int64) {
+	C.JS_SetMemoryLimit(runtime.rt, C.size_t(limit))
+}
+
+// SetGCThreshold sets the garbage collection threshold
+func (runtime *JSRunTime) SetGCThreshold(threshold int64) {
+	C.JS_SetGCThreshold(runtime.rt, C.size_t(threshold))
+}
+
+// SetMaxStackSize sets the maximum stack size
+func (runtime *JSRunTime) SetMaxStackSize(size int64) {
+	C.JS_SetMaxStackSize(runtime.rt, C.size_t(size))
+}
+
+// SetRuntimeInfo sets the runtime identification string
+func (runtime *JSRunTime) SetRuntimeInfo(info string) {
+	C.JS_SetRuntimeInfo(runtime.rt, C.CString(info))
+}
+
+// SetStripInfo sets debug stripping flags
+func (runtime *JSRunTime) SetStripInfo(flags int) {
+	C.JS_SetStripInfo(runtime.rt, C.int(flags))
+}
+
+// SetCanBlock sets whether blocking operations are allowed
+func (runtime *JSRunTime) SetCanBlock(canBlock bool) {
+	var block C.int
+	if canBlock {
+		block = 1
+	} else {
+		block = 0
+	}
+	C.JS_SetCanBlock(runtime.rt, block)
 }

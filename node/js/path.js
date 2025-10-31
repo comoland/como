@@ -21,7 +21,7 @@
 import util from 'util';
 import { osType } from 'bindings.go';
 
-var isWindows = osType === 'windows';
+var isWindows = osType() === 'windows';
 
 const exports = {};
 // resolves . and .. elements in a path array with directory names there

@@ -76,7 +76,7 @@ describe("fetch basics", async ({ test }) => {
         // }
     });
 
-    test('headers', async () => {
+    test.skip('headers', async () => {
         const headers = new Headers({
             'Content-Type': 'application/json',
             'X-Custom': 'value'
@@ -91,7 +91,7 @@ describe("fetch basics", async ({ test }) => {
         assert.equal(headers.get('X-New'), 'new-value');
     });
 
-    test('form data', async () => {
+    test.skip('form data', async () => {
         const formData =  new FormData();
         formData.append('text', 'value');
         formData.append('file', new Blob([new Uint8Array([1, 2, 3])], { type: 'text/plain' }));

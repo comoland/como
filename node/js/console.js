@@ -419,6 +419,7 @@ function formatValue(ctx, value, recurseTimes) {
         isFunction(value.inspect) &&
         // Also filter out any prototype objects using the circular check.
         !(value.constructor && value.constructor.prototype === value)
+        && !isObject(value)
     ) {
         var ret = value.inspect(recurseTimes, ctx);
         if (!isString(ret)) {

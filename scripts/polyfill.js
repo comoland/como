@@ -1,26 +1,61 @@
 import fs from 'fs'
+import esbuild from 'como/build';
 
-const ret = await Como.build.bundle('', {
+const ret = await esbuild.build({
+    // entryPoints: ["readable-stream"],
     stdin: {
         resolveDir: '.',
         contents: `
-            import 'fastestsmallesttextencoderdecoder-encodeinto';
-            import { test, suite } from 'uvu';
-            import * as assert from 'uvu/assert';
-
-            globalThis.Como.suite = suite;
-            globalThis.Como.test = test;
-            globalThis.Como.assert = assert;
+            const x = require('readable-stream');
+            export * from 'readable-stream'
+            export default x;
+            export const Transform = x.Transform;
+            export const Stream = x.Stream;
+            export const Readable = x.Readable;
+            export const Duplex = x.Duplex;
+            export const Writable = x.Writable;
+            export const PassThrough = x.PassThrough;
         `
     },
-    target: Como.build.target.ESNext,
+    target: esbuild.target.ESNext,
+    // format: esbuild.format.commonjs,
+    // platform: esbuild.platform.node,
     bundle: true,
     minify: false,
-    minifyWhitespace: true,
+    external: [
+        'process',
+        'assert',
+        'buffer',
+        'child_process',
+        'cluster',
+        'crypto',
+        'dgram',
+        'dns',
+        'domain',
+        'events',
+        'fs',
+        'http',
+        'https',
+        'net',
+        'os',
+        'path',
+        'punycode',
+        'querystring',
+        'readline',
+        'stream',
+        'string_decoder',
+        'tls',
+        'tty',
+        'url',
+        'util',
+        'v8',
+        'vm',
+        'zlib'
+    ],
     plugins: []
 });
 
-const polyfillFile = Como.path.resolve('./core/js', 'polyfills.js');
+const polyfillFile = Como.path.resolve('./node/js', 'stream.js');
 
 const code = `
 globalThis.global = globalThis;

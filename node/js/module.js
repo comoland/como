@@ -1,5 +1,6 @@
 import path from 'path';
 import process from 'process';
+import { op_load_mjs_module } from 'module.go';
 
 // import fs from 'fs';
 const fs = Como;
@@ -417,9 +418,15 @@ class ModuleLoader {
     // Load file based on extension
     _loadFile(filepath, module) {
         let ext = path.extname(filepath) || '.js';
-        if (filepath && filepath.endsWith('es6.js')) {
+
+        // For internal modules force _loadMJS loader to use builtin import
+        if (this._isCoreModule(filepath)) {
+            ext = '.mjs';
+            // this._loadMJS(resolvedPath, module)
+        } else if (filepath && filepath.endsWith('.es6.js')) {
             ext = '.es6.js';
         }
+
         const loader = this.extensions[ext];
 
         if (!loader) {
@@ -477,37 +484,7 @@ class ModuleLoader {
 
     // ESM module loader
     _loadMJS(filepath, module) {
-        // In a full implementation, this would use dynamic import()
-        // For now, we'll read and parse as CommonJS with ESM syntax detection
-        const content = fs.readFileSync(filepath, 'utf8');
-
-        let ret = null;
-        let error = null;
-        process.suspense(unsuspense => {
-            import(filepath)
-                .then(ret => {
-                    module.exports = ret;
-                })
-                .catch(e => {
-                    error = e;
-                })
-                .finally(() => {
-                    unsuspense();
-                });
-        });
-
-        if (error) {
-            throw new Error(error);
-        }
-
-        // Add this module to parent's children if parent exists
-        // if (module.parent) {
-        //     module.parent.children.push(module);
-        // }
-
-        // Basic ESM to CJS transformation (simplified)
-        //  const transformedContent = this._transformESMtoCJS(content);
-        //   this._compileJS(ret, filepath, module);
+        module.exports = op_load_mjs_module(filepath);
     }
 
     // CommonJS module loader (explicit)
@@ -564,6 +541,7 @@ class ModuleLoader {
         // Simplified core module detection
         // In a real implementation, this would check against Node's actual core modules
         const coreModules = [
+            'process',
             'assert',
             'buffer',
             'child_process',

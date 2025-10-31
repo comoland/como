@@ -2,7 +2,7 @@ import { colors, expect, assert, sleep, timeThis, promiso } from '../test/mod';
 export { sleep, assert, expect, timeThis, promiso }
 /* eslint-disable no-console */
 
-type TestFunction = (ctx: { expect: typeof expect; assert: typeof assert }) => Promise<any> | any;
+type TestFunction = (ctx: { expect: typeof expect; assert: typeof assert, done: () => void }) => Promise<any> | any;
 export const test = (name: string, fn: TestFunction, options?: { timeout?: number }) => {
     describe("X", async ({ test }) => {
         test(name, fn, options)
@@ -267,15 +267,38 @@ export async function describe(
         const binds = this || {};
         const fnCopy = testFn;
         const fn = async (ctx: any) => {
-            if ((fnCopy as any).then) {
-                return fnCopy(ctx);
-            } else {
-                try {
-                    return fnCopy(ctx);
-                } catch (e) {
-                    throw e;
-                }
+            const p = promiso();
+            let promise = Promise.resolve();
+
+            const done = () => {
+                p.resolve()
             }
+
+            ctx.done = done;
+            const proxiedObject = new Proxy(ctx, {
+                get: function(target: any, prop: any, receiver: any) {
+                    if (prop === 'done') {
+                        promise= p.promise;
+                    }
+                    return Reflect.get(target, prop, receiver);
+                }
+            });
+
+            return new Promise(async (resolve, reject) => {
+                const t = setTimeout(() => {
+                    reject(new Error('timedout'));
+                }, options?.timeout ?? 5000);
+
+                try {
+                    await fnCopy(proxiedObject);
+                    await promise;
+                    resolve(null)
+                } catch (e) {
+                    reject(e);
+                } finally {
+                    clearTimeout(t)
+                }
+            });
         };
 
         tests.push({ name, fn, id: _id++, status: 'pending', duration: 0, startTime: 0, suiteName, ...binds });
