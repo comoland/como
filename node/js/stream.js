@@ -392,7 +392,6 @@ var require_errors_browser = __commonJS({
       var NodeError = /* @__PURE__ */ (function(_Base) {
         _inheritsLoose(NodeError2, _Base);
         function NodeError2(arg1, arg2, arg3) {
-          console.log({ arg1, arg2, arg3 })
           return new Error(getMessage(arg1, arg2, arg3)) || this;
         }
         return NodeError2;

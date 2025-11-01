@@ -892,9 +892,6 @@ func (ctx *Context) Go(callback func() func()) {
 // runPendingJobs run async pending jobs
 func (ctx *Context) runPendingJobs() uint64 {
 	C.como_js_loop(ctx.c)
-	// fmt.Println("x ----", x)
-	// C.js_std_loop(ctx.c)
-
 	return ctx.refs
 }
 
@@ -971,9 +968,6 @@ func (ctx *Context) LoopOnce() uint64 {
 		switch val := pending.(type) {
 		case func():
 			val()
-		case *RPC:
-			ret := val.fn.Call(val.args)
-			val.in <- ret
 		}
 
 		refs = ctx.runPendingJobs()
@@ -991,32 +985,20 @@ func (ctx *Context) Await(v Value) Value {
 		// Not a promise, return as-is
 		return v
 	}
-	wait := C.js_std_await(ctx.c, v.c)
-	return ctx.Value(wait)
-}
-
-func (ctx *Context) Fulfill(v Value) Value {
-	if !v.IsPromise() {
-		panic("not a promise")
-		// Not a promise, return as-is
-		return v
-	}
-
-	// return ctx.Await(v)
 
 	var ret C.JSValue
 	for {
 		state := C.JS_PromiseState(ctx.c, v.c)
 		if state == C.JS_PROMISE_FULFILLED {
 			ret = C.JS_PromiseResult(ctx.c, v.c)
-			C.JS_FreeValue(ctx.c, v.c)
+			break
+		} else if state == C.JS_PROMISE_REJECTED {
+			ret = C.JS_PromiseResult(ctx.c, v.c)
 			break
 		} else if state == C.JS_PROMISE_PENDING {
-			n := ctx.runPendingJobs()
-			if n < 1 {
-				panic("error")
-			}
-			fmt.Println("pending ", n)
+			ctx.LoopOnce()
+		} else {
+			break
 		}
 	}
 

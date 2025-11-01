@@ -3,6 +3,7 @@ package node
 import (
 	"embed"
 	_ "embed"
+	"io"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -15,38 +16,183 @@ import (
 func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
 	m := ctx.NewModule("fs.go")
 
-	// Basic file operations
+	// Basic file operations (file descriptor based)
 	m.Export("read", func(args js.Arguments) interface{} {
-		file, isString := args.Get(0).(string)
-		if !isString {
-			return ctx.Throw("TypeError: First argument to read must be a string")
+		fd, isInt := args.Get(0).(int64)
+		if !isInt {
+			return ctx.Throw("TypeError: First argument to read must be a file descriptor (number)")
 		}
+
+		// Get buffer argument
+		if args.Len() < 2 {
+			return ctx.Throw("TypeError: Second argument to read must be a Buffer")
+		}
+
+		bufferValue := args.GetValue(1)
+
+		// Get buffer data
+		bufferData, err := args.GetTypedArray(1)
+		if err != nil {
+			return ctx.Throw("TypeError: Second argument to read must be a Buffer: " + err.Error())
+		}
+
+		// Get optional arguments: offset, length, position
+		offset := 0
+		length := len(bufferData)
+		position := int64(-1) // -1 means current position
+
+		if args.Len() > 2 {
+			if o, ok := args.Get(2).(int64); ok {
+				offset = int(o)
+			}
+		}
+		if args.Len() > 3 {
+			if l, ok := args.Get(3).(int64); ok {
+				length = int(l)
+			}
+		}
+		if args.Len() > 4 {
+			if p, ok := args.Get(4).(int64); ok {
+				position = p
+			}
+		}
+
+		// Validate offset and length
+		if offset < 0 || offset >= len(bufferData) {
+			return ctx.Throw("RangeError: Offset out of bounds")
+		}
+		if length < 0 {
+			return ctx.Throw("RangeError: Length must be non-negative")
+		}
+		if offset+length > len(bufferData) {
+			length = len(bufferData) - offset
+		}
+
 		return ctx.Async(func(async js.Promise) {
-			body, err := os.ReadFile(file)
-			if err != nil {
-				async.Reject(err.Error())
+			// Convert fd to *os.File (don't close - caller manages fd lifecycle)
+			file := os.NewFile(uintptr(fd), "")
+			if file == nil {
+				async.Reject("EBADF: Bad file descriptor")
 				return
 			}
-			async.Resolve(body)
+
+			// Read into buffer slice
+			buf := make([]byte, length)
+			var n int
+			var readErr error
+
+			if position >= 0 {
+				// Read at specific position
+				n, readErr = file.ReadAt(buf, position)
+			} else {
+				// Read from current position
+				n, readErr = file.Read(buf)
+			}
+
+			if readErr != nil && readErr != io.EOF {
+				async.Reject(readErr.Error())
+				return
+			}
+
+			// Copy read data into the provided buffer at offset
+			copy(bufferData[offset:offset+n], buf[:n])
+
+			// Return result object: { bytesRead, buffer }
+			result := ctx.Object()
+			result.Set("bytesRead", n)
+			result.Set("buffer", bufferValue)
+
+			async.Resolve(func() interface{} {
+				return result
+			})
 		})
 	})
 
 	m.Export("write", func(args js.Arguments) interface{} {
-		file, isString := args.Get(0).(string)
-		if !isString {
-			return ctx.Throw("TypeError: First argument to write must be a string")
+		fd, isInt := args.Get(0).(int64)
+		if !isInt {
+			return ctx.Throw("TypeError: First argument to write must be a file descriptor (number)")
 		}
-		data, err := args.GetBuffer(1)
+
+		// Get buffer argument
+		if args.Len() < 2 {
+			return ctx.Throw("TypeError: Second argument to write must be a Buffer")
+		}
+
+		bufferValue := args.GetValue(1)
+
+		// Get buffer data
+		bufferData, err := args.GetTypedArray(1)
 		if err != nil {
-			return ctx.Throw(err.Error())
+			return ctx.Throw("TypeError: Second argument to write must be a Buffer: " + err.Error())
 		}
+
+		// Get optional arguments: offset, length, position
+		offset := 0
+		length := len(bufferData)
+		position := int64(-1) // -1 means current position
+
+		if args.Len() > 2 {
+			if o, ok := args.Get(2).(int64); ok {
+				offset = int(o)
+			}
+		}
+		if args.Len() > 3 {
+			if l, ok := args.Get(3).(int64); ok {
+				length = int(l)
+			}
+		}
+		if args.Len() > 4 {
+			if p, ok := args.Get(4).(int64); ok {
+				position = p
+			}
+		}
+
+		// Validate offset and length
+		if offset < 0 || offset >= len(bufferData) {
+			return ctx.Throw("RangeError: Offset out of bounds")
+		}
+		if length < 0 {
+			return ctx.Throw("RangeError: Length must be non-negative")
+		}
+		if offset+length > len(bufferData) {
+			length = len(bufferData) - offset
+		}
+
 		return ctx.Async(func(async js.Promise) {
-			err = os.WriteFile(file, data, 0644)
-			if err != nil {
-				async.Reject(err.Error())
+			// Convert fd to *os.File (don't close - caller manages fd lifecycle)
+			file := os.NewFile(uintptr(fd), "")
+			if file == nil {
+				async.Reject("EBADF: Bad file descriptor")
 				return
 			}
-			async.Resolve(nil)
+
+			// Get the slice to write
+			writeData := bufferData[offset : offset+length]
+			var n int
+			var writeErr error
+
+			if position >= 0 {
+				// Write at specific position
+				n, writeErr = file.WriteAt(writeData, position)
+			} else {
+				// Write at current position
+				n, writeErr = file.Write(writeData)
+			}
+
+			if writeErr != nil {
+				async.Reject(writeErr.Error())
+				return
+			}
+
+			// Return result object: { bytesWritten, buffer }
+			result := ctx.Object()
+			result.Set("bytesWritten", n)
+			result.Set("buffer", bufferValue)
+
+			async.Resolve(func() interface{} {
+				return result
+			})
 		})
 	})
 
@@ -55,7 +201,8 @@ func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
 		if !isString {
 			return ctx.Throw("TypeError: First argument to append must be a string")
 		}
-		data, err := args.GetBuffer(1)
+
+		data, err := args.GetSafeBuffer(1)
 		if err != nil {
 			return ctx.Throw(err.Error())
 		}
@@ -527,6 +674,8 @@ func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
 		if !isString {
 			return ctx.Throw("TypeError: First argument to writeFile must be a string")
 		}
+
+		a := args.GetValue(1).Dup()
 		data, err := args.GetBuffer(1)
 		if err != nil {
 			return ctx.Throw(err.Error())
@@ -540,7 +689,7 @@ func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
 			}
 		}
 
-		return ctx.Async(func(async js.Promise) {
+		prom := ctx.Async(func(async js.Promise) {
 			// Open file with appropriate flags
 			var flags int = os.O_WRONLY | os.O_CREATE | os.O_TRUNC
 			if opts != nil {
@@ -608,8 +757,15 @@ func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
 				}
 			}
 
-			async.Resolve(nil)
+			async.Resolve(data)
 		})
+
+		prom.Finally(func(args js.Arguments) interface{} {
+			a.Free()
+			return nil
+		})
+
+		return prom
 	})
 
 	m.Export("appendFile", func(args js.Arguments) interface{} {
@@ -617,7 +773,8 @@ func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
 		if !isString {
 			return ctx.Throw("TypeError: First argument to appendFile must be a string")
 		}
-		data, err := args.GetBuffer(1)
+
+		data, err := args.GetSafeBuffer(1)
 		if err != nil {
 			return ctx.Throw(err.Error())
 		}

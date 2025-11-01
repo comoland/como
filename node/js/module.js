@@ -492,34 +492,6 @@ class ModuleLoader {
         this._loadJS(filepath, module);
     }
 
-    // Transform ESM to CJS (simplified)
-    _transformESMtoCJS(content) {
-        // This is a very basic transformation - a real implementation would need a proper parser
-        return content
-            .replace(/import\s+(.+?)\s+from\s+['"`](.+?)['"`]/g, (match, imports, source) => {
-                if (imports.includes('{')) {
-                    // Named imports
-                    const named = imports.replace(/[{}]/g, '').trim();
-                    return `const { ${named} } = require('${source}');`;
-                } else if (imports.includes('*')) {
-                    // Namespace import
-                    const namespace = imports.replace(/\*\s+as\s+/, '').trim();
-                    return `const ${namespace} = require('${source}');`;
-                } else {
-                    // Default import
-                    return `const ${imports.trim()} = require('${source}');`;
-                }
-            })
-            .replace(/export\s+default\s+/g, 'module.exports = ')
-            .replace(/export\s+\{(.+?)\}/g, (match, exports) => {
-                const namedExports = exports.split(',').map(e => e.trim());
-                return namedExports.map(exp => `module.exports.${exp} = ${exp};`).join('\n');
-            })
-            .replace(/export\s+(const|let|var|function|class)\s+(\w+)/g, (match, type, name) => {
-                return `${type} ${name}`; // Keep declaration, add export later
-            });
-    }
-
     // Utility functions
     _fileExists(filepath) {
         try {

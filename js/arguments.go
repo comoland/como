@@ -111,6 +111,18 @@ func (args Arguments) GetBuffer(argIndex int) ([]byte, error) {
 	return nil, &Error{Cause: "not a buffer"}
 }
 
+func (args Arguments) GetSafeBuffer(argIndex int) ([]byte, error) {
+	buf, err := args.GetBuffer(argIndex)
+
+	if buf != nil {
+		s := make([]byte, len(buf))
+		copy(s, buf)
+		return s, err
+	}
+
+	return buf, err
+}
+
 // GetTypedArray gets a TypedArray (Uint8Array, etc.) respecting its view bounds
 // Unlike GetBuffer, this returns only the bytes the TypedArray view represents,
 // not the entire underlying ArrayBuffer

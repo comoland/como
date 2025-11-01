@@ -204,21 +204,17 @@ const makeSync = () => {
             _exports[key] = (...args) => {
                 let ret = null;
                 let error = null;
-                process.suspense(async unsuspense => {
+
+                const prom = new Promise(async (resolve, reject) => {
                     try {
                         ret = await value(...args);
-                    } catch (e) {
-                        error = e;
-                    } finally {
-                        unsuspense();
+                        resolve(ret)
+                    } catch (err) {
+                        reject(err)
                     }
-                });
+                })
 
-                if (error) {
-                    throw error;
-                }
-
-                return ret;
+                return globalThis.op_sync(prom);
             };
         }
     });

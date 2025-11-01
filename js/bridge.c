@@ -148,17 +148,16 @@ static JSContext *como_js_context(JSRuntime *rt)
 
 static int como_js_loop(JSContext *ctx)
 {
-    JSContext *ctx1;
     int err;
     for (;;)
     {
-        err = JS_ExecutePendingJob(JS_GetRuntime(ctx), &ctx1);
+        err = JS_ExecutePendingJob(JS_GetRuntime(ctx), NULL);
         if (err <= 0)
         {
             if (err < 0)
             {
                 printf("got an error report from c");
-                js_std_dump_error(ctx1);
+                js_std_dump_error(ctx);
             }
             break;
         }
