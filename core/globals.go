@@ -37,13 +37,8 @@ func initCoreModels(ctx *js.Context) {
 	// worker2(ctx, comoObj)
 
 	comoObj.Set("print", func(args js.Arguments) interface{} {
-		request, ok := args.Get(0).(string)
-		if !ok {
-			return ctx.Throw("path must be a string")
-		}
-
+		request := args.JsValueToString(0)
 		fmt.Print(request)
-
 		return nil
 	})
 

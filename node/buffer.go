@@ -406,7 +406,7 @@ func goBuffer(ctx *js.Context, _ js.Value) {
 		return buf
 	})
 
-	// asciiSlice / latin1Slice: map each byte to a one-byte string (Latin1)
+	// asciiSlice: mask high bit (0x7F) per Node.js spec - only 7-bit ASCII
 	asciiSlice := func(b []byte, start, end int) string {
 		if start < 0 {
 			start = 0
@@ -416,14 +416,16 @@ func goBuffer(ctx *js.Context, _ js.Value) {
 		}
 		buf := make([]rune, end-start)
 		for i := start; i < end; i++ {
-			buf[i-start] = rune(b[i])
+			buf[i-start] = rune(b[i] & 0x7F)
 		}
 		return string(buf)
 	}
+
 	mod.Export("asciiSlice", func(args js.Arguments) interface{} {
 		if args.Len() < 1 {
 			return ctx.Throw("asciiSlice requires (buffer [, start [, end]])")
 		}
+
 		b, err := args.GetBuffer(0)
 		if err != nil {
 			return ctx.Throw("asciiSlice: first arg must be a buffer")
@@ -436,7 +438,9 @@ func goBuffer(ctx *js.Context, _ js.Value) {
 		if v, ok := args.Get(2).(int64); ok {
 			end = int(v)
 		}
-		return asciiSlice(b, start, end)
+
+		str := asciiSlice(b, start, end)
+		return ctx.ByteToString([]byte(string(str)))
 	})
 
 	mod.Export("latin1Slice", func(args js.Arguments) interface{} {
@@ -466,7 +470,8 @@ func goBuffer(ctx *js.Context, _ js.Value) {
 		for i := start; i < end; i++ {
 			runes[i-start] = rune(b[i])
 		}
-		return string(runes)
+
+		return ctx.ByteToString([]byte(string(runes)))
 	})
 
 	// utf8Slice: decode bytes to UTF-8 string
@@ -492,7 +497,8 @@ func goBuffer(ctx *js.Context, _ js.Value) {
 		if end > len(b) {
 			end = len(b)
 		}
-		return string(b[start:end])
+
+		return ctx.ByteToString(b[start:end])
 	})
 
 	// base64Slice / base64urlSlice / hexSlice
@@ -585,8 +591,9 @@ func goBuffer(ctx *js.Context, _ js.Value) {
 			hi := uint16(b[i+1])
 			u16 = append(u16, lo|hi<<8)
 		}
+
 		runes := utf16.Decode(u16)
-		return string(runes)
+		return ctx.ByteToString([]byte(string(runes)))
 	})
 
 	// asciiWriteStatic, latin1WriteStatic, utf8WriteStatic: write string into buffer at offset
@@ -594,6 +601,7 @@ func goBuffer(ctx *js.Context, _ js.Value) {
 		if args.Len() < 2 {
 			return ctx.Throw("asciiWriteStatic requires (buffer, string [, offset])")
 		}
+
 		b, err := args.GetBuffer(0)
 		if err != nil {
 			return ctx.Throw("asciiWriteStatic: first arg must be a buffer")
@@ -609,12 +617,19 @@ func goBuffer(ctx *js.Context, _ js.Value) {
 		if offset < 0 || offset > len(b) {
 			return ctx.Throw("asciiWriteStatic: invalid offset")
 		}
-		n := 0
-		for i := offset; i < len(b) && n < len(s); i++ {
-			b[i] = byte(s[n])
-			n++
+
+		// Node.js ASCII encoding: iterate over runes, take low byte of code point, mask with 0x7F
+		written := 0
+		for _, r := range s {
+			if offset+written >= len(b) {
+				break
+			}
+			// Get Unicode code point's low byte and mask with 0x7F (7-bit ASCII)
+			// r & 0x7F gets low 7 bits (since 0x7F < 0xFF, this effectively gets low byte too)
+			b[offset+written] = byte(r & 0x7F)
+			written++
 		}
-		return int64(n)
+		return int64(written)
 	})
 
 	mod.Export("latin1WriteStatic", func(args js.Arguments) interface{} {

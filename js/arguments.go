@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"unsafe"
 
 	"github.com/mitchellh/mapstructure"
 )
@@ -80,6 +81,17 @@ func (args Arguments) Get(argIndex int) interface{} {
 
 	argv := args.argv[argIndex]
 	return args.Ctx.JsToGoValue(argv)
+}
+
+func (args Arguments) JsValueToString(argIndex int) string {
+	v := args.GetValue(argIndex)
+	var length C.size_t
+	cstr := C.JS_ToCStringLen(args.Ctx.c, &length, v.c)
+	if cstr == nil {
+		return ""
+	}
+	defer C.JS_FreeCString(args.Ctx.c, cstr)
+	return string(C.GoBytes(unsafe.Pointer(cstr), C.int(length)))
 }
 
 func (args Arguments) GetString(argIndex int) string {

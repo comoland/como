@@ -131,6 +131,23 @@ function formatPrimitiveNoColor(ctx, value) {
 }
 
 function formatError(value) {
+
+    const colors = require('como/colors').default;
+    const e = value;
+    let msg = (colors.red().bold((e.name ?? "Error")) +  (e.code ? " [" + e.code + "]" : "" ) +  ": " + (e.message ?? e)) + '\n'
+    if (e.stack) {
+        msg += (colors.magenta(e.stack)) + '\n'
+    }
+
+    if (typeof e === "object") {
+        const {__error_formatted, __handeled, message, ...rest} = e
+        const json = JSON.parse(JSON.stringify(rest, null, 4))
+        if (Object.keys(json).length) {
+            msg += inspect(JSON.parse(JSON.stringify(rest, null, 4))) + '\n'
+        }
+    }
+
+    return msg;
     return '[' + Error.prototype.toString.call(value) + ']' + '\n' + value.stack;
 }
 
@@ -332,13 +349,32 @@ function isSet(value) {
     }
 }
 
+function byteToHex(byteNumber) {
+    // Convert the number to a hexadecimal string
+    let hexString = byteNumber.toString(16);
+
+    // Pad with a leading zero if it's a single-digit hex value
+    if (hexString.length === 1) {
+      hexString = '0' + hexString;
+    }
+
+    return hexString;
+}
+
 function formatTypedArray(ctx, value, recurseTimes, visibleKeys, keys) {
-    var maxLength = Math.min(Math.max(0, ctx.maxArrayLength || 100), value.length);
+    const isValBuffer = isBuffer(value);
+
+    var maxLength = Math.min(Math.max(0, ctx.maxArrayLength || 50), value.length);
     var remaining = value.length - maxLength;
     var output = [];
 
     for (var i = 0; i < maxLength; ++i) {
-        output.push(ctx.stylize(String(value[i]), 'number'));
+        let val = value[i];
+        if (isValBuffer) {
+            val = byteToHex(val)
+        }
+
+        output.push(ctx.stylize(String(val), 'number'));
     }
 
     if (remaining > 0) {
@@ -543,6 +579,11 @@ function formatValue(ctx, value, recurseTimes) {
 
         var output = formatTypedArray(ctx, value, recurseTimes, visibleKeys, keys);
         ctx.seen.pop();
+
+        if (isBuffer(value)) {
+            return `<Buffer ${output.join(' ')}>`;
+        }
+
         return typedArrayName + '(' + value.length + ') [ ' + output.join(', ') + ' ]';
     }
 

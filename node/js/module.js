@@ -513,6 +513,7 @@ class ModuleLoader {
         // Simplified core module detection
         // In a real implementation, this would check against Node's actual core modules
         const coreModules = [
+            'como/colors',
             'process',
             'assert',
             'buffer',

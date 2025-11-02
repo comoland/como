@@ -1,5 +1,6 @@
 import { describe, assert } from './runner';
-import fs from 'fs';
+import fs from 'fs/promises';
+import path from 'path';
 
 describe('fs basic file operations', async ({ test }) => {
     test('readFile should read file content', async () => {
@@ -84,42 +85,48 @@ describe('fs basic file operations', async ({ test }) => {
         await fs.unlink(testFile);
     });
 
-    test.only('read should read file', async () => {
-        const testFile = '/tmp/test-read.txt';
+    test('read should read file', async () => {
         const testContent = 'Test read content';
-        console.log("fffffffffffffffffffffffffffffffffffff => 1")
-        await fs.writeFile(testFile, Buffer.from(testContent));
-        console.log("fffffffffffffffffffffffffffffffffffff => 2")
-        const data = await fs.read(testFile);
-        console.log("fffffffffffffffffffffffffffffffffffff => ", data)
-        assert.ok(Buffer.isBuffer(data) || data instanceof Uint8Array, 'read should return buffer-like');
-        const content = Buffer.from(data).toString();
+        const testFile = path.resolve(import.meta.dirname, 'fixtures/fs/test-read.txt');
+        const fh = await fs.open(testFile);
+        const data = await fh.read(Buffer.alloc(testContent.length));
+        // console.log(data)
+        assert.ok(Buffer.isBuffer(data.buffer) || data.buffer instanceof Uint8Array, 'read should return buffer-like');
+        const content = data.buffer.toString();
         assert.equal(content, testContent, 'read should read correct content');
-
-        await fs.unlink(testFile);
     });
 
     test('write should write file', async () => {
         const testFile = '/tmp/test-write.txt';
-        const testContent = 'Test write';
+        await fs.unlink(testFile).catch(() => {});
 
-        await fs.write(testFile, Buffer.from(testContent));
+        const testContent = 'Test write';
+        const fh = await fs.open(testFile, "wx+");
+        await fh.write(Buffer.from(testContent));
 
         const exists = await fs.exists(testFile);
         assert.ok(exists, 'write should create file');
+
+        const data = await fs.readFile(testFile);
+        const content = Buffer.from(data).toString();
+        assert.equal(content, testContent, 'append should append content');
 
         await fs.unlink(testFile);
     });
 
     test('append should append to file', async () => {
         const testFile = '/tmp/test-append.txt';
+        await fs.unlink(testFile).catch(() => {});
         const initialContent = 'Initial';
         const appendContent = 'Appended';
 
-        await fs.write(testFile, Buffer.from(initialContent));
-        await fs.append(testFile, Buffer.from(appendContent));
+        await fs.writeFile(testFile, "");
 
-        const data = await fs.read(testFile);
+        const fh = await fs.open(testFile, 'w+')
+        await fh.write(Buffer.from(initialContent));
+        await fh.write(Buffer.from(appendContent));
+
+        const data = await fs.readFile(testFile);
         const content = Buffer.from(data).toString();
         assert.equal(content, initialContent + appendContent, 'append should append content');
 
@@ -145,7 +152,7 @@ describe('fs directory operations', async ({ test }) => {
     test('mkdir should create nested directories', async () => {
         const testDir = '/tmp/test-mkdir-nested/subdir';
 
-        await fs.mkdir(testDir);
+        await fs.mkdir(testDir, { recursive: true });
 
         const exists = await fs.exists(testDir);
         assert.ok(exists, 'mkdir should create nested directories');
@@ -237,8 +244,6 @@ describe('fs file info operations', async ({ test }) => {
         assert.ok(stat, 'stat should return stats object');
         assert.equal(typeof stat.size, 'number', 'stat should have size');
         assert.equal(stat.size, testContent.length, 'stat size should match file size');
-        assert.equal(typeof stat.isDir, 'boolean', 'stat should have isDir');
-        assert.ok(!stat.isDir, 'stat isDir should be false for file');
         assert.ok(stat.isFile, 'stat should have isFile method');
         assert.ok(stat.isDirectory, 'stat should have isDirectory method');
         assert.ok(stat.isFile(), 'stat isFile() should return true for file');
@@ -254,8 +259,6 @@ describe('fs file info operations', async ({ test }) => {
 
         const stat = await fs.stat(testDir);
         assert.ok(stat, 'stat should return stats for directory');
-        assert.equal(typeof stat.isDir, 'boolean', 'stat should have isDir');
-        assert.ok(stat.isDir, 'stat isDir should be true for directory');
         assert.ok(stat.isDirectory(), 'stat isDirectory() should return true for directory');
         assert.ok(!stat.isFile(), 'stat isFile() should return false for directory');
 
@@ -265,6 +268,11 @@ describe('fs file info operations', async ({ test }) => {
     test('lstat should return stats without following symlinks', async () => {
         const testFile = '/tmp/test-lstat.txt';
         const testLink = '/tmp/test-lstat-link.txt';
+
+        try {
+            await fs.unlink(testFile);
+            await fs.unlink(testLink);
+        } catch {}
 
         await fs.writeFile(testFile, Buffer.from('test'));
         await fs.symlink(testFile, testLink);
@@ -279,6 +287,10 @@ describe('fs file info operations', async ({ test }) => {
 
     test('exists should check file existence', async () => {
         const testFile = '/tmp/test-exists.txt';
+
+        try {
+            await fs.unlink(testFile);
+        } catch {}
 
         const existsBefore = await fs.exists(testFile);
         assert.ok(!existsBefore, 'exists should return false for non-existent file');
@@ -357,6 +369,10 @@ describe('fs file permissions', async ({ test }) => {
     test('chmod should change file mode', async () => {
         const testFile = '/tmp/test-chmod.txt';
 
+        try {
+            await fs.unlink(testFile);
+        } catch {}
+
         await fs.writeFile(testFile, Buffer.from('test'));
 
         // Change to read-only (owner read)
@@ -375,6 +391,11 @@ describe('fs path operations', async ({ test }) => {
         const testFile = '/tmp/test-realpath.txt';
         const testLink = '/tmp/test-realpath-link.txt';
 
+        try {
+            await fs.unlink(testFile);
+            await fs.unlink(testLink);
+        } catch {}
+
         await fs.writeFile(testFile, Buffer.from('test'));
         await fs.symlink(testFile, testLink);
 
@@ -391,6 +412,11 @@ describe('fs symbolic links', async ({ test }) => {
     test('symlink should create symbolic link', async () => {
         const targetFile = '/tmp/test-symlink-target.txt';
         const linkFile = '/tmp/test-symlink-link.txt';
+
+        try {
+            await fs.unlink(linkFile);
+            await fs.unlink(targetFile);
+        } catch {}
 
         await fs.writeFile(targetFile, Buffer.from('target'));
 
@@ -409,6 +435,11 @@ describe('fs symbolic links', async ({ test }) => {
     test('readlink should read symbolic link target', async () => {
         const targetFile = '/tmp/test-readlink-target.txt';
         const linkFile = '/tmp/test-readlink-link.txt';
+
+        try {
+            await fs.unlink(linkFile);
+            await fs.unlink(targetFile);
+        } catch {}
 
         await fs.writeFile(targetFile, Buffer.from('test'));
         await fs.symlink(targetFile, linkFile);
@@ -470,19 +501,6 @@ describe('fs constants and flags', async ({ test }) => {
         assert.equal(typeof fs.constants.R_OK, 'number', 'R_OK should be number');
         assert.equal(typeof fs.constants.W_OK, 'number', 'W_OK should be number');
         assert.equal(typeof fs.constants.X_OK, 'number', 'X_OK should be number');
-    });
-
-    test('fs should export flags', () => {
-        assert.ok(fs.flags, 'fs should have flags');
-        assert.equal(typeof fs.flags.r, 'string', 'flags.r should be string');
-        assert.equal(typeof fs.flags.w, 'string', 'flags.w should be string');
-        assert.equal(typeof fs.flags.a, 'string', 'flags.a should be string');
-    });
-
-    test('fs should export modes', () => {
-        assert.ok(fs.modes, 'fs should have modes');
-        assert.equal(typeof fs.modes.S_IRUSR, 'number', 'S_IRUSR should be number');
-        assert.equal(typeof fs.modes.S_IWUSR, 'number', 'S_IWUSR should be number');
     });
 });
 

@@ -1043,6 +1043,13 @@ func (ctx *Context) Error(v interface{}) Value {
 	return err
 }
 
+func (ctx *Context) ByteToString(data []byte) Value {
+	ptr := (*C.char)(unsafe.Pointer(&data[0]))
+	length := C.size_t(len(data))
+
+	return ctx.Value(C.JS_NewStringLen(ctx.c, ptr, length))
+}
+
 func (ctx *Context) Throw(v interface{}) Value {
 	err := ctx.Value(C.JS_NewError(ctx.c))
 	stack := err.GetValue("stack")

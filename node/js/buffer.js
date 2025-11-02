@@ -600,7 +600,7 @@ function slowToString(encoding, start, end) {
 
             case 'utf8':
             case 'utf-8':
-                return utf8Slice__old(this, start, end);
+                return utf8Slice(this, start, end);
 
             case 'ascii':
                 return asciiSlice(this, start, end);

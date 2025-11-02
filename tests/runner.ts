@@ -80,23 +80,14 @@ function printTestResult(test: ITest) {
         const errorMessage = test.error.message || String(test.error);
         write(colors.red('    ' + errorMessage) + '\n');
 
-        const {details, message, ...rest} = (test.error ?? {}) as any;
+        const {message, ...rest} = (test.error ?? {}) as any;
+        const err = test.error as any;
+        const { details } = err;
+        delete err.details;
+        console.log(err);
         if (details) {
-            write(colors.gray('    Details: ' + JSON.stringify(details, null, 2)) + '\n');
+            console.log(details)
         }
-
-        const restKeys = Object.keys(rest);
-        if (restKeys.length > 0 && restKeys.some(k => k !== 'stack')) {
-            write(colors.gray('    ' + JSON.stringify(rest, null, 2)) + '\n');
-        }
-
-        if ((test.error as any).stack) {
-            const stackLines = (test.error as any).stack.split('\n').slice(1, 4);
-            stackLines.forEach((line: string) => {
-                write(colors.gray('      ' + line.trim()) + '\n');
-            });
-        }
-        write('\n');
     }
 }
 
