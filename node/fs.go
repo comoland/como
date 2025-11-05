@@ -3,6 +3,7 @@ package node
 import (
 	"embed"
 	_ "embed"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -15,25 +16,25 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// FileHandleStore manages file descriptors with unique IDs
+// FileHandleStore manages file descriptors with unique string IDs
 type FileHandleStore struct {
-	handles sync.Map // map[int64]*os.File
+	handles sync.Map // map[string]*os.File
 	counter int64
 	mutex   sync.Mutex
 }
 
 var fileHandleStore = &FileHandleStore{}
 
-func (store *FileHandleStore) createHandle(file *os.File) int64 {
+func (store *FileHandleStore) createHandle(file *os.File) string {
 	store.mutex.Lock()
 	defer store.mutex.Unlock()
 	store.counter++
-	id := store.counter
+	id := fmt.Sprintf("fh_%d", store.counter)
 	store.handles.Store(id, file)
 	return id
 }
 
-func (store *FileHandleStore) getHandle(id int64) (*os.File, error) {
+func (store *FileHandleStore) getHandle(id string) (*os.File, error) {
 	val, ok := store.handles.Load(id)
 	if !ok {
 		return nil, os.ErrInvalid
@@ -45,7 +46,7 @@ func (store *FileHandleStore) getHandle(id int64) (*os.File, error) {
 	return file, nil
 }
 
-func (store *FileHandleStore) closeHandle(id int64) error {
+func (store *FileHandleStore) closeHandle(id string) error {
 	val, ok := store.handles.LoadAndDelete(id)
 	if !ok {
 		return os.ErrInvalid
@@ -55,6 +56,30 @@ func (store *FileHandleStore) closeHandle(id int64) error {
 		return os.ErrInvalid
 	}
 	return file.Close()
+}
+
+// getFileFromArg gets *os.File from either a string (handle ID) or int64 (raw fd)
+func getFileFromArg(ctx *js.Context, arg interface{}) (*os.File, error) {
+	// Check if it's a string (handle ID)
+	if idStr, ok := arg.(string); ok {
+		file, err := fileHandleStore.getHandle(idStr)
+		if err != nil {
+			return nil, fmt.Errorf("EBADF: Invalid FileHandle")
+		}
+		return file, nil
+	}
+
+	// Check if it's a number (raw file descriptor)
+	if fd, ok := arg.(int64); ok {
+		file := os.NewFile(uintptr(fd), "")
+		if file == nil {
+			return nil, fmt.Errorf("EBADF: Bad file descriptor")
+		}
+		return file, nil
+	}
+
+	// Invalid type
+	return nil, fmt.Errorf("TypeError: First argument must be file descriptor (number) or FileHandle ID (string)")
 }
 
 func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
@@ -106,22 +131,20 @@ func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
 		}
 	})
 
-	// Basic file operations (file descriptor based)
+	// Unified read operation (accepts file descriptor or FileHandle ID)
 	m.Export("read", func(args js.Arguments) interface{} {
-		fd, isInt := args.Get(0).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: First argument to read must be a file descriptor (number)")
+		if args.Len() < 2 {
+			return ctx.Throw("TypeError: read requires at least 2 arguments")
 		}
+
+		// First arg can be int64 (fd) or string (handle ID)
+		fdOrId := args.Get(0)
 
 		// Get buffer argument
-		if args.Len() < 2 {
-			return ctx.Throw("TypeError: Second argument to read must be a Buffer")
-		}
-
-		bufferValue := args.GetValue(1)
+		bufferValue := args.GetValue(1).Dup()
 
 		// Get buffer data
-		bufferData, err := args.GetTypedArray(1)
+		bufferData, err := args.GetBuffer(1)
 		if err != nil {
 			return ctx.Throw("TypeError: Second argument to read must be a Buffer: " + err.Error())
 		}
@@ -159,10 +182,10 @@ func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
 		}
 
 		return ctx.Async(func(async js.Promise) {
-			// Convert fd to *os.File (don't close - caller manages fd lifecycle)
-			file := os.NewFile(uintptr(fd), "")
-			if file == nil {
-				async.Reject("EBADF: Bad file descriptor")
+			// Get file from either fd or handle ID
+			file, err := getFileFromArg(ctx, fdOrId)
+			if err != nil {
+				async.Reject(err.Error())
 				return
 			}
 
@@ -187,32 +210,29 @@ func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
 			// Copy read data into the provided buffer at offset
 			copy(bufferData[offset:offset+n], buf[:n])
 
-			// Return result object: { bytesRead, buffer }
-			result := ctx.Object()
-			result.Set("bytesRead", n)
-			result.Set("buffer", bufferValue)
-
 			async.Resolve(func() interface{} {
-				return result
+				return map[string]interface{}{
+					"buffer":    bufferValue,
+					"bytesRead": n,
+				}
 			})
 		})
 	})
 
+	// Unified write operation (accepts file descriptor or FileHandle ID)
 	m.Export("write", func(args js.Arguments) interface{} {
-		fd, isInt := args.Get(0).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: First argument to write must be a file descriptor (number)")
+		if args.Len() < 2 {
+			return ctx.Throw("TypeError: write requires at least 2 arguments")
 		}
+
+		// First arg can be int64 (fd) or string (handle ID)
+		fdOrId := args.Get(0)
 
 		// Get buffer argument
-		if args.Len() < 2 {
-			return ctx.Throw("TypeError: Second argument to write must be a Buffer")
-		}
-
-		bufferValue := args.GetValue(1)
+		bufferValue := args.GetValue(1).Dup()
 
 		// Get buffer data
-		bufferData, err := args.GetTypedArray(1)
+		bufferData, err := args.GetBuffer(1)
 		if err != nil {
 			return ctx.Throw("TypeError: Second argument to write must be a Buffer: " + err.Error())
 		}
@@ -252,10 +272,10 @@ func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
 		}
 
 		return ctx.Async(func(async js.Promise) {
-			// Convert fd to *os.File (don't close - caller manages fd lifecycle)
-			file := os.NewFile(uintptr(fd), "")
-			if file == nil {
-				async.Reject("EBADF: Bad file descriptor")
+			// Get file from either fd or handle ID
+			file, err := getFileFromArg(ctx, fdOrId)
+			if err != nil {
+				async.Reject(err.Error())
 				return
 			}
 
@@ -277,13 +297,11 @@ func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
 				return
 			}
 
-			// Return result object: { bytesWritten, buffer }
-			result := ctx.Object()
-			result.Set("bytesWritten", n)
-			result.Set("buffer", bufferValue)
-
 			async.Resolve(func() interface{} {
-				return result
+				return map[string]interface{}{
+					"buffer":       bufferValue,
+					"bytesWritten": n,
+				}
 			})
 		})
 	})
@@ -989,16 +1007,16 @@ func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
 		return wobj
 	})
 
-	// File descriptor operations (missing)
+	// Unified file descriptor operations (accept file descriptor or FileHandle ID)
 	m.Export("fstat", func(args js.Arguments) interface{} {
-		fd, isInt := args.Get(0).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: First argument to fstat must be a file descriptor (number)")
+		if args.Len() < 1 {
+			return ctx.Throw("TypeError: fstat requires at least 1 argument")
 		}
+		fdOrId := args.Get(0)
 		return ctx.Async(func(async js.Promise) {
-			file := os.NewFile(uintptr(fd), "")
-			if file == nil {
-				async.Reject("EBADF: Bad file descriptor")
+			file, err := getFileFromArg(ctx, fdOrId)
+			if err != nil {
+				async.Reject(err.Error())
 				return
 			}
 			info, err := file.Stat()
@@ -1016,21 +1034,21 @@ func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
 	})
 
 	m.Export("fchmod", func(args js.Arguments) interface{} {
-		fd, isInt := args.Get(0).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: First argument to fchmod must be a file descriptor (number)")
+		if args.Len() < 2 {
+			return ctx.Throw("TypeError: fchmod requires at least 2 arguments")
 		}
+		fdOrId := args.Get(0)
 		mode, isInt := args.Get(1).(int64)
 		if !isInt {
 			return ctx.Throw("TypeError: Second argument to fchmod must be a number")
 		}
 		return ctx.Async(func(async js.Promise) {
-			file := os.NewFile(uintptr(fd), "")
-			if file == nil {
-				async.Reject("EBADF: Bad file descriptor")
+			file, err := getFileFromArg(ctx, fdOrId)
+			if err != nil {
+				async.Reject(err.Error())
 				return
 			}
-			err := file.Chmod(os.FileMode(mode))
+			err = file.Chmod(os.FileMode(mode))
 			if err != nil {
 				async.Reject(err.Error())
 				return
@@ -1040,10 +1058,10 @@ func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
 	})
 
 	m.Export("fchown", func(args js.Arguments) interface{} {
-		fd, isInt := args.Get(0).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: First argument to fchown must be a file descriptor (number)")
+		if args.Len() < 3 {
+			return ctx.Throw("TypeError: fchown requires at least 3 arguments")
 		}
+		fdOrId := args.Get(0)
 		uid, isInt := args.Get(1).(int64)
 		if !isInt {
 			return ctx.Throw("TypeError: Second argument to fchown must be a number")
@@ -1053,12 +1071,12 @@ func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
 			return ctx.Throw("TypeError: Third argument to fchown must be a number")
 		}
 		return ctx.Async(func(async js.Promise) {
-			file := os.NewFile(uintptr(fd), "")
-			if file == nil {
-				async.Reject("EBADF: Bad file descriptor")
+			file, err := getFileFromArg(ctx, fdOrId)
+			if err != nil {
+				async.Reject(err.Error())
 				return
 			}
-			err := file.Chown(int(uid), int(gid))
+			err = file.Chown(int(uid), int(gid))
 			if err != nil {
 				async.Reject(err.Error())
 				return
@@ -1068,10 +1086,10 @@ func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
 	})
 
 	m.Export("futimes", func(args js.Arguments) interface{} {
-		fd, isInt := args.Get(0).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: First argument to futimes must be a file descriptor (number)")
+		if args.Len() < 3 {
+			return ctx.Throw("TypeError: futimes requires at least 3 arguments")
 		}
+		fdOrId := args.Get(0)
 		atime, isInt := args.Get(1).(int64)
 		if !isInt {
 			return ctx.Throw("TypeError: Second argument to futimes must be a number")
@@ -1081,7 +1099,14 @@ func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
 			return ctx.Throw("TypeError: Third argument to futimes must be a number")
 		}
 		return ctx.Async(func(async js.Promise) {
-			// futimes needs syscall for file descriptor
+			// Get file from either fd or handle ID
+			file, err := getFileFromArg(ctx, fdOrId)
+			if err != nil {
+				async.Reject(err.Error())
+				return
+			}
+			// futimes needs actual fd for syscall
+			fd := int(file.Fd())
 			atimeVal := syscall.Timeval{
 				Sec:  atime,
 				Usec: 0,
@@ -1090,7 +1115,7 @@ func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
 				Sec:  mtime,
 				Usec: 0,
 			}
-			err := syscall.Futimes(int(fd), []syscall.Timeval{atimeVal, mtimeVal})
+			err = syscall.Futimes(fd, []syscall.Timeval{atimeVal, mtimeVal})
 			if err != nil {
 				async.Reject(err.Error())
 				return
@@ -1100,21 +1125,21 @@ func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
 	})
 
 	m.Export("ftruncate", func(args js.Arguments) interface{} {
-		fd, isInt := args.Get(0).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: First argument to ftruncate must be a file descriptor (number)")
+		if args.Len() < 2 {
+			return ctx.Throw("TypeError: ftruncate requires at least 2 arguments")
 		}
+		fdOrId := args.Get(0)
 		size, isInt := args.Get(1).(int64)
 		if !isInt {
 			return ctx.Throw("TypeError: Second argument to ftruncate must be a number")
 		}
 		return ctx.Async(func(async js.Promise) {
-			file := os.NewFile(uintptr(fd), "")
-			if file == nil {
-				async.Reject("EBADF: Bad file descriptor")
+			file, err := getFileFromArg(ctx, fdOrId)
+			if err != nil {
+				async.Reject(err.Error())
 				return
 			}
-			err := file.Truncate(size)
+			err = file.Truncate(size)
 			if err != nil {
 				async.Reject(err.Error())
 				return
@@ -1124,17 +1149,17 @@ func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
 	})
 
 	m.Export("fsync", func(args js.Arguments) interface{} {
-		fd, isInt := args.Get(0).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: First argument to fsync must be a file descriptor (number)")
+		if args.Len() < 1 {
+			return ctx.Throw("TypeError: fsync requires at least 1 argument")
 		}
+		fdOrId := args.Get(0)
 		return ctx.Async(func(async js.Promise) {
-			file := os.NewFile(uintptr(fd), "")
-			if file == nil {
-				async.Reject("EBADF: Bad file descriptor")
+			file, err := getFileFromArg(ctx, fdOrId)
+			if err != nil {
+				async.Reject(err.Error())
 				return
 			}
-			err := file.Sync()
+			err = file.Sync()
 			if err != nil {
 				async.Reject(err.Error())
 				return
@@ -1144,21 +1169,22 @@ func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
 	})
 
 	m.Export("fdatasync", func(args js.Arguments) interface{} {
-		fd, isInt := args.Get(0).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: First argument to fdatasync must be a file descriptor (number)")
+		if args.Len() < 1 {
+			return ctx.Throw("TypeError: fdatasync requires at least 1 argument")
 		}
+		fdOrId := args.Get(0)
 		return ctx.Async(func(async js.Promise) {
+			file, err := getFileFromArg(ctx, fdOrId)
+			if err != nil {
+				async.Reject(err.Error())
+				return
+			}
 			// On Linux, fdatasync is available via syscall
 			// On other platforms, fall back to fsync
-			err := syscall.Fdatasync(int(fd))
+			fd := int(file.Fd())
+			err = syscall.Fdatasync(fd)
 			if err != nil {
 				// Fallback to fsync if fdatasync not available
-				file := os.NewFile(uintptr(fd), "")
-				if file == nil {
-					async.Reject("EBADF: Bad file descriptor")
-					return
-				}
 				err = file.Sync()
 				if err != nil {
 					async.Reject(err.Error())
@@ -1580,366 +1606,22 @@ func goFileSystem(ctx *js.Context, global js.Value, fs embed.FS) {
 			return ctx.Throw("EBADF: Bad file descriptor")
 		}
 		id := fileHandleStore.createHandle(file)
-		return id
+		return id // Returns string ID
 	})
 
 	m.Export("fileHandleClose", func(args js.Arguments) interface{} {
-		id, isInt := args.Get(0).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: First argument to fileHandleClose must be a number")
+		if args.Len() < 1 {
+			return ctx.Throw("TypeError: fileHandleClose requires at least 1 argument")
+		}
+		id, isString := args.Get(0).(string)
+		if !isString {
+			return ctx.Throw("TypeError: First argument to fileHandleClose must be a string (FileHandle ID)")
 		}
 		return ctx.Async(func(async js.Promise) {
 			err := fileHandleStore.closeHandle(id)
 			if err != nil {
 				async.Reject(err.Error())
 				return
-			}
-			async.Resolve(nil)
-		})
-	})
-
-	// FileHandle-based operations (take handle ID instead of fd)
-	m.Export("fileHandleRead", func(args js.Arguments) interface{} {
-		id, isInt := args.Get(0).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: First argument to fileHandleRead must be a FileHandle ID (number)")
-		}
-
-		if args.Len() < 2 {
-			return ctx.Throw("TypeError: Second argument to fileHandleRead must be a Buffer")
-		}
-
-		bufferValue := args.GetValue(1).Dup()
-		bufferData, err := args.GetBuffer(1)
-		if err != nil {
-			return ctx.Throw("TypeError: Second argument to fileHandleRead must be a Buffer: " + err.Error())
-		}
-
-		offset := 0
-		length := len(bufferData)
-		position := int64(-1)
-
-		if args.Len() > 2 {
-			if o, ok := args.Get(2).(int64); ok {
-				offset = int(o)
-			}
-		}
-
-		if args.Len() > 3 {
-			if l, ok := args.Get(3).(int64); ok {
-				length = int(l)
-			}
-		}
-
-		if args.Len() > 4 {
-			if p, ok := args.Get(4).(int64); ok {
-				position = p
-			}
-		}
-
-		if offset < 0 || offset >= len(bufferData) {
-			return ctx.Throw("RangeError: Offset out of bounds")
-		}
-
-		if length < 0 {
-			return ctx.Throw("RangeError: Length must be non-negative")
-		}
-
-		if offset+length > len(bufferData) {
-			length = len(bufferData) - offset
-		}
-
-		return ctx.Async(func(async js.Promise) {
-			file, err := fileHandleStore.getHandle(id)
-			if err != nil {
-				async.Reject("EBADF: Invalid FileHandle")
-				return
-			}
-
-			buf := make([]byte, length)
-			var n int
-			var readErr error
-
-			if position >= 0 {
-				n, readErr = file.ReadAt(buf, position)
-			} else {
-				n, readErr = file.Read(buf)
-			}
-
-			if readErr != nil && readErr != io.EOF {
-				async.Reject(readErr.Error())
-				return
-			}
-
-			copy(bufferData[offset:offset+n], buf)
-
-			async.Resolve(func() interface{} {
-				return map[string]interface{}{
-					"buffer":    bufferValue,
-					"bytesRead": n,
-				}
-			})
-		})
-	})
-
-	m.Export("fileHandleWrite", func(args js.Arguments) interface{} {
-		id, isInt := args.Get(0).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: First argument to fileHandleWrite must be a FileHandle ID (number)")
-		}
-
-		if args.Len() < 2 {
-			return ctx.Throw("TypeError: Second argument to fileHandleWrite must be a Buffer")
-		}
-
-		bufferValue := args.GetValue(1).Dup()
-		bufferData, err := args.GetTypedArray(1)
-		if err != nil {
-			return ctx.Throw("TypeError: Second argument to fileHandleWrite must be a Buffer: " + err.Error())
-		}
-
-		offset := 0
-		length := len(bufferData)
-		position := int64(-1)
-
-		if args.Len() > 2 {
-			if o, ok := args.Get(2).(int64); ok {
-				offset = int(o)
-			}
-		}
-		if args.Len() > 3 {
-			if l, ok := args.Get(3).(int64); ok {
-				length = int(l)
-			}
-		}
-		if args.Len() > 4 {
-			if p, ok := args.Get(4).(int64); ok {
-				position = p
-			}
-		}
-
-		if offset < 0 || offset >= len(bufferData) {
-			return ctx.Throw("RangeError: Offset out of bounds")
-		}
-
-		if length < 0 {
-			return ctx.Throw("RangeError: Length must be non-negative")
-		}
-
-		if offset+length > len(bufferData) {
-			length = len(bufferData) - offset
-		}
-
-		return ctx.Async(func(async js.Promise) {
-			file, err := fileHandleStore.getHandle(id)
-			if err != nil {
-				async.Reject("EBADF: Invalid FileHandle")
-				return
-			}
-
-			writeData := bufferData[offset : offset+length]
-			var n int
-			var writeErr error
-
-			if position >= 0 {
-				n, writeErr = file.WriteAt(writeData, position)
-			} else {
-				n, writeErr = file.Write(writeData)
-			}
-
-			if writeErr != nil {
-				async.Reject(writeErr.Error())
-				return
-			}
-
-			async.Resolve(func() interface{} {
-				return map[string]interface{}{
-					"buffer":       bufferValue,
-					"bytesWritten": n,
-				}
-			})
-		})
-	})
-
-	m.Export("fileHandleStat", func(args js.Arguments) interface{} {
-		id, isInt := args.Get(0).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: First argument to fileHandleStat must be a FileHandle ID (number)")
-		}
-		return ctx.Async(func(async js.Promise) {
-			file, err := fileHandleStore.getHandle(id)
-			if err != nil {
-				async.Reject("EBADF: Invalid FileHandle")
-				return
-			}
-			info, err := file.Stat()
-			if err != nil {
-				async.Reject(err.Error())
-				return
-			}
-			async.Resolve(map[string]interface{}{
-				"size":    info.Size(),
-				"mode":    info.Mode(),
-				"modTime": info.ModTime().UnixNano() / int64(time.Millisecond),
-				"isDir":   info.IsDir(),
-			})
-		})
-	})
-
-	m.Export("fileHandleChmod", func(args js.Arguments) interface{} {
-		id, isInt := args.Get(0).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: First argument to fileHandleChmod must be a FileHandle ID (number)")
-		}
-		mode, isInt := args.Get(1).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: Second argument to fileHandleChmod must be a number")
-		}
-		return ctx.Async(func(async js.Promise) {
-			file, err := fileHandleStore.getHandle(id)
-			if err != nil {
-				async.Reject("EBADF: Invalid FileHandle")
-				return
-			}
-			err = file.Chmod(os.FileMode(mode))
-			if err != nil {
-				async.Reject(err.Error())
-				return
-			}
-			async.Resolve(nil)
-		})
-	})
-
-	m.Export("fileHandleChown", func(args js.Arguments) interface{} {
-		id, isInt := args.Get(0).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: First argument to fileHandleChown must be a FileHandle ID (number)")
-		}
-		uid, isInt := args.Get(1).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: Second argument to fileHandleChown must be a number")
-		}
-		gid, isInt := args.Get(2).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: Third argument to fileHandleChown must be a number")
-		}
-		return ctx.Async(func(async js.Promise) {
-			file, err := fileHandleStore.getHandle(id)
-			if err != nil {
-				async.Reject("EBADF: Invalid FileHandle")
-				return
-			}
-			err = file.Chown(int(uid), int(gid))
-			if err != nil {
-				async.Reject(err.Error())
-				return
-			}
-			async.Resolve(nil)
-		})
-	})
-
-	m.Export("fileHandleTruncate", func(args js.Arguments) interface{} {
-		id, isInt := args.Get(0).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: First argument to fileHandleTruncate must be a FileHandle ID (number)")
-		}
-		size, isInt := args.Get(1).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: Second argument to fileHandleTruncate must be a number")
-		}
-		return ctx.Async(func(async js.Promise) {
-			file, err := fileHandleStore.getHandle(id)
-			if err != nil {
-				async.Reject("EBADF: Invalid FileHandle")
-				return
-			}
-			err = file.Truncate(size)
-			if err != nil {
-				async.Reject(err.Error())
-				return
-			}
-			async.Resolve(nil)
-		})
-	})
-
-	m.Export("fileHandleUtimes", func(args js.Arguments) interface{} {
-		id, isInt := args.Get(0).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: First argument to fileHandleUtimes must be a FileHandle ID (number)")
-		}
-		atime, isInt := args.Get(1).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: Second argument to fileHandleUtimes must be a number")
-		}
-		mtime, isInt := args.Get(2).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: Third argument to fileHandleUtimes must be a number")
-		}
-		return ctx.Async(func(async js.Promise) {
-			file, err := fileHandleStore.getHandle(id)
-			if err != nil {
-				async.Reject("EBADF: Invalid FileHandle")
-				return
-			}
-			// Get fd from file
-			fd := file.Fd()
-			atimeVal := syscall.Timeval{
-				Sec:  atime,
-				Usec: 0,
-			}
-			mtimeVal := syscall.Timeval{
-				Sec:  mtime,
-				Usec: 0,
-			}
-			err = syscall.Futimes(int(fd), []syscall.Timeval{atimeVal, mtimeVal})
-			if err != nil {
-				async.Reject(err.Error())
-				return
-			}
-			async.Resolve(nil)
-		})
-	})
-
-	m.Export("fileHandleSync", func(args js.Arguments) interface{} {
-		id, isInt := args.Get(0).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: First argument to fileHandleSync must be a FileHandle ID (number)")
-		}
-		return ctx.Async(func(async js.Promise) {
-			file, err := fileHandleStore.getHandle(id)
-			if err != nil {
-				async.Reject("EBADF: Invalid FileHandle")
-				return
-			}
-			err = file.Sync()
-			if err != nil {
-				async.Reject(err.Error())
-				return
-			}
-			async.Resolve(nil)
-		})
-	})
-
-	m.Export("fileHandleDatasync", func(args js.Arguments) interface{} {
-		id, isInt := args.Get(0).(int64)
-		if !isInt {
-			return ctx.Throw("TypeError: First argument to fileHandleDatasync must be a FileHandle ID (number)")
-		}
-		return ctx.Async(func(async js.Promise) {
-			file, err := fileHandleStore.getHandle(id)
-			if err != nil {
-				async.Reject("EBADF: Invalid FileHandle")
-				return
-			}
-			fd := file.Fd()
-			err = syscall.Fdatasync(int(fd))
-			if err != nil {
-				// Fallback to fsync
-				err = file.Sync()
-				if err != nil {
-					async.Reject(err.Error())
-					return
-				}
 			}
 			async.Resolve(nil)
 		})

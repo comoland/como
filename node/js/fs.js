@@ -537,13 +537,21 @@ _exports.open = async (...args) => {
 };
 
 // FileHandle class
+const fileHandleId = Symbol('filehandle.id');
+
 export class FileHandle {
     constructor(fd) {
         if (typeof fd !== 'number') {
             throw new TypeError('FileHandle: fd must be a number');
         }
+
         this.fd = fd;
-        this._id = binding.createFileHandle(fd);
+        this[fileHandleId] = binding.createFileHandle(fd);
+        Object.defineProperty(this, "fd", { configurable: false, writable: false });
+    }
+
+    get _id() {
+        return this[fileHandleId]
     }
 
     async read(buffer, offset, length, position) {
@@ -560,7 +568,8 @@ export class FileHandle {
             throw new TypeError('FileHandle.read: buffer must be a Buffer');
         }
 
-        const result = await binding.fileHandleRead(this._id, buffer, offset, length, position);
+        // Use unified read operation with string handle ID
+        const result = await binding.read(this._id, buffer, offset, length, position);
         return result;
     }
 
@@ -568,12 +577,14 @@ export class FileHandle {
         if (!Buffer.isBuffer(buffer)) {
             throw new TypeError('FileHandle.write: buffer must be a Buffer');
         }
-        const result = await binding.fileHandleWrite(this._id, buffer, offset, length, position);
+        // Use unified write operation with string handle ID
+        const result = await binding.write(this._id, buffer, offset, length, position);
         return result;
     }
 
     async stat() {
-        const st = await binding.fileHandleStat(this._id);
+        // Use unified fstat operation with string handle ID
+        const st = await binding.fstat(this._id);
         return {
             ...st,
             isFile: () => st.isDir === false,
@@ -585,42 +596,46 @@ export class FileHandle {
         if (typeof mode !== 'number') {
             throw new TypeError('FileHandle.chmod: mode must be a number');
         }
-        await binding.fileHandleChmod(this._id, mode);
+        // Use unified fchmod operation with string handle ID
+        await binding.fchmod(this._id, mode);
     }
 
     async chown(uid, gid) {
         if (typeof uid !== 'number' || typeof gid !== 'number') {
             throw new TypeError('FileHandle.chown: uid and gid must be numbers');
         }
-        await binding.fileHandleChown(this._id, uid, gid);
+        // Use unified fchown operation with string handle ID
+        await binding.fchown(this._id, uid, gid);
     }
 
     async truncate(len = 0) {
         if (typeof len !== 'number') {
             throw new TypeError('FileHandle.truncate: len must be a number');
         }
-        await binding.fileHandleTruncate(this._id, len);
+        // Use unified ftruncate operation with string handle ID
+        await binding.ftruncate(this._id, len);
     }
 
     async utimes(atime, mtime) {
         if (typeof atime !== 'number' || typeof mtime !== 'number') {
             throw new TypeError('FileHandle.utimes: atime and mtime must be numbers');
         }
-        await binding.fileHandleUtimes(this._id, atime, mtime);
+        // Use unified futimes operation with string handle ID
+        await binding.futimes(this._id, atime, mtime);
     }
 
     async sync() {
-        await binding.fileHandleSync(this._id);
+        // Use unified fsync operation with string handle ID
+        await binding.fsync(this._id);
     }
 
     async datasync() {
-        await binding.fileHandleDatasync(this._id);
+        // Use unified fdatasync operation with string handle ID
+        await binding.fdatasync(this._id);
     }
 
     async close() {
         await binding.fileHandleClose(this._id);
-        this._id = null;
-        this.fd = null;
     }
 }
 
