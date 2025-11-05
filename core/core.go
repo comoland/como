@@ -4,6 +4,7 @@ import (
 	"runtime"
 
 	"github.com/comoland/como/js"
+	"github.com/comoland/como/lib"
 	"github.com/comoland/como/node"
 )
 
@@ -14,6 +15,7 @@ func ComoContext() *js.Context {
 	ctx := rt.NewContext()
 	initCoreModels(ctx)
 	node.InitNode(ctx)
+	lib.Register(ctx)
 	return ctx
 }
 
