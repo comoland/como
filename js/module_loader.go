@@ -187,6 +187,25 @@ func stripPath(p string) (stripped, ext string) {
 	return stripped, ext
 }
 
+func transformPath(p string) (string, string) {
+	// 1. Remove the file extension
+	ext := filepath.Ext(p)
+	pathWithoutExt := s.TrimSuffix(p, ext)
+
+	// 2. Remove the "js/" part from the path
+	// Use filepath.Separator for cross-platform compatibility
+	dirToRemove := "js" + string(filepath.Separator)
+	finalPath := s.Replace(pathWithoutExt, dirToRemove, "", 1)
+	finalPath = filepath.Clean(finalPath)
+
+	finalPath = s.Replace(finalPath, "/", ":", 1)
+
+	// fmt.Println(finalPath)
+
+	// Clean the path to handle potential double separators or other anomalies
+	return finalPath, ext
+}
+
 func (ctx *Context) RegisterCoreModules(embededFs embed.FS, files map[string]string) {
 	lock.Lock()
 	defer lock.Unlock()
@@ -200,10 +219,23 @@ func (ctx *Context) RegisterCoreModules(embededFs embed.FS, files map[string]str
 			return nil
 		}
 
-		name, _ := stripPath(path)
+		name, _ := transformPath(path)
 		_, ok := ctx.CoreModules[name]
 		if ok {
 			panic(fmt.Sprintf("core module %s already registered at %s", name, path))
+		}
+
+		// also register bare node module name
+		if s.HasPrefix(name, "node:") {
+			nodeName := s.Replace(name, "node:", "", 1)
+			ctx.externals = append(ctx.externals, nodeName)
+			ctx.CoreModules[nodeName] = struct {
+				Path string
+				FS   *embed.FS
+			}{
+				Path: path,
+				FS:   &embededFs,
+			}
 		}
 
 		// append core module to externals

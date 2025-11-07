@@ -1,4 +1,4 @@
-import { Blob, File, createObjectURL, revokeObjectURL, blobFromObjectUrl } from 'blob';
+import { Blob, File, createObjectURL, revokeObjectURL, blobFromObjectUrl } from 'web:blob';
 import { describe, assert } from './runner';
 
 async function assertArrayBufferEquals(actual: ArrayBuffer, expected: Uint8Array, message: string) {

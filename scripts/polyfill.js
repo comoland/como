@@ -1,5 +1,6 @@
 import fs from 'fs'
-import esbuild from 'como/build';
+import esbuild from 'como:build';
+import { path } from 'como';
 
 const ret = await esbuild.build({
     // entryPoints: ["readable-stream"],
@@ -55,7 +56,7 @@ const ret = await esbuild.build({
     plugins: []
 });
 
-const polyfillFile = Como.path.resolve('./node/js', 'stream.js');
+const polyfillFile = path.resolve('./node/js', 'stream.js');
 
 const code = `
 globalThis.global = globalThis;

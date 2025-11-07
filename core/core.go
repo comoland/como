@@ -5,7 +5,6 @@ import (
 
 	"github.com/comoland/como/js"
 	"github.com/comoland/como/lib"
-	"github.com/comoland/como/node"
 )
 
 func ComoContext() *js.Context {
@@ -13,8 +12,6 @@ func ComoContext() *js.Context {
 	var rt = js.NewRuntime()
 	rt.SetCanBlock(true)
 	ctx := rt.NewContext()
-	initCoreModels(ctx)
-	node.InitNode(ctx)
 	lib.Register(ctx)
 	return ctx
 }
@@ -51,13 +48,4 @@ func ComoStr(filename string, codeStr string) (func(func()), *js.Context) {
 			ctx.Free()
 		}()
 	}, ctx
-}
-
-func ComoStr2(filename string, codeStr string) *js.Context {
-	ctx := ComoContext()
-	if len(filename) > 0 {
-		ctx.LoadModuleStr(filename, codeStr, 1)
-	}
-
-	return ctx
 }

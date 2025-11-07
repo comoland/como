@@ -1,4 +1,4 @@
-import * as esbuild from 'como/build';
+import * as esbuild from 'como:build';
 let i = 0
 const stressTestBundeler = async () => {
     const ret =  await esbuild.build({

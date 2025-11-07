@@ -118,7 +118,7 @@ function printFinalSummary() {
         process.exit(1);
     } else {
         write(colors.green('All tests passed!\n\n'));
-        process.exit(0);
+        clearInterval(tim)
     }
 }
 

@@ -1,17 +1,41 @@
-// const { Readable, Writable }  = require('stream')
+// cتonst { Readable, Writable }  = require('stream')
 import fs from 'fs/promises'
+import * as b from 'web:blob'
+import exec from 'std:exec';
+console.log(Request)
+
+const cmd = exec.command("echo", ["7777", "jjjj"])
+cmd.stdout()
+cmd.env()
+await cmd.run()
+console.log(cmd)
+// await exec.command("echo", ["7777", "jjjj"]).stdout().run()
+// import { Buffer } from 'buffer'
 // import * as ms from 'fs.go'
-// console.log(fs)
+console.log(parseInt('', 10));
 
-const fd = await fs.open('./testme.js', 90)
-console.log(fd)
+// const { Readable } = await import("stream");
+// const readableStream = Readable.from(["Hello", " ", "World", "!"]);
 
+const fd =  await fs.open('./xxxxxx.mjs', 'w+')
+// fd.xxx = function(){}
+// console.log(fd)
+const bb = Buffer.from("hello")
+
+// bb.fill("\x09")
+const c = await fd.write(bb)
+console.log(c.buffer)
+console.log(c.buffer instanceof Buffer)
+console.log(bb.toString("ascii").length)
+console.log(bb.toString("ascii"))
+// const b = await fd.read(Buffer.from("xxxx".repeat(1000)))
+// console.log(b.buffer.toString())
 // setInterval(() => {
 //     console.log("running")
 // }, 500)
 
-
-
+console.log(Buffer.from("م", "ascii").toString("utf8"))
+await fd.close()
 // console.time("BENCH")
 // for (let i = 0; i < 10000; i++) {
 //     // console.log("i ==========> ", i)

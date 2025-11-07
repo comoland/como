@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/comoland/como/js"
-	"github.com/comoland/como/node"
 )
 
 //go:embed main.js
@@ -102,7 +101,6 @@ func NewComoRuntimeWithOptions(options *RuntimeOptions) *ComoRuntime {
 
 	// Create context
 	ctx := rt.NewContext()
-	node.InitNode(ctx)
 
 	return &ComoRuntime{
 		rt:      rt,

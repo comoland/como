@@ -1,6 +1,6 @@
 import { describe, assert } from './runner';
 import path from 'path';
-import * as esbuild from 'como/build';
+import * as esbuild from 'como:build';
 
 describe("bundle basics", async ({ test }) => {
     test('bundle', async () => {
