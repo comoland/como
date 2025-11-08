@@ -75,17 +75,17 @@ return result;
 
 ## Files Modified
 
-1. **node/blob.go** (Total: 390 lines)
+1. **lib/web/blob.go** (Total: 390 lines)
    - Fixed `op_blob_create_part` to properly handle Uint8Array
    - Added length property extraction
    - Removed debug logging
 
-2. **node/js/blob.js** (Total: 398 lines)
+2. **lib/web/js/blob.js** (Total: 398 lines)
    - Fixed `BlobReference.read()` to convert ArrayBuffer to Uint8Array
    - Changed import from `Como.blob` to `import * as ops from 'blob.go'`
 
-3. **node/globals.go**
-   - Added `goBlob(ctx, global)` registration
+3. **lib/web/main.go**
+   - Added blob registration inside the Web entrypoint
 
 ## Key Learnings
 

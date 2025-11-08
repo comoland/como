@@ -10,14 +10,14 @@ This document describes the implementation of WHATWG URL and URLSearchParams API
 
 Similar to Blob implementation and following Deno's pattern:
 
-**Go Layer** (`node/url.go`):
+**Go Layer** (`lib/web/url.go`):
 - URL parsing and validation
 - Component extraction
 - URL normalization/serialization
 - Query string parsing and serialization
 - Percent encoding/decoding
 
-**JavaScript Layer** (`node/js/url.js`):
+**JavaScript Layer** (`lib/web/js/url.js`):
 - URL and URLSearchParams classes
 - Property getters/setters
 - Iterators (entries, keys, values)

@@ -18,20 +18,20 @@ Implemented standard Web API TextEncoder and TextDecoder classes to enable encod
 
 ### Two-Layer Design
 
-**Go Layer** (`node/textencoder.go`):
+**Go Layer** (`lib/web/textencoder.go`):
 - `op_encode(string, encoding)` - Encode string to bytes
 - `op_encode_into(string, buffer, encoding)` - Encode into buffer with stats
 - `op_decode(buffer, encoding, fatal, ignoreBOM)` - Decode with error handling
 - `op_get_encoding_length(string, encoding)` - Get byte length for encoding
 
-**JavaScript Layer** (`node/js/textencoder.js`):
+**JavaScript Layer** (`lib/web/js/textencoder.js`):
 - `TextEncoder` class - UTF-8 only per spec
 - `TextDecoder` class - UTF-8, UTF-16LE, UTF-16BE support
 - Web API compliance (encoding labels, fatal flag, ignoreBOM, etc.)
 
 ## Implementation Details
 
-### Go Layer (`node/textencoder.go`)
+### Go Layer (`lib/web/textencoder.go`)
 
 **Key Features**:
 - UTF-8 encoding using Go's native `[]byte(string)` (most efficient)
@@ -59,7 +59,7 @@ const (
 - Non-fatal mode replaces invalid sequences
 - Proper TypeError throwing for invalid inputs
 
-### JavaScript Layer (`node/js/textencoder.js`)
+### JavaScript Layer (`lib/web/js/textencoder.js`)
 
 **TextEncoder Class**:
 - UTF-8 only (per Web API specification)
@@ -81,15 +81,15 @@ const (
 ## Files Created/Modified
 
 ### New Files
-1. **`node/textencoder.go`** - Native encoding/decoding operations
-2. **`node/js/textencoder.js`** - JavaScript API classes
+1. **`lib/web/textencoder.go`** - Native encoding/decoding operations
+2. **`lib/web/js/textencoder.js`** - JavaScript API classes
 3. **`tests/textencoder.test.ts`** - Comprehensive test suite
 4. **`examples/textencoder-example.js`** - Usage examples
 
 ### Modified Files
-1. **`node/globals.go`** - Added `goTextEncoder(ctx, global)` registration
-2. **`node/js/main.js`** - Added TextEncoder/TextDecoder global exports
-3. **`node/js/web/text-encode.js`** - Removed (was empty placeholder)
+1. **`lib/web/main.go`** - Added text encoder registration
+2. **`lib/main.js`** - Added TextEncoder/TextDecoder global exports
+3. **`lib/web/js/text-encode.js`** - Removed (was empty placeholder)
 
 ## Test Results
 

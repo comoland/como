@@ -19,10 +19,16 @@ Como is a JavaScript runtime built on top of QuickJS, with a Go bridge for nativ
 ```
 como/
 ├── js/                    # QuickJS Go bridge (core engine)
-├── core/                  # Built-in modules (timers, fetch, crypto, etc.)
-│   └── js/               # JavaScript implementations for core modules
-├── node/                  # Node.js-like APIs (fs, buffer, etc.)
-│   └── js/               # JavaScript implementations for node modules
+├── lib/                   # Runtime modules grouped by domain
+│   ├── como/              # Shared Como-specific helpers and tooling
+│   │   └── js/            # JS shims for Como internals
+│   ├── core/              # Core runtime primitives (Go + JS layers)
+│   ├── node/              # Node.js-like APIs (fs, buffer, etc.)
+│   │   └── js/            # JavaScript layers & polyfills for node modules
+│   ├── std/               # Standard library style utilities (timers, exec, ...)
+│   │   └── js/
+│   └── web/               # Web platform APIs (fetch, blob, URL, ...)
+│       └── js/            # JavaScript layers for web modules
 ├── tests/                 # Test files (*.test.ts)
 ├── examples/              # Example usage files
 └── docs/implementation/   # AI-generated implementation docs
@@ -61,9 +67,9 @@ The `./js` folder contains the Go bridge to QuickJS C engine. Study these files 
 Most features use a **two-layer design**:
 
 1. **Go Layer** (`*.go` files) - Heavy lifting, performance-critical code, native bindings
-2. **JavaScript Layer** (`core/js/*.js` or `node/js/*.js`) - Class definitions, argument validation, developer API
+2. **JavaScript Layer** (`lib/core/js/*.js`, `lib/node/js/*.js`, or `lib/web/js/*.js`) - Class definitions, argument validation, developer API
 
-**Example**: Study `node/blob.go` + `node/js/blob.js` to see this pattern in action.
+**Example**: Study `lib/web/blob.go` + `lib/web/js/blob.js` to see this pattern in action.
 
 ### Go Layer (Native Bindings)
 
@@ -71,7 +77,7 @@ Most features use a **two-layer design**:
 
 **Pattern**:
 ```go
-func goModuleName(ctx *js.Context, global js.Value) {
+func goModuleName(ctx *js.Context) {
     mod := ctx.NewModule("module-name.go")
 
     mod.Export("op_something", func(args js.Arguments) interface{} {
@@ -86,10 +92,10 @@ func goModuleName(ctx *js.Context, global js.Value) {
 }
 ```
 
-**Register in** `core/core.go` or `node/globals.go`:
+**Register in** the appropriate module entry point (for example, `lib/web/main.go` or `lib/node/main.go`):
 ```go
-func InitNode(ctx *js.Context) {
-    goModuleName(ctx, global)
+func Register(ctx *js.Context) {
+    goModuleName(ctx)
 }
 ```
 
@@ -122,7 +128,7 @@ export { MyClass }
 
 ### Main Entry Point
 
-The file `node/js/main.js` is loaded first. It:
+The file `lib/main.js` is loaded first. It:
 - Imports and registers globals
 - Sets up polyfills
 - Initializes the runtime environment
@@ -294,10 +300,10 @@ Create a design document in `./docs/implementation/FEATURE_NAME.md` with:
 
 ### Step 2: Implement Go Layer
 
-1. Create `core/feature.go` or `node/feature.go`
+1. Create `lib/<domain>/feature.go` (e.g., `lib/web/feature.go` for web APIs or `lib/node/feature.go` for Node APIs)
 2. Define native operations with `ctx.NewModule("feature.go")`
 3. Export operations with `mod.Export("op_name", handler)`
-4. Register module in `core/core.go` or `node/globals.go`
+4. Register the module in the matching entry file such as `lib/web/main.go`, `lib/node/main.go`, or another domain-specific `Register` function
 
 **Example**:
 ```go
@@ -313,7 +319,7 @@ func goFeature(ctx *js.Context, global js.Value) {
 
 ### Step 3: Implement JavaScript Layer
 
-1. Create `core/js/feature.js` or `node/js/feature.js`
+1. Create `lib/<domain>/js/feature.js`
 2. Import native operations: `import * as ops from 'feature.go'`
 3. Create classes/functions with clean API
 4. Handle argument validation and error checking
@@ -321,7 +327,7 @@ func goFeature(ctx *js.Context, global js.Value) {
 
 ### Step 4: Add to Main Entry
 
-If global, add to `node/js/main.js`:
+If global, add to `lib/main.js`:
 ```javascript
 import { MyClass } from 'feature.js'
 globalThis.MyClass = MyClass
@@ -419,10 +425,13 @@ class MyClass {
 
 ### Import Types
 
-1. **Native modules**: `import * as mod from 'module.go'`
-2. **JavaScript modules**: `import { thing } from './path/to/file.js'`
-3. **Core modules**: `import { Buffer } from 'buffer'`
-4. **Node modules**: `import pkg from 'package-name'`
+1. **Native Go modules**: `import * as mod from 'module.go'`
+2. **Como JS modules**: `import { Blob } from 'web:blob'`
+   - Every file in `lib/<domain>/js/<feature>.js` is exposed as `'<domain>:<feature>'`
+   - Examples: `import colors from 'como:colors'`, `await import('std:timers')`, `await import('web:crypto')`
+   - Node domain keeps Node-style resolution, so both `'path'` and `'node:path'` work (same for other built-ins)
+3. **Relative modules**: `import { thing } from './path/to/file.js'`
+4. **Third-party modules**: `import pkg from 'package-name'`
 
 ### Module Registration
 
@@ -532,7 +541,7 @@ ctx.Async(func(async js.Promise) {
 
 ### Best Reference Implementations
 
-1. **Blob** (`node/blob.go` + `node/js/blob.js`)
+1. **Blob** (`lib/web/blob.go` + `lib/web/js/blob.js`)
    - Two-layer architecture
    - Store management (sync.Map)
    - Zero-copy optimization

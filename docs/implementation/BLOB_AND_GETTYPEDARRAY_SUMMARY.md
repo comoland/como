@@ -5,9 +5,9 @@
 ### 1. ✅ Full Blob API Implementation (W3C Compliant)
 
 **Files Created/Modified:**
-- `node/blob.go` (424 lines) - Complete Go backend with 7 native operations
-- `node/js/blob.js` (403 lines) - Web API-compliant JavaScript layer
-- `node/globals.go` - Registered blob module
+- `lib/web/blob.go` (424 lines) - Complete Go backend with 7 native operations
+- `lib/web/js/blob.js` (403 lines) - Web API-compliant JavaScript layer
+- `lib/web/main.go` - Registered blob module
 - `tests/blob.test.ts` (472 lines) - 25 comprehensive test suites
 - `examples/blob-example.js` (134 lines) - 12 working examples
 - Documentation files (3 files, 833 lines total)
@@ -28,7 +28,7 @@ Added `GetTypedArray()` method to `js/arguments.go` that correctly handles Typed
 
 **Files Modified:**
 - `js/arguments.go` - Added `GetTypedArray()` method (67 lines)
-- `node/blob.go` - Simplified to use `GetTypedArray()` (-15 lines of workaround code)
+- `lib/web/blob.go` - Simplified to use `GetTypedArray()` (-15 lines of workaround code)
 
 **Verification:**
 - ✅ All blob tests still passing
@@ -61,7 +61,7 @@ Added `GetTypedArray()` method to `js/arguments.go` that correctly handles Typed
 - `GetTypedArray()`: 1 use in blob.go (working perfectly)
 
 **Potential Issues Discovered:**
-- ❌ `node/buffer.go` line 811: Incorrect comment claiming GetBuffer handles views
+- ❌ `lib/node/buffer.go` line 811: Incorrect comment claiming GetBuffer handles views
 - ⚠️ 30 uses in buffer.go may have bugs with TypedArray views + byteOffset
 - ⚠️ 8 uses in crypto.go (security-critical) may be affected
 - ⚠️ 4 uses in fs.go (file writes) may write incorrect data

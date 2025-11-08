@@ -96,7 +96,7 @@ func (args Arguments) GetTypedArray(argIndex int) ([]byte, error) {
 }
 ```
 
-### File: `node/blob.go`
+### File: `lib/web/blob.go`
 
 Simplified from:
 ```go
@@ -173,7 +173,7 @@ Once all code using `GetBuffer()` has been audited:
 
 **Files Modified:**
 - `js/arguments.go`: Added `GetTypedArray()` method (+67 lines)
-- `node/blob.go`: Simplified `op_blob_create_part` (-15 lines, +3 lines)
+- `lib/web/blob.go`: Simplified `op_blob_create_part` (-15 lines, +3 lines)
 
 **Net Change:** +55 lines
 **Complexity Reduction:** Significant (removed manual property handling)

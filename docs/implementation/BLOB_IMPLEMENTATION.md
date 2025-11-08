@@ -8,13 +8,13 @@ This is a complete, production-ready implementation of the W3C File API specific
 
 ### Two-Tier Split Design
 
-**Go Layer** (`node/blob.go`):
+**Go Layer** (`lib/web/blob.go`):
 - Native storage and memory management
 - Thread-safe operations using `sync.Map`
 - Zero-copy slicing via `SlicedBlobPart`
 - 7 native operations exposed to JavaScript
 
-**JavaScript Layer** (`node/js/blob.js`):
+**JavaScript Layer** (`lib/web/js/blob.js`, import alias `web:blob`):
 - Web API-compliant interfaces
 - Type validation and normalization
 - Automatic garbage collection via `FinalizationRegistry`
@@ -36,7 +36,7 @@ This is a complete, production-ready implementation of the W3C File API specific
 ### Blob Class
 
 ```javascript
-import { Blob } from './node/js/blob.js';
+import { Blob } from 'web:blob';
 
 // Constructor
 const blob = new Blob(blobParts, options);
@@ -62,7 +62,7 @@ const blob = new Blob(blobParts, options);
 ### File Class
 
 ```javascript
-import { File } from './node/js/blob.js';
+import { File } from 'web:blob';
 
 // Constructor
 const file = new File(fileBits, fileName, options);
@@ -83,7 +83,7 @@ const file = new File(fileBits, fileName, options);
 ### URL Extensions
 
 ```javascript
-import { createObjectURL, revokeObjectURL, blobFromObjectUrl } from './node/js/blob.js';
+import { createObjectURL, revokeObjectURL, blobFromObjectUrl } from 'web:blob';
 
 // Create object URL
 const url = createObjectURL(blob);
@@ -101,7 +101,7 @@ revokeObjectURL(url);
 ### Basic Blob Creation
 
 ```javascript
-import { Blob } from './node/js/blob.js';
+import { Blob } from 'web:blob';
 
 // From string
 const blob1 = new Blob(['Hello World'], { type: 'text/plain' });
@@ -143,7 +143,7 @@ console.log(slice3.type); // "text/plain"
 ### File with Metadata
 
 ```javascript
-import { File } from './node/js/blob.js';
+import { File } from 'web:blob';
 
 const file = new File(
     ['File content'],
@@ -194,7 +194,7 @@ while (true) {
 
 ## Implementation Details
 
-### Go Backend (node/blob.go)
+### Go Backend (lib/web/blob.go)
 
 **Data Structures:**
 ```go
@@ -229,7 +229,7 @@ type SlicedBlobPart struct {
 6. `op_blob_revoke_object_url(url)` - Remove URL
 7. `op_blob_from_object_url(url) object` - Retrieve blob metadata
 
-### JavaScript Layer (node/js/blob.js)
+### JavaScript Layer (lib/web/js/blob.js, import alias `web:blob`)
 
 **Key Components:**
 - `BlobReference`: Internal wrapper for native blob parts with UUID tracking
@@ -329,12 +329,12 @@ Run the comprehensive test suite:
 
 ### Registering the Module
 
-The blob module is automatically registered in `node/globals.go`:
+The blob module is automatically registered in `lib/web/main.go`:
 
 ```go
-func InitNode(ctx *js.Context) {
-    // ... other modules ...
-    goBlob(ctx, global)
+func Register(ctx *js.Context) {
+    registerBlob(ctx)
+    // ... other web modules ...
 }
 ```
 
@@ -342,16 +342,16 @@ func InitNode(ctx *js.Context) {
 
 ```javascript
 // ES6 import
-import { Blob, File } from './node/js/blob.js';
+import { Blob, File } from 'web:blob';
 
 // Or CommonJS (if loader supports)
-const { Blob, File } = require('./node/js/blob.js');
+const { Blob, File } = require('web:blob');
 ```
 
 ## Troubleshooting
 
 **Issue:** "Blob operations not available"
-**Solution:** Ensure `goBlob()` is called in `InitNode()` before using blob API
+**Solution:** Ensure `registerBlob()` is invoked from `lib/web/main.go` before using the blob API
 
 **Issue:** Memory leak with large blobs
 **Solution:** Ensure blobs are dereferenced and GC is allowed to run. Use `revokeObjectURL()` for object URLs.

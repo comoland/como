@@ -10,14 +10,14 @@ A production-ready, W3C File API-compliant Blob system has been successfully imp
 
 ### Core Implementation Files
 
-1. **`node/blob.go`** (402 lines)
+1. **`lib/web/blob.go`** (402 lines)
    - Complete Go backend implementation
    - BlobStore with thread-safe storage
    - 7 native operations (create, slice, read, remove, create_url, revoke_url, from_url)
    - UUID v4 generator (no external dependencies)
    - Zero-copy SlicedBlobPart implementation
 
-2. **`node/js/blob.js`** (426 lines)
+2. **`lib/web/js/blob.js`** (426 lines, import alias `web:blob`)
    - Web API-compliant Blob class
    - File class with metadata (name, lastModified)
    - BlobReference internal class with GC integration
@@ -25,8 +25,8 @@ A production-ready, W3C File API-compliant Blob system has been successfully imp
    - Helper functions for type normalization and part processing
    - FinalizationRegistry for automatic cleanup
 
-3. **`node/globals.go`** (1 line added)
-   - Registered `goBlob()` module in InitNode
+3. **`lib/web/main.go`** (1 line added)
+   - Registered the blob module in the Web entrypoint
 
 ### Documentation & Examples
 
@@ -41,7 +41,7 @@ A production-ready, W3C File API-compliant Blob system has been successfully imp
    - Demonstrates all major features
    - Real-world scenarios
 
-6. **`node/BLOB_IMPLEMENTATION.md`** (380 lines)
+6. **`docs/implementation/BLOB_IMPLEMENTATION.md`** (380 lines)
    - Complete API reference
    - Architecture documentation
    - Performance characteristics
@@ -190,7 +190,7 @@ const text = await slice.text()
 
 ### Import and Create Blob
 ```javascript
-import { Blob, File } from './node/js/blob.js';
+import { Blob, File } from 'web:blob';
 
 const blob = new Blob(['Hello'], { type: 'text/plain' });
 console.log(await blob.text()); // "Hello"
@@ -249,8 +249,8 @@ type BlobStore struct {
 
 ## 🎓 Learning Resources
 
-- **Architecture**: See `node/blob.md` for original design plan
-- **API Reference**: See `node/BLOB_IMPLEMENTATION.md`
+- **Architecture**: See `docs/implementation/blob.md` for the original design plan
+- **API Reference**: See `docs/implementation/BLOB_IMPLEMENTATION.md`
 - **Examples**: See `examples/blob-example.js`
 - **Tests**: See `tests/blob.test.ts`
 
@@ -315,7 +315,7 @@ type BlobStore struct {
 
 The Blob API is now fully integrated into the Como runtime:
 
-1. ✅ Go module registered in `node/globals.go`
+1. ✅ Go module registered in `lib/web/main.go`
 2. ✅ JavaScript module ready for import
 3. ✅ Tests passing
 4. ✅ Examples working
@@ -327,8 +327,8 @@ The Blob API is now fully integrated into the Como runtime:
 
 ## 📞 Support
 
-- Read the implementation plan: `node/blob.md`
-- Check API docs: `node/BLOB_IMPLEMENTATION.md`
+- Read the implementation plan: `docs/implementation/blob.md`
+- Check API docs: `docs/implementation/BLOB_IMPLEMENTATION.md`
 - Run examples: `examples/blob-example.js`
 - Run tests: `tests/blob.test.ts`
 

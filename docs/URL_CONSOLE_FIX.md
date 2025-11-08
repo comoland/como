@@ -13,7 +13,7 @@ Added custom `inspect()` methods to both `URL` and `URLSearchParams` classes, an
 - Added constructor name preservation when custom inspect returns an object
 - Now properly shows class name prefix (e.g., `URL { ... }`)
 
-### 2. Added URL.inspect() Method (`node/js/url.js`)
+### 2. Added URL.inspect() Method (`lib/web/js/url.js`)
 Returns an object with all URL properties:
 ```javascript
 inspect() {
@@ -33,7 +33,7 @@ inspect() {
 }
 ```
 
-### 3. Added URLSearchParams.inspect() Method (`node/js/url.js`)
+### 3. Added URLSearchParams.inspect() Method (`lib/web/js/url.js`)
 Returns an object representing the query parameters:
 ```javascript
 inspect() {

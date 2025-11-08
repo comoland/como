@@ -18,48 +18,48 @@ Total `GetBuffer()` calls: **52 instances**
 
 | File | Count | Notes |
 |------|-------|-------|
-| `node/buffer.go` | 30 | Buffer operations - likely needs review |
-| `node/fs.go` | 4 | File system writes |
-| `core/crypto.go` | 8 | Cryptographic operations |
-| `core/http.go` | 3 | HTTP request/response bodies |
-| `core/wasi.go` | 2 | WASM standard I/O |
-| `node/blob.go` | 0 | ✅ Migrated to `GetTypedArray()` |
+| `lib/node/buffer.go` | 30 | Buffer operations - likely needs review |
+| `lib/node/fs.go` | 4 | File system writes |
+| `lib/web/crypto.go` | 8 | Cryptographic operations |
+| `lib/web/url.go` | 3 | URL parsing buffer management |
+| `lib/web/wasi.go` | 2 | WASM standard I/O |
+| `lib/web/blob.go` | 0 | ✅ Migrated to `GetTypedArray()` |
 
 ## Migration Status
 
 ### ✅ Completed
-- **node/blob.go**: Migrated to `GetTypedArray()` (1 use case)
+- **lib/web/blob.go**: Migrated to `GetTypedArray()` (1 use case)
   - Status: Tested and working
   - All 25 tests passing
 
 ### 🔍 Needs Audit
 
 #### High Priority
-1. **node/buffer.go** (30 uses)
+1. **lib/node/buffer.go** (30 uses)
    - Line 811 comment: *"source might be an ArrayBuffer view, but GetBuffer handles that"*
    - **Action Required**: This is incorrect - GetBuffer doesn't handle views properly
    - Many operations like `copy()`, `compare()`, `indexOf()` may be affected
    - **Impact**: Could cause bugs when passing TypedArray views with offsets
 
-2. **node/fs.go** (4 uses)
+2. **lib/node/fs.go** (4 uses)
    - Lines: 39, 58, 530, 620 (all for file writes)
    - **Risk**: Writing wrong amount of data if passed a TypedArray view
    - **Action Required**: Test with `Uint8Array` views that have byteOffset
 
-3. **core/crypto.go** (8 uses)
+3. **lib/web/crypto.go** (8 uses)
    - Lines: 73, 100, 105, 132, 137, 164, 169, 195, 223
    - Used for: signing, verifying, encryption, decryption, hashing
    - **Risk**: Critical - wrong data could break cryptographic operations
    - **Action Required**: High priority migration
 
 #### Medium Priority
-4. **core/http.go** (3 uses)
+4. **lib/web/url.go** (3 uses)
    - Lines: 130, 281, 292
    - Used for HTTP request/response bodies
    - **Risk**: Could send/receive incorrect data
    - **Action Required**: Test with TypedArray views
 
-5. **core/wasi.go** (2 uses)
+5. **lib/web/wasi.go** (2 uses)
    - Lines: 23, 258
    - Used for WASM stdio
    - **Risk**: Wrong data passed to WASM modules
@@ -90,29 +90,29 @@ For each file to migrate:
 
 For each file:
 
-- [ ] **node/buffer.go**
+- [ ] **lib/node/buffer.go**
   - [ ] Audit all 30 uses
   - [ ] Identify which need `GetTypedArray()`
   - [ ] Create test cases
   - [ ] Migrate and test
   - [ ] Remove incorrect comment on line 811
 
-- [ ] **node/fs.go**
+- [ ] **lib/node/fs.go**
   - [ ] Test file writes with TypedArray views
   - [ ] Migrate if needed
   - [ ] Verify no data corruption
 
-- [ ] **core/crypto.go**
+- [ ] **lib/web/crypto.go**
   - [ ] Test crypto operations with views
   - [ ] Migrate all uses (critical for security)
   - [ ] Verify cryptographic correctness
 
-- [ ] **core/http.go**
+- [ ] **lib/web/url.go**
   - [ ] Test HTTP body handling with views
   - [ ] Migrate if needed
   - [ ] Test with real HTTP requests
 
-- [ ] **core/wasi.go**
+- [ ] **lib/web/wasi.go**
   - [ ] Review WASI spec for buffer handling
   - [ ] Test with WASM modules
   - [ ] Migrate if needed

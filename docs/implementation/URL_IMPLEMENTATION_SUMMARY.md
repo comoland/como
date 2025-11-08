@@ -7,7 +7,7 @@ Successfully implemented WHATWG URL and URLSearchParams APIs for Como following 
 ## Files Created
 
 ### Go Layer
-- **`node/url.go`** (478 lines)
+- **`lib/web/url.go`** (478 lines)
   - URL parsing and validation using Go's `net/url` package
   - Component extraction via offset-based buffer communication
   - Query string parsing and serialization
@@ -15,7 +15,7 @@ Successfully implemented WHATWG URL and URLSearchParams APIs for Como following 
   - Global serialization store for temporary data
 
 ### JavaScript Layer
-- **`node/js/url.js`** (673 lines)
+- **`lib/web/js/url.js`** (673 lines)
   - Full `URL` class implementation with all properties and methods
   - Full `URLSearchParams` class with CRUD operations and iterators
   - Lazy initialization of searchParams
@@ -40,8 +40,8 @@ Successfully implemented WHATWG URL and URLSearchParams APIs for Como following 
   - Integration patterns
 
 ### Registration
-- Modified **`node/globals.go`** - Added `goURL(ctx, global)` call
-- Modified **`node/js/main.js`** - Exported URL and URLSearchParams to global scope
+- Modified **`lib/web/main.go`** - Added URL registration in the Web entrypoint
+- Modified **`lib/main.js`** - Exported URL and URLSearchParams to global scope
 
 ## Implementation Details
 
@@ -224,8 +224,8 @@ Created comprehensive test suite with 100+ test cases:
 ## Compatibility
 
 - Polyfill remains in `core/js/polyfills/url.js` as fallback
-- New implementation in `node/js/url.js` takes precedence when imported
-- Exported to global scope via `node/js/main.js`
+- New implementation in `lib/web/js/url.js` takes precedence when imported
+- Exported to global scope via `lib/main.js`
 - Web standards compatible for common use cases
 
 ## Usage
@@ -275,16 +275,16 @@ Successfully implemented a performant, standards-compliant URL and URLSearchPara
 ## Files Summary
 
 **Created:**
-- `node/url.go` - Go operations (478 lines)
-- `node/js/url.js` - JavaScript API (673 lines)
+- `lib/web/url.go` - Go operations (478 lines)
+- `lib/web/js/url.js` - JavaScript API (673 lines)
 - `tests/url.test.ts` - Test suite (389 lines)
 - `examples/url-example.js` - Examples (167 lines)
 - `docs/implementation/URL_IMPLEMENTATION.md` - Design doc
 - `docs/implementation/URL_IMPLEMENTATION_SUMMARY.md` - This file
 
 **Modified:**
-- `node/globals.go` - Added URL module registration
-- `node/js/main.js` - Exported to global scope
+- `lib/web/main.go` - Added URL module registration
+- `lib/main.js` - Exported to global scope
 
 **Total Lines:** ~1,700 lines of new code
 

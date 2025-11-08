@@ -2,7 +2,7 @@
 
 ## Problem Description
 
-The esbuild plugin in `./node/build.go` was experiencing race conditions during high-concurrency operations. The issue manifested as crashes when running multiple concurrent builds, as demonstrated by `./examples/bundler-stress-test.js`.
+The esbuild plugin in `./lib/como/build.go` was experiencing race conditions during high-concurrency operations. The issue manifested as crashes when running multiple concurrent builds, as demonstrated by `./examples/bundler-stress-test.js`.
 
 ### Root Cause Analysis
 
@@ -118,7 +118,7 @@ ctx.WaitCall(func() {
 
 ## Files Modified
 
-1. **`/home/mamod/Desktop/projects/ai/como/node/build.go`**:
+1. **`/home/mamod/Desktop/projects/ai/como/lib/como/build.go`**:
    - Complete rewrite of plugin callback handling
    - Replaced `js.Writer` with `ctx.WaitCall`
    - Added proper memory management
@@ -140,7 +140,7 @@ ctx.WaitCall(func() {
 
 ## References
 
-- Original working implementation: `./core/build.go` (uses different approach with `js.RPC`)
+- Original working implementation: `./lib/como/build.go` (uses different approach with `js.RPC`)
 - Stress test: `./examples/bundler-stress-test.js`
 - Passing tests: `./tests/bundle.test.ts`
 - QuickJS bridge documentation: `./js/context.go`, `./js/value.go`

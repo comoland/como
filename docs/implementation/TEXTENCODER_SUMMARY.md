@@ -11,8 +11,8 @@
 
 | File | Purpose | Status |
 |------|---------|--------|
-| `node/textencoder.go` | Go native operations | ✅ Complete |
-| `node/js/textencoder.js` | JavaScript API classes | ✅ Complete |
+| `lib/web/textencoder.go` | Go native operations | ✅ Complete |
+| `lib/web/js/textencoder.js` | JavaScript API classes | ✅ Complete |
 | `tests/textencoder.test.ts` | Test suite | ✅ Complete |
 | `examples/textencoder-example.js` | Usage examples | ✅ Complete |
 
@@ -20,9 +20,9 @@
 
 | File | Change | Status |
 |------|--------|--------|
-| `node/globals.go` | Added goTextEncoder registration | ✅ Complete |
-| `node/js/main.js` | Added global exports | ✅ Complete |
-| `node/js/web/text-encode.js` | Removed placeholder | ✅ Complete |
+| `lib/web/main.go` | Added text encoder registration | ✅ Complete |
+| `lib/main.js` | Added global exports | ✅ Complete |
+| `lib/web/js/text-encode.js` | Removed placeholder | ✅ Complete |
 
 ## Key Features Implemented
 
