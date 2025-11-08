@@ -605,6 +605,15 @@ args.GetTypedArray(0) // Get Uint8Array as []byte
 args.Len()            // Number of arguments
 ```
 
+### Decode Argument Maps
+
+Use `args.GetMap(index, &output)` when a JavaScript caller passes a plain object or array and you want Go to receive a typed struct or slice. The helper delegates to `mapstructure.Decode`, so the target must be a pointer, and you may rely on `mapstructure` tags such as `mapstructure:",squash"` for nested embedding. Always check the returned error and surface it with `ctx.Throw`.
+
+- `lib/std/exec.go` decodes the array of CLI arguments and the optional env list into `[]string`, keeping the Go `exec.Command` call ergonomic while letting JavaScript supply plain arrays.
+- `lib/como/build.go` maps complex esbuild options into the strongly typed `buildOptions` struct and later plugin callbacks (`api.OnResolveOptions`, `api.OnLoadOptions`), showing how `GetMap` scales when bridging nested configuration objects.
+
+When you already hold a value (for example, something returned from a JS callback), call `ctx.GetMap(value, &output)`; it uses the same decoder but is not tied to an argument index.
+
 ### Return Values
 
 ```go

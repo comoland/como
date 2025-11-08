@@ -16,6 +16,7 @@ func registerExec(ctx *js.Context) {
 	// Command
 	exp["command"] = func(args js.Arguments) interface{} {
 		command := args.GetString(0)
+
 		var cmdArgs []string
 		err := args.GetMap(1, &cmdArgs)
 		if err != nil {
@@ -28,7 +29,12 @@ func registerExec(ctx *js.Context) {
 		methods["dir"] = cmd
 
 		methods["env"] = func(args js.Arguments) any {
-			var env = []string{"DDDDD", "dddddddd=wewrewerwerwe"}
+			var env []string
+			err := args.GetMap(0, &env)
+			if err != nil {
+				return ctx.Throw(err.Error())
+			}
+
 			cmd.Env = env
 			return methods
 		}
@@ -58,6 +64,10 @@ func registerExec(ctx *js.Context) {
 				}
 			}
 			return nil
+		}
+
+		methods["info"] = func(args js.Arguments) interface{} {
+			return cmd
 		}
 
 		return methods
