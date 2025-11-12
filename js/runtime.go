@@ -115,6 +115,7 @@ func (runtime *JSRunTime) NewContext() *Context {
 	channel := make(chan interface{})
 	wg := new(sync.WaitGroup)
 	mutex := new(sync.Mutex)
+	finalizer := new(Finalizers)
 
 	context := &Context{
 		rt:            runtime.rt,
@@ -125,6 +126,7 @@ func (runtime *JSRunTime) NewContext() *Context {
 		Channel:       channel,
 		promise:       promise,
 		proxy:         proxy,
+		finalizers:    finalizer,
 		asyncIterator: asyncIterator,
 		values:        make(map[string]Value),
 		modules:       make(map[string]*Module),

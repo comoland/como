@@ -2,7 +2,7 @@ package std
 
 import (
 	_ "embed"
-	"os"
+	"fmt"
 	"os/exec"
 
 	"github.com/comoland/como/js"
@@ -26,8 +26,6 @@ func registerExec(ctx *js.Context) {
 		cmd := exec.Command(command, cmdArgs...)
 		var methods = map[string]any{}
 
-		methods["dir"] = cmd
-
 		methods["env"] = func(args js.Arguments) any {
 			var env []string
 			err := args.GetMap(0, &env)
@@ -40,8 +38,16 @@ func registerExec(ctx *js.Context) {
 		}
 
 		methods["stdout"] = func(args js.Arguments) any {
-			cmd.Stdout = os.Stdin
-			return methods
+			writer := ctx.Writer(args.GetValue(0))
+			cmd.Stdout = writer
+			var fin *js.Function
+			fin = ctx.ClassObject(func() {
+				fmt.Println("finalized")
+				writer.Close()
+				fin.Free()
+			})
+
+			return fin
 		}
 
 		methods["run"] = func(args js.Arguments) any {

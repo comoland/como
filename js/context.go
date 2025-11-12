@@ -8,6 +8,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"math"
@@ -16,6 +17,7 @@ import (
 	"runtime"
 	s "strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -25,6 +27,11 @@ import (
 type MapValue struct {
 	Path string
 	FS   fs.FS
+}
+
+type Finalizers struct {
+	list    sync.Map
+	counter atomic.Uint64
 }
 
 // Context is the interface that describes javascript context.
@@ -49,6 +56,8 @@ type Context struct {
 
 	// functions list to be called when the context is terminated
 	onExit []func()
+
+	finalizers *Finalizers
 
 	// pass embed.FS to js ctx
 	// if Embed is set then module resolution will be searched
@@ -1034,7 +1043,6 @@ func (ctx *Context) Free() {
 	pointer.Unref(runtimeOp)
 	pointer.Unref(ctxOp)
 	runtime.GC()
-	// fmt.Println("TO DO! the free below should be enabled")
 }
 
 func (ctx *Context) Error(v interface{}) Value {
@@ -1147,11 +1155,14 @@ func (ctx *Context) Unlock() {
 }
 
 type Writer struct {
-	ctx    *Context
-	cb     Value
-	err    *Error
-	ret    interface{}
-	closed bool
+	ctx     *Context
+	cb      Value
+	err     *Error
+	ret     interface{}
+	closed  bool
+	pending []byte
+	eof     bool
+	mu      sync.Mutex
 }
 
 func (w *Writer) Call(arg interface{}) *Error {
@@ -1202,11 +1213,14 @@ func (w *Writer) Write(buf []byte) (int, error) {
 		return 0, &Error{Cause: "write after close"}
 	}
 
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	ctx.Ref()
 	ctx.Channel <- func() {
-		w.cb.Call(buf)
+		w.ret = w.cb.SafeCall(buf)
 		ctx.UnRef()
 		wg.Done()
 	}
@@ -1215,26 +1229,116 @@ func (w *Writer) Write(buf []byte) (int, error) {
 	return len(buf), nil
 }
 
-func (w *Writer) Close() {
+func (r *Writer) Read(buf []byte) (int, error) {
+	ctx := r.ctx
+	var err error
+	length := len(buf)
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.closed == true {
+		return 0, &Error{Cause: "read after close"}
+	}
+
+	if len(buf) == 0 {
+		if r.eof && len(r.pending) == 0 {
+			return 0, io.EOF
+		}
+		return 0, nil
+	}
+
+	if len(r.pending) == 0 && !r.eof {
+		var wg sync.WaitGroup
+		wg.Add(1)
+		ctx.Ref()
+
+		ctx.Channel <- func() {
+			defer ctx.UnRef()
+			defer wg.Done()
+
+			arg := ctx.GoToJSValue(len(buf))
+			defer arg.Free()
+			val := r.cb.JsCall(arg)
+			defer val.Free()
+			if ctx.IsException(val) {
+				stackErr := ctx.GetStackError()
+				if stackErr != nil {
+					err = stackErr
+				} else {
+					err = &Error{Cause: "unknow error", Stack: ""}
+				}
+			} else {
+			getChunk:
+				pending, errs := val.GetTypedArray()
+				if errs == nil && pending != nil {
+					r.pending = append(r.pending[:0], pending...)
+				} else if val.IsString() {
+					pending = []byte(val.ToString())
+					r.pending = append(r.pending[:0], pending...)
+				} else if val.IsObject() {
+					done, ok := val.Get("done").(bool)
+					if ok {
+						r.eof = done
+					}
+
+					val = val.GetValue("chunk")
+					defer val.Free()
+					goto getChunk
+				} else if val.IsNull() || val.IsUndefined() {
+					length = 0
+					err = io.EOF
+				} else {
+					err = errors.New("unsupported reader return type")
+				}
+			}
+		}
+
+		wg.Wait()
+	}
+
+	if len(r.pending) == 0 {
+		return 0, io.EOF
+	}
+
+	copied := len(r.pending)
+	if copied > len(buf) {
+		copied = len(buf)
+		length = copy(buf, r.pending[:copied])
+		r.pending = append([]byte(nil), r.pending[copied:]...)
+		return length, nil
+	}
+
+	length = copy(buf, r.pending)
+	r.pending = nil
+
+	if r.eof {
+		return length, io.EOF
+	}
+
+	return length, err
+}
+
+func (w *Writer) Close() error {
 	if w == nil {
-		return
+		return nil
 	}
 
 	if !w.closed {
+		w.eof = true
 		w.closed = true
 		w.cb.Free()
 	}
+
+	return nil
 }
 
 func (ctx *Context) Writer(cb Value) *Writer {
 	if cb.IsFunction() {
 		cb.Dup()
 		writer := &Writer{
-			ctx,
-			cb,
-			nil,
-			nil,
-			false,
+			ctx: ctx,
+			cb:  cb,
 		}
 
 		return writer

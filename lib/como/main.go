@@ -35,6 +35,17 @@ func Register(ctx *js.Context) {
 				"isDir":   info.IsDir(),
 			}
 		},
+		"finalizer": func(args js.Arguments) interface{} {
+			cb := args.GetValue(0).Dup()
+			f := ctx.ClassObject(func() {
+				if cb.IsFunction() {
+					cb.Call()
+					defer cb.Free()
+				}
+			})
+
+			return f
+		},
 		"readFileSync": func(args js.Arguments) interface{} {
 			path, isString := args.Get(0).(string)
 			if !isString {

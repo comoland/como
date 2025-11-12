@@ -42,8 +42,8 @@ func promiseRejectionTracker(c *C.JSContext, promise C.JSValueConst, reason C.JS
 			return
 		}
 
-		// fmt.Print("Possibly unhandled promise rejection: ")
-		// fmt.Println(err.String())
+		fmt.Print("Possibly unhandled promise rejection: ")
+		fmt.Println(err.String())
 
 		if !stack.IsUndefined() {
 			stackError := stack.String()
@@ -52,7 +52,7 @@ func promiseRejectionTracker(c *C.JSContext, promise C.JSValueConst, reason C.JS
 				err.Set("stack", stackError)
 			}
 
-			// fmt.Println(stackError, "\n")
+			fmt.Println(stackError, "\n")
 		}
 	}
 }

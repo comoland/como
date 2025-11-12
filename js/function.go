@@ -101,10 +101,33 @@ func (ctx *Context) ClassObject(finalizer func()) *Function {
 		if i != 0 {
 			panic("error creating class object")
 		}
+
+		ctx.OnExit(func() {
+			ctx.finalizers.list.Range(func(key any, value any) bool {
+				fn, ok := value.(func())
+				if !ok {
+					panic("not a function")
+				}
+
+				fn()
+				return true
+			})
+		})
+	}
+
+	id := ctx.finalizers.counter.Add(1)
+	ctx.finalizers.list.Store(id, finalizer)
+
+	fn := func() {
+		v, ok := ctx.finalizers.list.LoadAndDelete(id)
+		if ok {
+			fn := v.(func())
+			fn()
+		}
 	}
 
 	o := &Function{
-		finalizer: &finalizer,
+		finalizer: &fn,
 	}
 
 	obj := C.JS_NewObjectClass(ctx.c, C.int(runtime.classObjectId))

@@ -21,6 +21,40 @@ type Value struct {
 
 var num1 = 0
 
+func int64FromValue(value interface{}) int64 {
+	switch v := value.(type) {
+	case int:
+		return int64(v)
+	case int8:
+		return int64(v)
+	case int16:
+		return int64(v)
+	case int32:
+		return int64(v)
+	case int64:
+		return v
+	case uint:
+		return int64(v)
+	case uint8:
+		return int64(v)
+	case uint16:
+		return int64(v)
+	case uint32:
+		return int64(v)
+	case uint64:
+		if v > uint64(^uint64(0)>>1) {
+			return int64(^uint64(0) >> 1)
+		}
+		return int64(v)
+	case float32:
+		return int64(v)
+	case float64:
+		return int64(v)
+	default:
+		return 0
+	}
+}
+
 func (ctx *Context) Value(v C.JSValue) Value {
 	val := Value{c: v, ctx: ctx}
 	return val
@@ -124,8 +158,12 @@ func (v Value) JsCall(args Value) Value {
 	fn := v.c
 	cArgs := (*C.JSValueConst)(unsafe.Pointer(&args.c))
 	ret := C.JS_Call(ctx.c, fn, args.c, C.int(1), cArgs)
-	defer ctx.FreeValue(ret)
 	return ctx.Value(ret)
+}
+
+func (v Value) ToGo() any {
+	ctx := v.ctx
+	return ctx.JsToGoValue(v)
 }
 
 func (v Value) Set(name string, value interface{}) Value {
@@ -171,6 +209,100 @@ func (v Value) ToString() string {
 	jsVal := C.JS_ToString(v.ctx.c, v.c)
 	defer v.ctx.FreeValue(jsVal)
 	return v.ctx.JsToGoValue(jsVal).(string)
+}
+
+func (val Value) GetBuffer() ([]byte, error) {
+	if val.IsObject() {
+		buf, ok := val.Get("buffer").([]byte)
+		if !ok {
+			buf, isBuf := val.ToGo().([]byte)
+			if !isBuf {
+				return nil, &Error{Cause: "not a buffer"}
+			}
+
+			return buf, nil
+		}
+
+		return buf, nil
+	}
+
+	return nil, &Error{Cause: "not a buffer"}
+}
+
+func (val Value) GetSafeBuffer() ([]byte, error) {
+	buf, err := val.GetBuffer()
+
+	if buf != nil {
+		s := make([]byte, len(buf))
+		copy(s, buf)
+		return s, err
+	}
+
+	return buf, err
+}
+
+// GetTypedArray gets a TypedArray (Uint8Array, etc.) respecting its view bounds
+// Unlike GetBuffer, this returns only the bytes the TypedArray view represents,
+// not the entire underlying ArrayBuffer
+func (val Value) GetTypedArray() ([]byte, error) {
+	if !val.IsObject() {
+		return nil, &Error{Cause: "not a typed array"}
+	}
+
+	rawBuf, ok := val.Get("buffer").([]byte)
+	if !ok {
+		// Fallback: attempt to convert the typed array itself directly into a []byte
+		fallback, isBuf := val.ToGo().([]byte)
+		if !isBuf {
+			return nil, &Error{Cause: "not a typed array"}
+		}
+		rawBuf = fallback
+	}
+
+	if len(rawBuf) == 0 {
+		return []byte{}, nil
+	}
+
+	byteOffset := int64FromValue(val.Get("byteOffset"))
+
+	if byteOffset < 0 {
+		byteOffset = 0
+	}
+	if byteOffset > int64(len(rawBuf)) {
+		byteOffset = int64(len(rawBuf))
+	}
+
+	byteLength := int64FromValue(val.Get("byteLength"))
+
+	if byteLength <= 0 {
+		lengthElems := int64FromValue(val.Get("length"))
+		if lengthElems > 0 {
+			bytesPerElem := int64FromValue(val.Get("BYTES_PER_ELEMENT"))
+			if bytesPerElem <= 0 {
+				bytesPerElem = 1
+			}
+			byteLength = lengthElems * bytesPerElem
+		}
+	}
+
+	if byteLength <= 0 || byteOffset+byteLength > int64(len(rawBuf)) {
+		byteLength = int64(len(rawBuf)) - byteOffset
+	}
+
+	if byteLength <= 0 {
+		return []byte{}, nil
+	}
+
+	start := int(byteOffset)
+	end := start + int(byteLength)
+	if end > len(rawBuf) {
+		end = len(rawBuf)
+	}
+
+	view := rawBuf[start:end]
+	result := make([]byte, len(view))
+	copy(result, view)
+	return result, nil
 }
 
 func (v Value) GetValue(name string) Value {

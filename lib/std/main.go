@@ -6,6 +6,8 @@ import (
 
 func Register(ctx *js.Context) {
 	registerTimers(ctx)
+	registerIo(ctx)
 	registerExec(ctx)
 	registerSystem(ctx)
+	registerServer(ctx)
 }

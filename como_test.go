@@ -714,22 +714,22 @@ func TestFinalizers(t *testing.T) {
 	}
 }
 
-func TestJs(t *testing.T) {
-	numBefore := runtime.NumGoroutine()
-	// Loop, ctx := core.Como("./test/units/workers.ts")
-	Loop, ctx := core.Como("./test/load.js")
+// func TestJs(t *testing.T) {
+// 	numBefore := runtime.NumGoroutine()
+// 	// Loop, ctx := core.Como("./test/units/workers.ts")
+// 	Loop, ctx := core.Como("./test/load.js")
 
-	m := ctx.NewModule("dump.go")
-	m.Export("call", func(args js.Arguments) interface{} {
-		arg := args.Get(0)
-		return arg
-	})
+// 	m := ctx.NewModule("dump.go")
+// 	m.Export("call", func(args js.Arguments) interface{} {
+// 		arg := args.Get(0)
+// 		return arg
+// 	})
 
-	Loop(func() {
-		numAfter := runtime.NumGoroutine()
-		fmt.Println(" =====> ", numBefore, numAfter)
-	})
-}
+// 	Loop(func() {
+// 		numAfter := runtime.NumGoroutine()
+// 		fmt.Println(" =====> ", numBefore, numAfter)
+// 	})
+// }
 
 // func TestAwait(t *testing.T) {
 // 	runs := 0

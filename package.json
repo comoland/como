@@ -14,6 +14,7 @@
     "buffer": "^6.0.3",
     "event-target-shim": "^6.0.2",
     "fastestsmallesttextencoderdecoder-encodeinto": "^1.0.22",
+    "hono": "^4.10.5",
     "kleur": "^4.1.5",
     "react": "^18.1.0",
     "readable-stream": "^3.6.0",
