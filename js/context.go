@@ -901,6 +901,7 @@ func (ctx *Context) Go(callback func() func()) {
 // runPendingJobs run async pending jobs
 func (ctx *Context) runPendingJobs() uint64 {
 	C.como_js_loop(ctx.c)
+	// ctx.GC()
 	return ctx.refs
 }
 
@@ -1220,7 +1221,7 @@ func (w *Writer) Write(buf []byte) (int, error) {
 	wg.Add(1)
 	ctx.Ref()
 	ctx.Channel <- func() {
-		w.ret = w.cb.SafeCall(buf)
+		w.cb.SafeCall(buf)
 		ctx.UnRef()
 		wg.Done()
 	}
@@ -1320,6 +1321,9 @@ func (r *Writer) Read(buf []byte) (int, error) {
 }
 
 func (w *Writer) Close() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	if w == nil {
 		return nil
 	}

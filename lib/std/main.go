@@ -10,4 +10,5 @@ func Register(ctx *js.Context) {
 	registerExec(ctx)
 	registerSystem(ctx)
 	registerServer(ctx)
+	initHTTP(ctx)
 }
