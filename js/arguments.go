@@ -106,33 +106,12 @@ func (args Arguments) GetString(argIndex int) string {
 
 func (args Arguments) GetBuffer(argIndex int) ([]byte, error) {
 	val := args.GetValue(argIndex)
-	if val.IsObject() {
-		buf, ok := val.Get("buffer").([]byte)
-		if !ok {
-			buf, isBuf := args.Get(argIndex).([]byte)
-			if !isBuf {
-				return nil, &Error{Cause: "not a buffer"}
-			}
-
-			return buf, nil
-		}
-
-		return buf, nil
-	}
-
-	return nil, &Error{Cause: "not a buffer"}
+	return val.GetBuffer()
 }
 
 func (args Arguments) GetSafeBuffer(argIndex int) ([]byte, error) {
-	buf, err := args.GetBuffer(argIndex)
-
-	if buf != nil {
-		s := make([]byte, len(buf))
-		copy(s, buf)
-		return s, err
-	}
-
-	return buf, err
+	val := args.GetValue(argIndex)
+	return val.GetSafeBuffer()
 }
 
 // GetTypedArray gets a TypedArray (Uint8Array, etc.) respecting its view bounds

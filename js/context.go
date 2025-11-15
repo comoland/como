@@ -165,8 +165,8 @@ func (em *Embedder) SetModulesLib(path string) {
 
 	dirFS, err := fs.Sub(ctx.Embed, path)
 	if err == nil {
-		f, err2 := dirFS.Open(".")
-		if err2 == nil {
+		f, err := dirFS.Open(".")
+		if err == nil {
 			em.modulesLib = path
 			defer f.Close()
 		}

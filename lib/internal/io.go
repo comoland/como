@@ -1,4 +1,4 @@
-package io
+package internal
 
 import (
 	"errors"

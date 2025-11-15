@@ -34,8 +34,9 @@ ctx.Async(func(async js.Promise) {
 
 ## Key Directories
 - `./js/` - QuickJS bridge (context, promises, modules)
-- `./core/` - Built-in modules (timers, fetch, crypto)
-- `./node/` - Node-like APIs (fs, buffer, blob)
+- `./lib/web/` - Built-in web jsmodules (fetch, crypto)
+- `./lib/std/` - Built-in web std (timers, server, io) -mainly reflects go std library
+- `./lib/node/` - Node-like APIs (fs, buffer)
 - `./tests/` - Test files (*.test.ts)
 - `./docs/implementation/` - Feature docs
 
@@ -67,9 +68,9 @@ if !ok {
 - Use describe/test/expect/assert from runner
 
 ## Study These Examples
-1. `node/blob.go` + `node/js/blob.js` - Full two-layer pattern
-2. `core/timers.go` + `core/js/timers.js` - Goroutine timing
-3. `core/fetch.go` + `core/js/fetch.js` - Async patterns
+1. `lib/web/blob.go` + `lib/web/js/blob.js` - Full two-layer pattern
+2. `lib/std/timers.go` + `lib/std/js/timers.js` - Goroutine timing
+3. `lib/web/fetch.go` + `lib/web/js/fetch.js` - Async patterns
 
 ## Common Patterns
 
@@ -128,9 +129,8 @@ mod.Export("op_store", func(args js.Arguments) interface{} {
 ```
 
 ## Entry Points
-- `node/js/main.js` - Loaded first, registers globals
+- `lib/lib/main.js` - Loaded first, registers globals
 - `core/core.go` - Initializes core modules
-- `node/globals.go` - Initializes node modules
 
 ## Value Conversion
 - `ctx.GoToJSValue(goValue)` - Go → JS
