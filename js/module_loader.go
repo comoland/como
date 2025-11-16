@@ -40,13 +40,9 @@ func moduleLoader(c *C.JSContext, module_name *C.char, opque unsafe.Pointer) *C.
 }
 
 func fileExists(ctx *Context, filename string) (string, bool) {
-	if ctx.Embed != nil {
-		rel, _ := os.Getwd()
-		newFile := s.ReplaceAll(filename, rel+string(os.PathSeparator), "")
-		file, er := ctx.Embed.Open(newFile)
-
-		if er == nil {
-			defer file.Close()
+	if ctx.FSEmbedder.HasEmbeddings() {
+		newFile, err := ctx.FSEmbedder.IsEmbedded(filename)
+		if err == nil {
 			return newFile, true
 		}
 	}
@@ -58,17 +54,11 @@ func fileExists(ctx *Context, filename string) (string, bool) {
 	return filename, !info.IsDir()
 }
 
-//export moduleNormalizeName
-func moduleNormalizeName(c *C.JSContext, base_name *C.char, name *C.char, opque unsafe.Pointer) *C.char {
+func (ctx *Context) ResolveFileName(basename string, filename string) string {
 	lock.Lock()
 	defer lock.Unlock()
 
-	ctx := GetContextOpaque(c)
-
-	basename := C.GoString(base_name)
-	filename := C.GoString(name)
 	dirname := filepath.Dir(basename)
-
 	resolvedFile := filename
 
 	_, ok := ctx.CoreModules[filename]
@@ -139,19 +129,29 @@ func moduleNormalizeName(c *C.JSContext, base_name *C.char, name *C.char, opque 
 	} else {
 		// cwd, _ := os.Getwd()
 		// resolver := NewResolver(cwd)
-		// fmt.Println("basename ==> ", basename)
+		// fmt.Println("basename ==> ", dirname)
 		// fmt.Println("filename ==> ", filename)
 
-		// pp, err := resolver.Resolve(filename, dirname)
+		// pp, err := resolver.Resolve(filename, basename)
 		// if err != nil {
-		// 	fmt.Println("Errrorroror ===> ", err.Error())
+		// 	// fmt.Println("Errrorroror ===> ", err.Error())
 		// } else {
 		// 	resolvedFile = pp.Path
+		// 	PrintResolveResult(pp)
 		// }
 
 		// PrintResolveResult(pp)
 	}
 ret:
+	return resolvedFile
+}
+
+//export moduleNormalizeName
+func moduleNormalizeName(c *C.JSContext, base_name *C.char, name *C.char, opque unsafe.Pointer) *C.char {
+	ctx := GetContextOpaque(c)
+	basename := C.GoString(base_name)
+	filename := C.GoString(name)
+	resolvedFile := ctx.ResolveFileName(basename, filename)
 	cstr := C.CString(resolvedFile)
 	return cstr
 }
@@ -288,7 +288,7 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 			global.Set("NamedExports", nil)
 		}
 	} else {
-		// if embedder enabled try to read files from embedding files system
+		// if embedder enabled try to read files from embedded files system
 		code, err = ctx.FSEmbedder.ReadJsFile(filename)
 		if err == nil {
 			resolvedFromEmded = true
@@ -355,8 +355,8 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 				contents := fmt.Sprintf(`
 					%s
 
-					// globalThis["modules_exports"] = globalThis["modules_exports"] ?? {};
-					// globalThis["modules_exports"]['%s'] = _COMO_EXPORT;
+					globalThis["modules_exports"] = globalThis["modules_exports"] ?? {};
+					globalThis["modules_exports"]['%s'] = _COMO_EXPORT;
 					// globalThis.require = function(f) {
 					// 	return globalThis["modules_exports"][f]
 					// };
@@ -447,15 +447,6 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 			})
 
 			codeStr = string(result.Code)
-
-			// codeStr = `
-			// 	const { createModule } = await import("module");
-			// 	const module = createModule(import.meta.filename, globalThis.module);
-			// 	globalThis.module = module;
-			// 	const exports = module.exports;
-			// 	const require = module.require;
-			// ` + codeStr
-
 			_, ok := ctx.CoreModules[filename]
 			if !ok {
 				codeStr = `const { createModule } = await import("module");const module = createModule(import.meta.filename, globalThis.module); globalThis.module = module; const exports = module.exports; const require = module.require;` + codeStr

@@ -671,6 +671,15 @@ func (ctx *Context) Eval(code string) error {
 	return err
 }
 
+func (ctx *Context) IsModule(script string) bool {
+	cstr := C.CString(script)
+	length := len(script)
+	defer C.free(unsafe.Pointer(cstr))
+
+	isModule := C.JS_DetectModule(cstr, C.size_t(length)) != 0
+	return isModule
+}
+
 func (ctx *Context) Eval2(name string, script string) Value {
 	// ctx.Lock()
 	// defer ctx.Unlock()

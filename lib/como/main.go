@@ -12,7 +12,7 @@ func Register(ctx *js.Context) {
 	path := comoPathImpl(ctx)
 	var defaults = map[string]any{
 		"path": path,
-		"print": func(args js.Arguments) interface{} {
+		"print": func(args js.Arguments) any {
 			request := args.JsValueToString(0)
 			fmt.Print(request)
 			return nil
@@ -66,7 +66,8 @@ func Register(ctx *js.Context) {
 
 			fromPath, ok := args.Get(1).(string)
 			if !ok {
-				return ctx.Throw("path must be a string")
+				cwd, _ := os.Getwd()
+				fromPath = cwd
 			}
 
 			rr := js.NewResolver(fromPath)

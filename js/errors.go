@@ -1,12 +1,20 @@
 package js
 
-// #include "quickjs.h"
-// #include "quickjs-libc.h"
+/*
+#include "quickjs.h"
+#include "quickjs-libc.h"
+
+static uintptr_t como_promise_ptr(JSValueConst value) {
+	return (uintptr_t)JS_VALUE_GET_PTR(value);
+}
+*/
 import "C"
 
 import (
 	"fmt"
 	"os"
+	"sync"
+	"time"
 	"unsafe"
 )
 
@@ -15,46 +23,114 @@ type Error struct {
 	Stack string
 }
 
+type pendingRejection struct {
+	timer *time.Timer
+	ctx   *Context
+}
+
+var (
+	rejectionMu            sync.Mutex
+	pendingRejectionTimers = map[uintptr]*pendingRejection{}
+)
+
+const promiseWarningDelay = 25 * time.Millisecond
+
 func (err Error) Error() string      { return err.Cause }
 func (err Error) StackTrace() string { return err.Stack }
 
 //export promiseRejectionTracker
 func promiseRejectionTracker(c *C.JSContext, promise C.JSValueConst, reason C.JSValueConst, is_handled int, opque unsafe.Pointer) {
 	ctx := GetContextOpaque(c)
-	err := ctx.Value(reason)
-
-	if is_handled == 1 {
+	if ctx == nil {
 		return
 	}
+
+	key := promisePointerKey(promise)
+
+	if is_handled != 0 {
+		cancelPendingRejection(key)
+		return
+	}
+
+	err := ctx.Value(reason)
 
 	if err.IsError() {
 		stack := err.GetValue("stack")
 		defer stack.Free()
 
 		formatted := err.GetValue("__error_formatted")
-		handeled := err.GetValue("__handeled")
-		v := err.Set("__handeled", true)
-		defer v.Free()
-		defer handeled.Free()
 		defer formatted.Free()
 
-		if handeled.ToString() == "true" {
-			return
-		}
-
-		// fmt.Print("Possibly unhandled promise rejection: ")
-		// fmt.Println(err.String())
+		message := err.String()
+		stackError := ""
 
 		if !stack.IsUndefined() {
-			stackError := stack.String()
+			stackError = stack.String()
 			if formatted.IsUndefined() {
 				stackError = ctx.StackFormatter(stackError)
 				err.Set("stack", stackError)
 			}
+		}
 
-			// fmt.Println(stackError, "\n")
+		schedulePendingRejection(ctx, key, message, stackError)
+	}
+}
+
+func promisePointerKey(promise C.JSValueConst) uintptr {
+	return uintptr(C.como_promise_ptr(promise))
+}
+
+func cancelPendingRejection(key uintptr) {
+	if key == 0 {
+		return
+	}
+
+	rejectionMu.Lock()
+	pending, ok := pendingRejectionTimers[key]
+	if ok {
+		delete(pendingRejectionTimers, key)
+	}
+	rejectionMu.Unlock()
+
+	if !ok || pending.timer == nil {
+		return
+	}
+
+	if pending.timer.Stop() {
+		pending.ctx.UnRef()
+	}
+}
+
+func schedulePendingRejection(ctx *Context, key uintptr, message string, stack string) {
+	if key == 0 {
+		return
+	}
+
+	ctx.Ref()
+
+	timer := time.AfterFunc(promiseWarningDelay, func() {
+		rejectionMu.Lock()
+		delete(pendingRejectionTimers, key)
+		rejectionMu.Unlock()
+
+		ctx.Channel <- func() {
+			fmt.Print("Possibly unhandled promise rejection: ")
+			fmt.Println(message)
+			if stack != "" {
+				fmt.Println(stack, "\n")
+			}
+			ctx.UnRef()
+		}
+	})
+
+	rejectionMu.Lock()
+	if pending, ok := pendingRejectionTimers[key]; ok && pending.timer != nil {
+		if pending.timer.Stop() {
+			pending.ctx.UnRef()
 		}
 	}
+	pendingRejectionTimers[key] = &pendingRejection{timer: timer, ctx: ctx}
+	rejectionMu.Unlock()
 }
 
 func (ctx *Context) GetStackError() *Error {
