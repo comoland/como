@@ -14,7 +14,6 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -29,13 +28,8 @@ import (
 
 var lock sync.Mutex
 
-var internalModules = map[string]string{
-	// "@como": "./js/como.ts",
-}
-
-var sourceMaps = map[string][]byte{
-	// "@xxx": "./js/como.ts",
-}
+var internalModules = map[string]string{}
+var sourceMaps = map[string][]byte{}
 
 //export moduleLoader
 func moduleLoader(c *C.JSContext, module_name *C.char, opque unsafe.Pointer) *C.JSModuleDef {
@@ -168,25 +162,6 @@ func (ctx *Context) RegisterModuleAlias(name string, alias string) {
 	internalModules[name] = alias
 }
 
-func stripPath(p string) (stripped, ext string) {
-	// Normalize path
-	p = filepath.ToSlash(filepath.Clean(p))
-
-	// Drop first segment
-	parts := s.SplitN(p, "/", 2)
-	if len(parts) < 2 {
-		return "", filepath.Ext(p) // nothing to strip, just return ext
-	}
-	rest := parts[1]
-
-	// Get extension
-	ext = filepath.Ext(rest)
-
-	// Remove extension
-	stripped = s.TrimSuffix(rest, ext)
-	return stripped, ext
-}
-
 func transformPath(p string) (string, string) {
 	// 1. Remove the file extension
 	ext := filepath.Ext(p)
@@ -199,8 +174,6 @@ func transformPath(p string) (string, string) {
 	finalPath = filepath.Clean(finalPath)
 
 	finalPath = s.Replace(finalPath, "/", ":", 1)
-
-	// fmt.Println(finalPath)
 
 	// Clean the path to handle potential double separators or other anomalies
 	return finalPath, ext
@@ -322,7 +295,7 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 		}
 
 		if err != nil {
-			code, err = ioutil.ReadFile(filename)
+			code, err = os.ReadFile(filename)
 		}
 	}
 
@@ -345,9 +318,9 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 			os.Exit(6)
 		}
 
-		ctx.FSEmbedder.tryToWriteBundleToModulesLib(filename, result.OutputFiles[0].Contents)
-		codeStr = string(result.OutputFiles[0].Contents)
-
+		content := result.OutputFiles[0].Contents
+		ctx.FSEmbedder.tryToWriteBundleToModulesLib(filename, content)
+		codeStr = string(content)
 	} else {
 		// error reading file normally, it's most likely a node_module
 		// Como doesn't has a module loader so we will let esbuild load that

@@ -212,6 +212,8 @@ func (r *Resolver) resolveAsDirectory(dirPath string) (*ResolveResult, error) {
 // resolveNodeModules resolves modules from node_modules directories
 func (r *Resolver) resolveNodeModules(request string, fromPath string) (*ResolveResult, error) {
 	nodeModuleDirs := r.getNodeModulesPaths(fromPath)
+	pkgName, subpath := splitPackageSpecifier(request)
+	normalizedExportSubpath := normalizeExportsSubpath(subpath)
 
 	for _, nodeModuleDir := range nodeModuleDirs {
 		modulePath := filepath.Join(nodeModuleDir, request)
@@ -223,6 +225,49 @@ func (r *Resolver) resolveNodeModules(request string, fromPath string) (*Resolve
 
 		// Try as directory
 		if result, err := r.resolveAsDirectory(modulePath); err == nil {
+			return result, nil
+		}
+
+		if pkgName == "" {
+			continue
+		}
+
+		packageDir := filepath.Join(nodeModuleDir, pkgName)
+		if info, err := os.Stat(packageDir); err != nil || !info.IsDir() {
+			continue
+		}
+
+		var pkg *PackageJSON
+		if pkgJSON, err := r.loadPackageJSON(filepath.Join(packageDir, "package.json")); err == nil {
+			pkg = pkgJSON
+			if pkg.Exports != nil && normalizedExportSubpath != "" {
+				if resolved := r.resolvePackageExports(pkg.Exports, normalizedExportSubpath, packageDir); resolved != "" {
+					return &ResolveResult{
+						Path:       resolved,
+						IsFile:     true,
+						ModuleType: r.getModuleType(resolved),
+						Package:    pkg,
+					}, nil
+				}
+			}
+		}
+
+		if subpath == "" {
+			if result, err := r.resolveAsDirectory(packageDir); err == nil {
+				result.Package = pkg
+				return result, nil
+			}
+			continue
+		}
+
+		fullSubpath := filepath.Join(packageDir, subpath)
+		if result, err := r.resolveAsFile(fullSubpath, fullSubpath); err == nil {
+			result.Package = pkg
+			return result, nil
+		}
+
+		if result, err := r.resolveAsDirectory(fullSubpath); err == nil {
+			result.Package = pkg
 			return result, nil
 		}
 	}
@@ -248,6 +293,44 @@ func (r *Resolver) getNodeModulesPaths(fromPath string) []string {
 	}
 
 	return paths
+}
+
+func splitPackageSpecifier(request string) (string, string) {
+	if request == "" {
+		return "", ""
+	}
+
+	if strings.HasPrefix(request, "@") {
+		parts := strings.SplitN(request, "/", 3)
+		if len(parts) < 2 {
+			return request, ""
+		}
+
+		packageName := fmt.Sprintf("%s/%s", parts[0], parts[1])
+		if len(parts) == 2 {
+			return packageName, ""
+		}
+		return packageName, parts[2]
+	}
+
+	parts := strings.SplitN(request, "/", 2)
+	if len(parts) == 2 {
+		return parts[0], parts[1]
+	}
+
+	return request, ""
+}
+
+func normalizeExportsSubpath(subpath string) string {
+	if subpath == "" || subpath == "." {
+		return "."
+	}
+
+	if strings.HasPrefix(subpath, "./") {
+		return subpath
+	}
+
+	return "./" + strings.TrimPrefix(subpath, "/")
 }
 
 // loadPackageJSON loads and parses a package.json file
@@ -277,27 +360,68 @@ func (r *Resolver) resolvePackageExports(exports interface{}, subpath string, pa
 	switch exp := exports.(type) {
 	case string:
 		// Simple string export
-		resolved := filepath.Join(packagePath, exp)
-		if r.fileExists(resolved) {
-			return resolved
-		}
+		return r.normalizeAndValidateExportPath(packagePath, exp)
 	case map[string]interface{}:
-		// Object exports
-		if subpath == "." {
-			// Root export
-			if rootExp, exists := exp["."]; exists {
-				return r.resolvePackageExports(rootExp, subpath, packagePath)
+		if hasSubpathKeys(exp) {
+			if subpath == "." {
+				if rootExp, exists := exp["."]; exists {
+					if resolved := r.resolvePackageExports(rootExp, subpath, packagePath); resolved != "" {
+						return resolved
+					}
+				}
+			}
+
+			if target, exists := exp[subpath]; exists {
+				return r.resolvePackageExports(target, subpath, packagePath)
+			}
+			return ""
+		}
+
+		preferredConditions := []string{"default", "import", "require", "module", "node"}
+		for _, condition := range preferredConditions {
+			if target, exists := exp[condition]; exists {
+				if resolved := r.resolvePackageExports(target, subpath, packagePath); resolved != "" {
+					return resolved
+				}
 			}
 		}
 
-		// Try to find matching subpath
-		for pattern, target := range exp {
-			if pattern == subpath {
-				return r.resolvePackageExports(target, subpath, packagePath)
+		for _, target := range exp {
+			if resolved := r.resolvePackageExports(target, subpath, packagePath); resolved != "" {
+				return resolved
+			}
+		}
+	case []interface{}:
+		for _, item := range exp {
+			if resolved := r.resolvePackageExports(item, subpath, packagePath); resolved != "" {
+				return resolved
 			}
 		}
 	}
 	return ""
+}
+
+func (r *Resolver) normalizeAndValidateExportPath(packagePath, target string) string {
+	if target == "" {
+		return ""
+	}
+
+	cleanTarget := filepath.Clean(target)
+	resolved := filepath.Join(packagePath, cleanTarget)
+	if info, err := os.Stat(resolved); err == nil && !info.IsDir() {
+		return resolved
+	}
+
+	return ""
+}
+
+func hasSubpathKeys(obj map[string]interface{}) bool {
+	for key := range obj {
+		if key == "." || strings.HasPrefix(key, "./") {
+			return true
+		}
+	}
+	return false
 }
 
 // getModuleType determines the module type based on file extension and context

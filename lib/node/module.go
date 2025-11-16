@@ -9,7 +9,12 @@ import (
 func registerModule(ctx *js.Context) {
 	mod := ctx.NewModule("node:module.go")
 
-	mod.Export("op_load_mjs_module", func(args js.Arguments) interface{} {
+	// external modules will include both core modules and previously bundled modules
+	mod.Export("core_modules", func(args js.Arguments) interface{} {
+		return ctx.Externals()
+	})
+
+	mod.Export("load_mjs_module", func(args js.Arguments) interface{} {
 		global := ctx.GlobalObject()
 		defer global.Free()
 

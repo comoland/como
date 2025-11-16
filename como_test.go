@@ -364,7 +364,7 @@ func TestAsync(t *testing.T) {
 	Loop, ctx := core.ComoStr("@public/test1.ts", `import('@public/test1.ts')`)
 	ctx.RegisterModuleAlias("@public", "./public")
 	global := ctx.GlobalObject()
-	ctx.Embed = &public
+	ctx.Embedder(public)
 	global.Set("testAsync", func(args js.Arguments) interface{} {
 		return ctx.Async(func(async js.Promise) {
 			async.Resolve(func() interface{} {

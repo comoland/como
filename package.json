@@ -10,6 +10,7 @@
   "dependencies": {
     "@hyzyla/pdfium": "^2.1.9",
     "@kamilkisiela/fast-url-parser": "^1.1.4",
+    "@oslojs/crypto": "^1.0.1",
     "@typescript/native-preview": "^7.0.0-dev.20251005.1",
     "buffer": "^6.0.3",
     "event-target-shim": "^6.0.2",

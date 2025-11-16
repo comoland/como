@@ -137,6 +137,7 @@ func (runtime *JSRunTime) NewContext() *Context {
 
 	context.FSEmbedder = &Embedder{
 		ctx:        context,
+		Fs:         nil,
 		modulesLib: "",
 	}
 
