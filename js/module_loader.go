@@ -51,17 +51,29 @@ func fileExists(ctx *Context, filename string) (string, bool) {
 	if os.IsNotExist(err) {
 		return filename, false
 	}
+
+	if err != nil {
+		return filename, false
+	}
+
 	return filename, !info.IsDir()
 }
+
+var savedFile = map[string]string{}
 
 func (ctx *Context) ResolveFileName(basename string, filename string) string {
 	lock.Lock()
 	defer lock.Unlock()
 
+	pre, ok := savedFile[basename+filename]
+	if ok {
+		return pre
+	}
+
 	dirname := filepath.Dir(basename)
 	resolvedFile := filename
 
-	_, ok := ctx.CoreModules[filename]
+	_, ok = ctx.CoreModules[filename]
 	if ok {
 		goto ret
 	}
@@ -73,11 +85,15 @@ func (ctx *Context) ResolveFileName(basename string, filename string) string {
 	// this will replace all occurances with @como/.. to ./src/..
 	for key, element := range internalModules {
 		m1 := regexp.MustCompile("^" + key)
-		newResolvedName := m1.ReplaceAllString(resolvedFile, element)
+		if s.HasPrefix(element, ".") {
+			newResolvedName := m1.ReplaceAllString(resolvedFile, element)
 
-		if resolvedFile != newResolvedName {
-			filename, _ = filepath.Abs(newResolvedName)
-			resolvedFile = filename
+			if resolvedFile != newResolvedName {
+				filename, _ = filepath.Abs(newResolvedName)
+				resolvedFile = filename
+			}
+		} else {
+			resolvedFile = element
 		}
 	}
 
@@ -117,6 +133,7 @@ func (ctx *Context) ResolveFileName(basename string, filename string) string {
 				}
 			}
 		}
+
 	} else {
 		if val, ok := internalModules[filename]; ok {
 			resolvedFile = val
@@ -143,6 +160,7 @@ func (ctx *Context) ResolveFileName(basename string, filename string) string {
 		// PrintResolveResult(pp)
 	}
 ret:
+	savedFile[basename+filename] = resolvedFile
 	return resolvedFile
 }
 
@@ -279,7 +297,7 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 			exp := global.Get("NamedExports").(map[string]interface{})
 
 			nStr := "\n"
-			for name, _ := range exp {
+			for name := range exp {
 				nStr = nStr + "export var " + name + " = _exports['" + name + "'] \n"
 			}
 
@@ -330,7 +348,7 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 				MinifyWhitespace: true,
 				MinifySyntax:     true,
 				External:         ctx.externals,
-				Platform:         api.PlatformBrowser,
+				Platform:         api.PlatformNode,
 				Define:           map[string]string{"process.env.NODE_ENV": "'development'"},
 				Bundle:           true,
 				Target:           api.ESNext,
@@ -341,6 +359,7 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 			})
 
 			if len(result.Errors) > 0 {
+				fmt.Println("error: ", result.Errors[0].Text)
 				ctx.Throw2(map[string]interface{}{
 					"message": result.Errors[0].Text,
 				})
@@ -435,7 +454,18 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 			})
 
 			codeStr = string(result.Code)
-		} else if ext == ".ts" || ext == ".tsx" {
+		} else if ext == ".css" {
+			codeStr = string(code)
+			api.Transform(codeStr, api.TransformOptions{
+				Loader:     api.LoaderCSS,
+				Sourcemap:  api.SourceMapNone,
+				Target:     api.ESNext,
+				Format:     api.FormatIIFE,
+				Sourcefile: filename,
+			})
+
+			codeStr = `export default {}`
+		} else if ext == ".ts" || ext == ".tsx" || ext == ".jsx" {
 			codeStr = string(code)
 			result := api.Transform(codeStr, api.TransformOptions{
 				Loader:     api.LoaderTSX,

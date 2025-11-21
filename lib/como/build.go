@@ -93,7 +93,9 @@ func registerBuild(ctx *js.Context) {
 		}
 
 		for _, plugin := range options.Plugins {
-			plugin.Setup.Dup()
+			p := plugin.Setup
+			p.Dup()
+			freeList = append(freeList, p)
 
 			plugins = append(plugins, api.Plugin{
 				Name: plugin.Name,
@@ -230,7 +232,6 @@ func registerBuild(ctx *js.Context) {
 
 					ctx.WaitCall(func() {
 						plugin.Setup.Call(obj)
-						plugin.Setup.Free()
 					}).Wait()
 				},
 			})
@@ -280,7 +281,6 @@ func registerBuild(ctx *js.Context) {
 
 			// Wait for the build result
 			buildResult := <-resultChan
-			runtime.GC()
 
 			if jsError != nil {
 				async.Reject(jsError)
@@ -309,6 +309,8 @@ func registerBuild(ctx *js.Context) {
 				fn.Free()
 			}
 
+			runtime.GC()
+			ctx.GC()
 			return nil
 		})
 

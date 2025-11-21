@@ -16,7 +16,7 @@ const stressTestBundeler = async () => {
             `
         },
         splitting: false,
-        bundle: false,
+        bundle: true,
         minify: true,
         plugins: [
             {
@@ -55,11 +55,28 @@ const stressTestBundeler = async () => {
         ]
     });
 
-    console.log(ret.length)
+    return ret
 }
 
-for (let i = 0; i < 2000; i++) {
+
+setInterval(async () => {
+     stressTestBundeler().then((res) => {
+        console.log('======================> ', res.length)
+     })
+}, 100)
+
+setInterval(async () => {
     await stressTestBundeler()
-}
+}, 10)
+
+
+setInterval(async () => {
+    await stressTestBundeler()
+}, 10)
+
+
+setInterval(async () => {
+    await stressTestBundeler()
+}, 10)
 
 console.log("Ended!!!")

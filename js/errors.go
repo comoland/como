@@ -183,7 +183,7 @@ func (ctx *Context) ThrowStackError() {
 		defer stack.Free()
 
 		stackError := stack.String()
-		if isFormatted != true {
+		if !isFormatted {
 			stackError = ctx.StackFormatter(stackError)
 		}
 
@@ -207,17 +207,23 @@ func initError(ctx *Context) {
 		return ctx.StackFormatter(stack)
 	})
 
-	v, _ := ctx.EvalFile("<errors>", `
-		const ERR = globalThis.Error;
+	v, _ := ctx.EvalModule("<errors>", `
+		const NativeErrors = {
+			Error: globalThis.Error,
+			TypeError: globalThis.TypeError,
+			SyntaxError: globalThis.SyntaxError,
+			RangeError: globalThis.RangeError,
+			ReferenceError: globalThis.ReferenceError,
+		};
 
 		// Implement Error.captureStackTrace in JavaScript
-		ERR.captureStackTrace = function(targetObject, constructorOpt) {
+		function captureStackTrace(targetObject, constructorOpt) {
 			if (!targetObject) {
 				return;
 			}
 
 			// Create a temporary error to capture the current stack
-			const tempError = new ERR('');
+			const tempError = new NativeErrors.Error('');
 
 			// Get the stack and format it
 			let stack = tempError.stack || '';
@@ -247,65 +253,60 @@ func initError(ctx *Context) {
 				}
 			}
 
-			// Set the formatted stack on the target object
-			targetObject.stack = stackLines.join('\n');
+			if (!targetObject.__error_formatted) {
+				targetObject.__error_formatted = true;
+				targetObject.stack = NativeErrors.Error.formatError(stackLines.join("\n"))
+			} else {
+			 	targetObject.stack = stackLines.join('\n');
+			}
 		};
 
-		globalThis.Error = class Error extends ERR {
-			constructor(msg, options) {
-				super(msg)
-
-				// Handle Error cause property (modern JavaScript feature)
-				if (options && options.cause !== undefined) {
-					this.cause = options.cause
+		function MakeError(name) {
+			const Native = NativeErrors[name];
+			function CustomError(message, options) {
+				if (typeof this === "undefined") {
+					return new CustomError(message, options)
 				}
 
-				let newStack = this.stack.split('\n')
-				newStack = newStack.filter((str) => !/<errors>/.test(str))
+				const err = new Native(message, options);
+				Object.setPrototypeOf(err, CustomError.prototype);
 
-				if (msg instanceof Error) {
-					this.stack = newStack.join("\n")
-					return this;
+				if (options && options.cause) {
+					this.cause = options.cause;
 				}
 
-				if (!this.__error_formatted) {
-					this.__error_formatted = true;
-					this.stack = Error.formatError(newStack.join("\n"))
-				}
+				captureStackTrace(err, CustomError);
+
+				Object.defineProperty(this, "message", {
+					value: err.message,
+					writable: true,
+					enumerable: false,
+					configurable: true
+				});
+
+				Object.defineProperty(this, "stack", {
+					value: err.stack,
+					writable: true,
+					enumerable: false,
+					configurable: true
+				});
+
+				// don't return
 			}
+
+			// IMPORTANT: use the **native prototype**, not a new one
+			CustomError.prototype = Native.prototype;
+			CustomError.prototype.constructor = CustomError;
+			return CustomError;
 		}
 
-		// Make sure captureStackTrace is available on the new Error constructor
-		globalThis.Error.captureStackTrace = ERR.captureStackTrace;
-		globalThis.Error.formatError = ERR.formatError;
+		globalThis.Error = MakeError('Error');
+		globalThis.TypeError = MakeError('TypeError');
+		globalThis.ReferenceError = MakeError('ReferenceError');
+		globalThis.SyntaxError = MakeError('SyntaxError');
+		globalThis.RangeError = MakeError('RangeError');
 
-		globalThis.TypeError = class TypeError extends Error {
-			constructor(msg, options) {
-				super(msg, options)
-				this.name = 'TypeError'
-			}
-		}
-
-		globalThis.ReferenceError = class ReferenceError extends Error {
-			constructor(msg, options) {
-				super(msg, options)
-				this.name = 'ReferenceError'
-			}
-		}
-
-		globalThis.SyntaxError = class SyntaxError extends Error {
-			constructor(msg, options) {
-				super(msg, options)
-				this.name = 'SyntaxError'
-			}
-		}
-
-		globalThis.RangeError = class RangeError extends Error {
-			constructor(msg, options) {
-				super(msg, options)
-				this.name = 'RangeError'
-			}
-		}
+		globalThis.Error.captureStackTrace = captureStackTrace;
 	`)
 
 	v.Free()

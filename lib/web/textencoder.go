@@ -197,7 +197,7 @@ func registerTextEncoder(ctx *js.Context) {
 			return ctx.Throw("First argument must be string")
 		}
 
-		buffer, bufferErr := args.GetBuffer(1)
+		buffer, bufferErr := args.GetTypedArray(1)
 		if bufferErr != nil {
 			return ctx.Throw("Second argument must be buffer")
 		}
@@ -237,7 +237,7 @@ func registerTextEncoder(ctx *js.Context) {
 			return ctx.Throw("op_decode requires 4 arguments (buffer, encoding, fatal, ignoreBOM)")
 		}
 
-		input, err := args.GetBuffer(0)
+		input, err := args.GetTypedArray(0)
 		if err != nil {
 			return ctx.Throw("First argument must be buffer")
 		}

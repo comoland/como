@@ -56,7 +56,7 @@ const ret = await esbuild.build({
     plugins: []
 });
 
-const polyfillFile = path.resolve('./node/js', 'stream.js');
+const polyfillFile = path.resolve('./lib/node/js', 'stream.js');
 
 const code = `
 globalThis.global = globalThis;
