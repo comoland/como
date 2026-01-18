@@ -80,6 +80,11 @@ func Register(ctx *js.Context) {
 			return result
 			// return filepath.Dir(path)
 		},
+		"GC": func(args js.Arguments) interface{} {
+			// runtime.GC()
+			ctx.GC()
+			return nil
+		},
 	}
 
 	mod := ctx.NewModule("como")

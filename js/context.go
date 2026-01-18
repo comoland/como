@@ -221,6 +221,42 @@ func (ctx *Context) JsToGoValue2(value interface{}) (interface{}, error) {
 			copy(s, b)
 			return s, nil
 		}
+		// Check if it's a TypedArray (Uint8Array, etc.)
+		var byteOffset, byteLength, bytesPerElement C.size_t
+		typedArrayBuf := C.JS_GetTypedArrayBuffer(ctx.c, v, &byteOffset, &byteLength, &bytesPerElement)
+		if C.JS_IsException(typedArrayBuf) == 0 {
+			// Not an exception, check if it's a valid value
+			if C.JS_IsNull(typedArrayBuf) == 0 && C.JS_IsUndefined(typedArrayBuf) == 0 {
+				defer C.JS_FreeValue(ctx.c, typedArrayBuf)
+				bufLen := C.size_t(0)
+				bufPtr := C.JS_GetArrayBuffer(ctx.c, &bufLen, typedArrayBuf)
+				if bufPtr != nil {
+					// Calculate the actual view bounds
+					start := int(byteOffset)
+					end := start + int(byteLength)
+					if end > int(bufLen) {
+						end = int(bufLen)
+					}
+					if start >= 0 && start < end {
+						viewLen := end - start
+						if viewLen > 1<<30 {
+							C.JS_FreeValue(ctx.c, v)
+							return nil, fmt.Errorf("TypedArray length exceeds maximum safe size")
+						}
+						b := (*[1 << 30]byte)(unsafe.Pointer(bufPtr))[start:end:end]
+						s := make([]byte, viewLen)
+						copy(s, b)
+						return s, nil
+					}
+				}
+			} else {
+				// Free null/undefined values
+				C.JS_FreeValue(ctx.c, typedArrayBuf)
+			}
+		} else {
+			// Exception occurred, free it
+			C.JS_FreeValue(ctx.c, typedArrayBuf)
+		}
 
 		if C.JS_IsFunction(ctx.c, v) == 1 {
 			return ctx.JsFunction(v), nil
@@ -379,6 +415,35 @@ func (ctx *Context) JsToGoValue(value interface{}) interface{} {
 			// var s = make([]byte, len)
 			// copy(s, b)
 			return b
+		}
+		// Check if it's a TypedArray (Uint8Array, etc.)
+		var byteOffset, byteLength, bytesPerElement C.size_t
+		typedArrayBuf := C.JS_GetTypedArrayBuffer(ctx.c, v, &byteOffset, &byteLength, &bytesPerElement)
+		if C.JS_IsException(typedArrayBuf) == 0 {
+			// Not an exception, check if it's a valid value
+			if C.JS_IsNull(typedArrayBuf) == 0 && C.JS_IsUndefined(typedArrayBuf) == 0 {
+				defer ctx.FreeValue(typedArrayBuf)
+				bufLen := C.size_t(0)
+				bufPtr := C.JS_GetArrayBuffer(ctx.c, &bufLen, typedArrayBuf)
+				if bufPtr != nil {
+					// Calculate the actual view bounds
+					start := int(byteOffset)
+					end := start + int(byteLength)
+					if end > int(bufLen) {
+						end = int(bufLen)
+					}
+					if start >= 0 && start < end {
+						b := (*[1 << 30]byte)(unsafe.Pointer(bufPtr))[start:end:end]
+						return b
+					}
+				}
+			} else {
+				// Free null/undefined values
+				ctx.FreeValue(typedArrayBuf)
+			}
+		} else {
+			// Exception occurred, free it
+			ctx.FreeValue(typedArrayBuf)
 		}
 		if C.JS_IsFunction(ctx.c, v) == 1 {
 			return ctx.JsFunction(v)
@@ -759,8 +824,9 @@ func (ctx *Context) FreeValue(v C.JSValue) {
 // js run loop will exist when ctx.refs == 0
 func (ctx *Context) Ref() {
 	ctx.mutex.Lock()
+	defer ctx.mutex.Unlock()
 	ctx.refs = ctx.refs + 1
-	ctx.mutex.Unlock()
+
 }
 
 // UnRef unrefs js loop by 1
@@ -769,10 +835,14 @@ func (ctx *Context) UnRef() {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
 	if ctx.refs <= 0 {
-		panic("refs <= 0")
-	}
-	ctx.refs = ctx.refs - 1
+		if !ctx.isTerminated {
+			panic("refs <= 0")
+		}
 
+		return
+	}
+
+	ctx.refs = ctx.refs - 1
 }
 
 // Terminate terminates js loop unconditionally
@@ -780,9 +850,9 @@ func (ctx *Context) UnRef() {
 // it will not run runtime Free checks
 func (ctx *Context) Terminate() {
 	ctx.mutex.Lock()
+	defer ctx.mutex.Unlock()
 	ctx.isTerminated = true
 	ctx.refs = 0
-	ctx.mutex.Unlock()
 }
 
 func (ctx *Context) Go(callback func() func()) {
@@ -935,6 +1005,7 @@ func (ctx *Context) Free() {
 	ctx.FreeValue(ctx.promise)
 	ctx.FreeValue(ctx.proxy)
 	C.JS_FreeContext(ctx.c)
+	ctx.GC()
 	if !ctx.isTerminated {
 		C.JS_FreeRuntime(ctx.rt)
 	}
@@ -966,7 +1037,7 @@ func (ctx *Context) Throw(v interface{}) Value {
 }
 
 func (ctx *Context) Throwf(format string, a ...any) Value {
-	err := fmt.Sprintf(format, a)
+	err := fmt.Sprintf(format, a...)
 	return ctx.Throw(err)
 }
 
@@ -1140,7 +1211,7 @@ func (r *Writer) Read(buf []byte) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if r.closed == true {
+	if r.closed {
 		return 0, &Error{Cause: "read after close"}
 	}
 

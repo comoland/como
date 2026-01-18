@@ -15,7 +15,7 @@ func main() {
 	flag.Bool("check", false, "check type")
 	flag.Parse()
 	filename := flag.Arg(0)
-	Loop, ctx := core.ComoStr("runner", fmt.Sprintf(`
+	Loop, _ := core.ComoStr("runner", fmt.Sprintf(`
 		const { handleError } = await import("main");
 		try {
 			await import("%s");
@@ -24,8 +24,8 @@ func main() {
 		}
 	`, filename))
 
-	em := ctx.Embedder(files)
-	em.SetModulesLib("public")
+	// em := ctx.Embedder(files)
+	// em.SetModulesLib("public")
 
 	Loop(func() {})
 }

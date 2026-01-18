@@ -959,6 +959,13 @@ func registerFS(ctx *js.Context) {
 			return ctx.Throw(err.Error())
 		}
 
+		filepath.Walk(pathArg, func(path string, info os.FileInfo, err error) error {
+			if info.IsDir() {
+				watcher.Add(path)
+			}
+			return nil
+		})
+
 		// returned watcher object with close method
 		wobj := ctx.Object()
 		wobj.Set("close", func(_ js.Arguments) interface{} {

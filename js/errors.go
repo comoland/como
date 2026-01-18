@@ -177,22 +177,21 @@ func (ctx *Context) ThrowStackError() {
 	val := ctx.Value(C.JS_GetException(ctx.c))
 	defer val.Free()
 
-	if val.IsError() {
-		stack := val.GetValue("stack")
-		isFormatted, _ := val.Get("__error_formatted").(bool)
-		defer stack.Free()
+	stack := val.GetValue("stack")
+	isFormatted, _ := val.Get("__error_formatted").(bool)
+	defer stack.Free()
 
-		stackError := stack.String()
-		if !isFormatted {
-			stackError = ctx.StackFormatter(stackError)
-		}
-
-		fmt.Println(val.String())
-		fmt.Println(stackError, "\n")
+	stackError := stack.String()
+	if !isFormatted {
+		stackError = ctx.StackFormatter(stackError)
 	}
 
-	ctx.Terminate()
-	os.Exit(2)
+	fmt.Println(val.String())
+	fmt.Println(stackError)
+
+	// ctx.Throw(val)
+	// ctx.Terminate()
+	os.Exit(3)
 }
 
 func initError(ctx *Context) {

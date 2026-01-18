@@ -21,7 +21,8 @@ como/
 ├── js/                    # QuickJS Go bridge (core engine)
 ├── lib/                   # Runtime modules grouped by domain
 │   ├── como/              # Shared Como-specific helpers and tooling
-│   │   └── js/            # JS shims for Como internals
+│   │   ├── js/            # JS shims for Como internals
+│   │   └── types/         # TypeScript type definitions for native modules
 │   ├── core/              # Core runtime primitives (Go + JS layers)
 │   ├── node/              # Node.js-like APIs (fs, buffer, etc.)
 │   │   └── js/            # JavaScript layers & polyfills for node modules
@@ -62,14 +63,17 @@ The `./js` folder contains the Go bridge to QuickJS C engine. Study these files 
 
 ## Module Implementation Pattern
 
-### Two-Layer Architecture
+### Three-Layer Architecture
 
-Most features use a **two-layer design**:
+Most features use a **three-layer design**:
 
 1. **Go Layer** (`*.go` files) - Heavy lifting, performance-critical code, native bindings
 2. **JavaScript Layer** (`lib/core/js/*.js`, `lib/node/js/*.js`, or `lib/web/js/*.js`) - Class definitions, argument validation, developer API
+3. **TypeScript Layer** (`lib/<domain>/types/*.ts`) - Type definitions for native modules and APIs
 
-**Example**: Study `lib/web/blob.go` + `lib/web/js/blob.js` to see this pattern in action.
+**Example**: Study `lib/web/blob.go` + `lib/web/js/blob.js` to see the Go/JS pattern in action.
+
+**Note**: Not all modules have a JavaScript layer. Some modules (like `lib/como/sql.go`) are pure Go implementations that expose native bindings directly. In these cases, TypeScript types provide the developer-facing API documentation.
 
 ### Go Layer (Native Bindings)
 
@@ -341,7 +345,38 @@ Create `tests/test-feature.test.ts` with comprehensive test coverage.
 
 Create `examples/feature-example.js` with practical usage examples.
 
-### Step 7: Document
+### Step 7: Create TypeScript Types
+
+1. Create `lib/<domain>/types/feature.ts` (or add to existing types file)
+2. Define types that match the Go implementation's API
+3. Export types for module consumers
+4. Document complex types with JSDoc comments
+
+**Pattern**:
+```typescript
+/**
+ * Description of the feature module
+ */
+
+// Type definitions for native module exports
+export interface FeatureModule {
+    op_create(data: string): number
+    op_doSomething(id: number): Promise<Result>
+}
+
+// Type definitions for returned objects
+export interface Result {
+    value: string
+    count: number
+}
+
+// Re-export for convenience
+export type { FeatureModule as default }
+```
+
+**Location**: Types go in `lib/<domain>/types/` folder, mirroring the module structure.
+
+### Step 8: Document
 
 Create summary in `docs/implementation/FEATURE_SUMMARY.md` with:
 - What was implemented
@@ -624,6 +659,147 @@ return ctx.Async(func(async js.Promise) {
     async.Reject(error)
 })
 ```
+
+---
+
+## TypeScript Types Layer
+
+### Overview
+
+TypeScript type definitions provide developer-facing API documentation and type safety for native Go modules. They serve as the contract between the Go implementation and TypeScript/JavaScript consumers.
+
+### Directory Structure
+
+Type definitions are organized by domain, mirroring the module structure:
+
+```
+lib/
+├── como/
+│   └── types/
+│       └── sqlite.d.ts     # Types for como:sqlite module
+├── core/
+│   └── types/              # Types for core modules (if needed)
+├── node/
+│   └── types/              # Types for node modules (if needed)
+└── web/
+    └── types/               # Types for web modules (if needed)
+```
+
+### When to Create Types
+
+Create TypeScript types for:
+- **Native Go modules** that don't have a JavaScript wrapper layer
+- **Complex APIs** that benefit from type documentation
+- **New implementations** that need type safety
+- **Fixed implementations** where types clarify the corrected API
+
+### Type Definition Pattern
+
+**For Native Modules** (like `como:sqlite`):
+
+Create a single `.d.ts` file with the module declaration and all types inside:
+
+```typescript
+/**
+ * SQLite database module types
+ *
+ * Module: como:sqlite
+ * Usage: import * as sqlite from 'como:sqlite'
+ */
+
+// Module declaration - enables TypeScript to recognize 'como:sqlite' imports
+declare module 'como:sqlite' {
+    // All type definitions go inside the module declaration
+
+    export interface ExecResult {
+        lastInsertId: number
+        rowsAffected: number
+        error: string | null
+    }
+
+    export type TRecord = Record<string, any>
+
+    export interface SQLiteModule {
+        database(driver: string, options: string): Database
+        register(name: string, extensions: string[]): void
+    }
+
+    export interface Database {
+        close(): void
+        begin(): Transaction
+        exec: ExecFunction
+        query(sql: string, ...bindArgs: any[]): Promise<TRecord[]>
+        query2(sql: string, ...bindArgs: any[]): QueryStreamResult
+    }
+
+    // ... other types ...
+
+    const sqlite: SQLiteModule
+    export default sqlite
+}
+```
+
+**Key Points**:
+- Use `.d.ts` extension (TypeScript declaration file)
+- Wrap all types in `declare module 'module:name' { ... }`
+- Export all types that should be available to consumers
+- Include default export for the module instance
+
+### Type Definition Guidelines
+
+1. **Match Go Implementation**: Types must accurately reflect the Go code's actual behavior
+2. **Document Complex APIs**: Use JSDoc comments for methods and complex types
+3. **Export Everything**: Export all types that consumers might need
+4. **Use Descriptive Names**: Choose clear, self-documenting type names
+5. **Handle Promises**: Mark async operations as returning `Promise<T>`
+6. **Support Variadic Args**: Use rest parameters (`...args: any[]`) when appropriate
+7. **Include Error Types**: Document error return types (e.g., `error: string | null`)
+
+### File Naming Convention
+
+- One `.d.ts` file per native module: `sqlite.d.ts` for `como:sqlite`
+- **No namespace prefix** in filename (e.g., `sqlite.d.ts` not `como-sqlite.d.ts`) since it's already in the domain folder (`lib/como/types/`)
+- Use kebab-case for multi-word modules: `text-encoder.d.ts`
+- Match the module name when possible (without the namespace prefix)
+
+### Usage in TypeScript Projects
+
+Consumers can import types directly from the module:
+
+```typescript
+// Import the module - types are automatically available
+import sqlite from 'como:sqlite'
+const db = sqlite.database("sqlite3", "file:app.db")
+
+// Import specific types
+import type { Database, ExecResult, Transaction } from 'como:sqlite'
+```
+
+**TypeScript Configuration**: Add a path mapping in `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "paths": {
+      "como:sqlite": ["./lib/como/types/sqlite.d.ts"]
+    }
+  }
+}
+```
+
+This enables TypeScript to resolve types for `'como:sqlite'` imports from any location in the project.
+
+### Integration with Module System
+
+Types are separate from the runtime implementation. They:
+- Don't affect runtime behavior
+- Provide IDE autocomplete and type checking
+- Serve as documentation for the API
+- Help catch type errors at compile time
+
+### Example: Complete Type Definition
+
+See `lib/como/types/sqlite.d.ts` for a complete example of typing a native Go module with module declaration.
 
 ---
 

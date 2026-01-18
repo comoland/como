@@ -12,6 +12,7 @@ import "C"
 
 import (
 	"embed"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -35,7 +36,11 @@ var sourceMaps = map[string][]byte{}
 func moduleLoader(c *C.JSContext, module_name *C.char, opque unsafe.Pointer) *C.JSModuleDef {
 	ctx := GetContextOpaque(c)
 	filename := C.GoString(module_name)
-	m := ctx.LoadModule(filename, 0)
+	m, err := ctx.LoadModule(filename, 0)
+	if err != nil {
+		ctx.Throw(err.Error())
+		return nil
+	}
 	return m
 }
 
@@ -85,7 +90,7 @@ func (ctx *Context) ResolveFileName(basename string, filename string) string {
 	// this will replace all occurances with @como/.. to ./src/..
 	for key, element := range internalModules {
 		m1 := regexp.MustCompile("^" + key)
-		if s.HasPrefix(element, ".") {
+		if s.HasPrefix(element, ".") || s.HasPrefix(element, "/") {
 			newResolvedName := m1.ReplaceAllString(resolvedFile, element)
 
 			if resolvedFile != newResolvedName {
@@ -260,7 +265,7 @@ func (ctx *Context) RegisterCoreModules(embededFs embed.FS, files map[string]str
 	// }
 }
 
-func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
+func (ctx *Context) LoadModule(filename string, isMain int) (*C.JSModuleDef, error) {
 	ext := filepath.Ext(filename)
 
 	if ext == ".go" {
@@ -359,15 +364,10 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 			})
 
 			if len(result.Errors) > 0 {
-				fmt.Println("error: ", result.Errors[0].Text)
-				ctx.Throw2(map[string]interface{}{
-					"message": result.Errors[0].Text,
-				})
-
-				os.Exit(1)
+				return nil, errors.New(result.Errors[0].Text)
+			} else {
+				codeStr = string(result.OutputFiles[1].Contents)
 			}
-
-			codeStr = string(result.OutputFiles[1].Contents)
 
 			if s.Contains(codeStr, "export default ") {
 				codeStr = s.Replace(codeStr, "export default ", "var _COMO_EXPORT = ", 1)
@@ -392,7 +392,11 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 					MinifySyntax:     true,
 				})
 
-				codeStr = string(trans.Code)
+				if len(trans.Errors) > 0 {
+					return nil, errors.New(trans.Errors[0].Text)
+				} else {
+					codeStr = string(trans.Code)
+				}
 
 				fn := ctx.EvalFunction(filename, fmt.Sprintf(`() => {
 				%s
@@ -529,7 +533,7 @@ func (ctx *Context) LoadModule(filename string, isMain int) *C.JSModuleDef {
 		return s.Join(lines, "\n")
 	}
 
-	return ctx.LoadModuleStr(filename, codeStr, isMain)
+	return ctx.LoadModuleStr(filename, codeStr, isMain), nil
 }
 
 func (ctx *Context) LoadModuleStr(filename string, codeStr string, isMain int) *C.JSModuleDef {
@@ -563,7 +567,7 @@ func (ctx *Context) LoadModuleStr(filename string, codeStr string, isMain int) *
 	return m
 }
 
-func (ctx *Context) LoadMainModule(filename string) *C.JSModuleDef {
+func (ctx *Context) LoadMainModule(filename string) (*C.JSModuleDef, error) {
 	return ctx.LoadModule(filename, 1)
 }
 

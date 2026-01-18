@@ -27,8 +27,8 @@ func readUserIP2(r *http.Request) string {
 func initHTTP(ctx *js.Context) {
 	var err error
 
-	p := ctx.NewModule("server.go")
-	p.Export("http", func(args js.Arguments) interface{} {
+	p := ctx.NewModule("std::server2.go")
+	p.Export("http", func(args js.Arguments) any {
 		ctx.Ref()
 		port := args.Get(0).(string)
 		fn := args.GetValue(1).Dup().AutoFree()
@@ -48,7 +48,7 @@ func initHTTP(ctx *js.Context) {
 			readBody := func() ([]byte, error) {
 				var bosyData []byte
 				if isBodyRead {
-					return nil, errors.New("Request body already consumed")
+					return nil, errors.New("request body already consumed")
 				}
 
 				isBodyRead = true
@@ -58,19 +58,41 @@ func initHTTP(ctx *js.Context) {
 			}
 
 			message := make(chan []byte, 1)
-			var httpReq = map[string]any{
+
+			request := map[string]any{
+				// "id":       int64(req.ID()),
 				"ip":     readUserIP2(req),
 				"method": req.Method,
 				"uri":    req.RequestURI,
 				"path":   req.URL.Path,
 				"host":   req.Host,
-			}
+				"query": func(args js.Arguments) interface{} {
+					key, ok := args.Get(0).(string)
+					queries := req.URL.Query()
+					if !ok {
+						// Return all queries, converting to string for single values, array for multiple
+						result := map[string]interface{}{}
+						for k, values := range queries {
+							if len(values) == 1 {
+								result[k] = values[0]
+							} else {
+								result[k] = values
+							}
+						}
+						return result
+					}
 
-			ctx.Channel <- func() {
-				// var ret = map[string]any{}
-
-				// http request
-				httpReq["header"] = func(args js.Arguments) any {
+					// Return single string if one value, array if multiple
+					values := queries[key]
+					if len(values) == 0 {
+						return nil
+					}
+					if len(values) == 1 {
+						return values[0]
+					}
+					return values
+				},
+				"header": func(args js.Arguments) interface{} {
 					key, ok := args.Get(0).(string)
 					if !ok {
 						return ctx.Throw("header arg(0) must be a string")
@@ -78,9 +100,8 @@ func initHTTP(ctx *js.Context) {
 
 					c := req.Header.Get(key)
 					return c
-				}
-
-				httpReq["headers"] = func(args js.Arguments) any {
+				},
+				"headers": func(args js.Arguments) interface{} {
 					headers := map[string]interface{}{}
 					for name, values := range req.Header {
 						for _, value := range values {
@@ -89,15 +110,8 @@ func initHTTP(ctx *js.Context) {
 					}
 
 					return headers
-				}
-
-				httpReq["query"] = func(args js.Arguments) any {
-					key := args.Get(0).(string)
-					queries := req.URL.Query()
-					return queries.Get(key)
-				}
-
-				httpReq["cookie"] = func(args js.Arguments) interface{} {
+				},
+				"cookie": func(args js.Arguments) interface{} {
 					key, ok := args.Get(0).(string)
 					if !ok {
 						return ctx.Throw("cookie arg(0) must be a string")
@@ -106,13 +120,13 @@ func initHTTP(ctx *js.Context) {
 					c, err := req.Cookie(key)
 
 					if err != nil {
+						// ctx.Throw2("unknown")
 						return nil
 					}
 
 					return c.Value
-				}
-
-				httpReq["cookies"] = func(args js.Arguments) interface{} {
+				},
+				"cookies": func(args js.Arguments) interface{} {
 					cookies := req.Cookies()
 					raw, err := json.Marshal(&cookies)
 					if err != nil {
@@ -120,9 +134,24 @@ func initHTTP(ctx *js.Context) {
 					}
 
 					return ctx.ParseJSON(string(raw))
-				}
+				},
+				"body": func(args js.Arguments) interface{} {
+					b, err := readBody()
+					if err != nil {
+						return ctx.Throw(err.Error())
+					}
 
-				httpReq["form"] = func(args js.Arguments) interface{} {
+					return string(b)
+				},
+				"buffer": func(args js.Arguments) interface{} {
+					b, err := readBody()
+					if err != nil {
+						return ctx.Throw(err.Error())
+					}
+
+					return b
+				},
+				"form": func(args js.Arguments) interface{} {
 					maxMemory, ok := args.GetNumber(0)
 					if !ok {
 						maxMemory = 10 << 20
@@ -196,49 +225,8 @@ func initHTTP(ctx *js.Context) {
 							},
 						})
 					})
-				}
-
-				httpReq["body"] = func(args js.Arguments) interface{} {
-					writer := ctx.Writer(args.GetValue(0))
-					var bytesRead = int64(0)
-					prom := ctx.Async(func(async js.Promise) {
-						if writer != nil {
-							defer req.Body.Close()
-							n, err := io.Copy(writer, req.Body)
-							bytesRead = bytesRead + n
-							if err != nil {
-								async.Reject(err.Error())
-								return
-							}
-						} else {
-							b, err := readBody()
-							if err != nil {
-								async.Reject(err.Error())
-								return
-							}
-							async.Resolve(string(b))
-							return
-						}
-
-						async.Resolve(nil)
-
-					})
-
-					prom.Finally(func(args js.Arguments) interface{} {
-						if writer != nil {
-							writer.Close()
-							if bytesRead > 32*1000 {
-								bytesRead = 0
-								ctx.GC()
-							}
-						}
-						return nil
-					})
-
-					return prom
-				}
-
-				httpReq["file"] = func(args js.Arguments) interface{} {
+				},
+				"file": func(args js.Arguments) interface{} {
 					file, ok := args.Get(0).(string)
 					if !ok {
 						return ctx.Throw("file arg(0) must be a string")
@@ -261,16 +249,6 @@ func initHTTP(ctx *js.Context) {
 
 						defer file.Close()
 
-						// scanner := bufio.NewScanner(file)
-						// // optionally, resize scanner's capacity for lines over 64K, see next example
-						// for scanner.Scan() {
-						// 	fmt.Println(scanner.Bytes())
-						// }
-
-						// if err := scanner.Err(); err != nil {
-						// 	log.Fatal(err)
-						// }
-
 						ret, err := io.ReadAll(file)
 						if err != nil {
 							promise.Reject(err.Error())
@@ -286,169 +264,175 @@ func initHTTP(ctx *js.Context) {
 					}()
 
 					return promise
-				}
 
-				httpReq["on"] = func(args js.Arguments) interface{} {
+				},
+				"on": func(args js.Arguments) interface{} {
 					event, ok := args.Get(0).(string)
 					if !ok {
 						return ctx.Throw("event key must be a string")
 					}
 
 					promise := ctx.NewPromise()
-					if event == "data" {
-						// go func() {
-						// 	for {
-						// 		b := make([]byte, 1024)
-						// 		n, err := req.Body.Read(b)
-						// 		if err != nil {
-						// 			break
-						// 		}
-						// 		message <- b[:n]
-						// 	}
-						// }()
-					} else if event == "disconnect" {
+					switch event {
+					case "data":
+					case "disconnect":
 						go func() {
 							<-req.Context().Done()
 							promise.Resolve(true)
 						}()
+					default:
+						return ctx.Error("unknown event name")
 					}
+
 					return promise
-				}
+				},
+			}
 
-				// http res
+			response := map[string]interface{}{
+				"redirect": func(args js.Arguments) interface{} {
+					url := args.GetString(0)
 
-				// ret["req"] = httpReq
+					code, ok := args.GetNumber(1)
+					if !ok {
+						code = 303
+					}
 
-				m := map[string]interface{}{
-					"req": httpReq,
-					"res": map[string]interface{}{
-						"redirect": func(args js.Arguments) interface{} {
-							url := args.GetString(0)
+					http.Redirect(w, req, url, int(code))
+					message <- []byte("")
+					return nil
+				},
+				"status": func(args js.Arguments) interface{} {
+					key, ok := args.Get(0).(int64)
+					if !ok {
+						return ctx.Throw("res status must be a number: ex re.status(301)")
+					}
 
-							code, ok := args.GetNumber(1)
-							if !ok {
-								code = 303
-							}
+					w.WriteHeader(int(key))
+					return nil
+				},
+				"header": func(args js.Arguments) interface{} {
+					key, ok := args.Get(0).(string)
+					if !ok {
+						return ctx.Throw("header key must be a string")
+					}
 
-							http.Redirect(w, req, url, int(code))
-							message <- []byte("")
-							return nil
-						},
-						"status": func(args js.Arguments) interface{} {
-							key, ok := args.Get(0).(int64)
-							if !ok {
-								return ctx.Throw("res status must be a number: ex re.status(301)")
-							}
+					value, ok := args.Get(1).(string)
+					if !ok {
+						return ctx.Throw("header value must be a string")
+					}
 
-							w.WriteHeader(int(key))
-							return nil
-						},
-						"header": func(args js.Arguments) interface{} {
-							key, ok := args.Get(0).(string)
-							if !ok {
-								return ctx.Throw("header key must be a string")
-							}
+					w.Header().Add(key, value)
+					return nil
+				},
+				"cookie": func(args js.Arguments) interface{} {
+					key, ok := args.Get(0).(string)
+					if !ok {
+						return ctx.Throw("header key must be a string")
+					}
 
-							value, ok := args.Get(1).(string)
-							if !ok {
-								return ctx.Throw("header value must be a string")
-							}
+					value, ok := args.Get(1).(string)
+					if !ok {
+						return ctx.Throw("header value must be a string")
+					}
 
-							w.Header().Add(key, value)
-							return nil
-						},
-						"cookie": func(args js.Arguments) interface{} {
-							key, ok := args.Get(0).(string)
-							if !ok {
-								return ctx.Throw("header key must be a string")
-							}
+					cookie := http.Cookie{
+						Path:     "/",
+						Name:     key,
+						Value:    value,
+						SameSite: http.SameSiteLaxMode,
+					}
 
-							value, ok := args.Get(1).(string)
-							if !ok {
-								return ctx.Throw("header value must be a string")
-							}
+					err := args.GetMap(2, &cookie)
+					if err != nil {
+						return ctx.Throw(err.Error())
+					}
 
-							cookie := http.Cookie{
-								Path:     "/",
-								Name:     key,
-								Value:    value,
-								SameSite: http.SameSiteLaxMode,
-							}
+					http.SetCookie(w, &cookie)
+					return nil
+				},
+				"flush": func(args js.Arguments) interface{} {
+					defer flusher.Flush()
+					return nil
+				},
+				"write": func(args js.Arguments) interface{} {
+					if resEnded {
+						return nil
+					}
 
-							err := args.GetMap(2, &cookie)
-							if err != nil {
-								return ctx.Throw(err.Error())
-							}
+					switch val := args.Get(0).(type) {
+					case []byte:
+						w.Write(val)
+					case string:
+						w.Write([]byte(val))
+					default:
+						panic("stream accepts buffer or string only")
+					}
 
-							http.SetCookie(w, &cookie)
-							return nil
-						},
-						"flush": func(args js.Arguments) interface{} {
-							defer flusher.Flush()
-							return nil
-						},
-						"write": func(args js.Arguments) interface{} {
-							if resEnded {
-								return nil
-							}
+					defer flusher.Flush()
+					return nil
+				},
+				"body": func(args js.Arguments) interface{} {
+					if resEnded {
+						return nil
+					}
 
-							switch val := args.Get(0).(type) {
-							case []byte:
-								w.Write(val)
-							case string:
-								w.Write([]byte(val))
-							default:
-								panic("stream accepts buffer or string only")
-							}
+					var b = []byte(nil)
+					switch val := args.Get(0).(type) {
+					case []byte:
+						b = append(b, val...)
+					case string:
+						b = []byte(val)
+					default:
+						go func() { message <- []byte("") }()
+						return ctx.Throw("Response Body type unknown")
+					}
 
-							defer flusher.Flush()
-							return nil
-						},
-						"body": func(args js.Arguments) interface{} {
-							if resEnded {
-								return nil
-							}
+					message <- b
+					return nil
+				},
+				"body2": func(args js.Arguments) any {
+					if resEnded {
+						return nil
+					}
 
-							switch val := args.Get(0).(type) {
-							case []byte:
-								message <- val
-							case string:
-								message <- []byte(val)
-							default:
-								go func() { message <- []byte("") }()
-								return ctx.Throw("Response Body type unknown")
-							}
-							return nil
-						},
-						"body2": func(args js.Arguments) interface{} {
-							if resEnded {
-								return nil
-							}
+					val := args.Get(0)
+					d := args.GetValue(0).Dup()
+					p := ctx.Async(func(async js.Promise) {
+						switch val2 := val.(type) {
+						case []byte:
+							w.Write(val2)
+						case string:
+							w.Write([]byte(val2))
+						default:
+							async.Reject("Response Body type unknown")
+							go func() { message <- []byte("") }()
+							return
+						}
 
-							val := args.Get(0)
+						flusher.Flush()
+						async.Resolve(nil)
+					})
 
-							return ctx.Async(func(async js.Promise) {
-								switch val2 := val.(type) {
-								case []byte:
-									w.Write(val2)
-								case string:
-									w.Write([]byte(val2))
-								default:
-									go func() { message <- []byte("") }()
-								}
+					p.Finally(func(args js.Arguments) any {
+						d.Free()
+						return nil
+					})
 
-								flusher.Flush()
-								async.Resolve(nil)
-							})
-						},
-						"end": func(args js.Arguments) interface{} {
-							if resEnded {
-								return nil
-							}
-							message <- []byte("")
-							return nil
-						},
-					},
+					return p
+				},
+				"end": func(args js.Arguments) any {
+					if resEnded {
+						return nil
+					}
+					message <- []byte("")
+					return nil
+				},
+			}
+
+			ctx.Channel <- func() {
+				m := map[string]any{
+					"req": request,
+					"res": response,
 				}
 
 				fn.Call(m)
@@ -477,6 +461,9 @@ func initHTTP(ctx *js.Context) {
 				}
 			}
 		}()
+
+		// go http.ListenAndServe(port, nil)
+		// var ctxShutdown, cancel = context.WithCancel(context.Background())
 
 		return map[string]interface{}{
 			"close": func(args js.Arguments) interface{} {

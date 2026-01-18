@@ -19,11 +19,7 @@
     "baseUrl": ".",
     "rootDir": ".",
     "paths": {
-      // "react": ["./react-export.ts"],
-      "@como": ["./js/como.ts"],
-      "@app/*": ["./app/*"],
-      // "@/design": ["./app/web/design/index"],
-      "@/design/*": ["./app/web/design/*"]
+      "como:sqlite": ["./lib/como/types/sqlite.d.ts"]
     }
   },
   "exclude": [

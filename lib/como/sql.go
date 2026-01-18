@@ -12,7 +12,7 @@ import (
 )
 
 func registerSQLite(ctx *js.Context) {
-	mod := ctx.NewModule("como:sqlite")
+	mod := ctx.NewModule("como:sqlite.go")
 	mod.Export("database", func(args js.Arguments) interface{} {
 		driver, ok := args.Get(0).(string)
 		if !ok {
